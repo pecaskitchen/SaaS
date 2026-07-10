@@ -1,0 +1,7 @@
+recipe_key,recipe_type,recipe_name,output_item_name,output_quantity,ingredient_name,quantity,line_role,client_visible,client_removable,client_changeable,is_default,is_optional,is_extra_billable,extra_price,notes
+product:crepa-dulce,product,Crepa dulce,,,Masa crepa,120,ingrediente,0,0,0,1,0,0,0,Base interna: masa + empaque
+product:crepa-dulce,product,Crepa dulce,,,Contenedor crepa,1,empaque,0,0,0,1,0,0,0,
+product:crepa-dulce,product,Crepa dulce,,,Nutella,35,ingrediente,1,0,0,0,1,1,10,Cantidad por uso si el cliente la elige
+product:crepa-dulce,product,Crepa dulce,,,Fresa,40,ingrediente,1,0,0,0,1,1,10,Cantidad por uso si el cliente la elige
+subrecipe:aderezo-chipotle,subrecipe,Aderezo chipotle,Aderezo chipotle preparado,850,Mayonesa,500,ingrediente,0,0,0,1,0,0,0,
+subrecipe:aderezo-chipotle,subrecipe,Aderezo chipotle,Aderezo chipotle preparado,850,Chipotle,100,ingrediente,0,0,0,1,0,0,0,

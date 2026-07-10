@@ -1,0 +1,5 @@
+﻿record_type,family_key,family_name,family_description,family_active,family_sort_order,row_type,option_name,ingredient_name,quantity,unit_code,option_extra_price,option_default,option_active,option_sort_order,product_id,label,min_select,max_included,max_total,default_option_name,product_extra_price,required,rule_active,rule_sort_order,notes
+family_option,jarabes,Jarabes,Sabores para café,1,1,option,Vainilla francesa,Jarabe vainilla francesa,20,ml,10,0,1,1,,,,,,,,,,,
+family_product_rule,jarabes,Jarabes,Sabores para café,1,1,product_rule,,,,,,,,,latte,Jarabe,0,0,2,,10,0,1,1,Latte puede agregar jarabes con costo extra
+family_option,aderezos-acompanamiento,Aderezos de acompañamiento,Aderezos aparte,1,3,option,Chipotle,Aderezo chipotle preparado,40,g,10,0,1,1,,,,,,,,,,,
+family_product_rule,aderezos-acompanamiento,Aderezos de acompañamiento,Aderezos aparte,1,3,product_rule,,,,,,,,,panini-pizza,Aderezo de acompañamiento,0,1,2,,10,0,1,1,"1 incluido, extra con costo"

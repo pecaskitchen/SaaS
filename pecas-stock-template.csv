@@ -1,0 +1,4 @@
+name,brand,item_type,unit_code,current_stock,min_stock,max_stock,accuracy_target,primary_supplier,alt_supplier,purchase_category,purchase_unit_label,purchase_unit_quantity,purchase_price,expiry_date
+Pan chapata,,Ingrediente comprado,pieza,24,10,50,95,Costco,HEB,Pan,bolsa 12 piezas,12,0,
+Queso manchego,,Ingrediente comprado,g,1000,300,2000,85,Costco,HEB,Refrigerados,paquete 1 kg,1000,180,
+Hielo en bolsa,,Hielo,bolsa,2,1,5,65,HEB,Costco,Café y bebidas,bolsa,1,35,

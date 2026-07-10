@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { apiFetch, setSessionToken } from '../../00-sin-cambio/src/lib/apiClient.js';
+import { apiFetch, setSessionToken } from '../lib/apiClient.js';
 
 const AuthContext = createContext(null);
 

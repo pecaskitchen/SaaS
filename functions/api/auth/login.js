@@ -1,4 +1,4 @@
-import { jsonResponse, readJson, requireDb } from '../../../00-sin-cambio/functions/api/_shared/http.js';
+import { jsonResponse, readJson, requireDb } from '../_shared/http.js';
 import { verifyPassword, signToken } from '../_shared/crypto.js';
 
 export async function onRequestPost({ request, env }) {

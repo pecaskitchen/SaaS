@@ -1,4 +1,4 @@
-import { forbidden, requireDb, unauthorized } from '../../../00-sin-cambio/functions/api/_shared/http.js';
+import { forbidden, requireDb, unauthorized } from './http.js';
 
 function hostnameFromRequest(request) {
   const forwarded = request.headers.get('x-forwarded-host');

@@ -5,6 +5,14 @@ export function jsonResponse(data, status = 200) {
   });
 }
 
+export function unauthorized(error = 'No autorizado.') {
+  return jsonResponse({ ok: false, error }, 401);
+}
+
+export function forbidden(error = 'Sin permiso.') {
+  return jsonResponse({ ok: false, error }, 403);
+}
+
 export async function readJson(request) {
   return request.json().catch(() => ({}));
 }

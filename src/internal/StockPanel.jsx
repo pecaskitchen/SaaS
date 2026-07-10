@@ -998,7 +998,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const allImportRows = useMemo(() => parseGenericCsv(recipeCsvText || csvText || familyCsvText), [recipeCsvText, csvText, familyCsvText]);
   const allImportItemRows = useMemo(() => allImportRows.filter((row) => String(row.record_type || '').toLowerCase() === 'ingredient' || (row.name && !row.recipe_key && !row.family_key)), [allImportRows]);
   const allImportRecipeRows = useMemo(() => allImportRows.filter((row) => ['recipe', 'subrecipe'].includes(String(row.record_type || '').toLowerCase()) || row.recipe_key), [allImportRows]);
-  const allImportFamilyRows = useMemo(() => allImportRows.filter((row) => ['family', 'family_option', 'family_product_rule'].includes(String(row.record_type || '').toLowerCase()) || row.family_key), [allImportRows]);
+  const allImportFamilyRows = useMemo(() => allImportRows.filter((row) => ['family', 'family_option', 'family_component', 'family_product_rule'].includes(String(row.record_type || '').toLowerCase()) || row.family_key), [allImportRows]);
   const familyCsvRows = useMemo(() => parseFamilyCsv(familyCsvText), [familyCsvText]);
 
   const visibleRecipeCsvRows = useMemo(() => {
@@ -1023,6 +1023,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const rowType = String(row.row_type || row.record_type || '').toLowerCase().replace('family_', '');
     if (!row.family_key) return true;
     if (!row.row_type && !row.record_type) return true;
+    if (rowType === 'family') return false;
     if (rowType === 'option' && (!row.option_name || !row.ingredient_name)) return true;
     if (rowType === 'component' && (!row.option_name || !row.ingredient_name || Number(row.quantity || 0) <= 0)) return true;
     if (rowType === 'product_rule' && !row.product_id) return true;
@@ -1059,9 +1060,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       const key = String(row.family_key || '').trim();
       if (!key) continue;
       if (!grouped.has(key)) grouped.set(key, { ...row, option_count: 0, component_count: 0, rule_count: 0 });
-      if (String(row.row_type || '').toLowerCase() === 'product_rule') grouped.get(key).rule_count += 1;
-      else if (String(row.row_type || '').toLowerCase() === 'component') grouped.get(key).component_count += 1;
-      else if (String(row.row_type || '').toLowerCase() === 'option') grouped.get(key).option_count += 1;
+      const rowType = String(row.row_type || row.record_type || '').toLowerCase().replace('family_', '');
+      if (rowType === 'product_rule') grouped.get(key).rule_count += 1;
+      else if (rowType === 'component') grouped.get(key).component_count += 1;
+      else if (rowType === 'option') grouped.get(key).option_count += 1;
     }
     return Array.from(grouped.values()).map((row) => {
       const exists = existingKeys.has(String(row.family_key || '').trim().toLowerCase());

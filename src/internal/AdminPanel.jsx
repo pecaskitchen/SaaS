@@ -42,6 +42,20 @@ function AdminSectionIntro({ title, description, children }) {
   );
 }
 
+function Logo() {
+  return (
+    <div className="brand-area">
+      <div className="brand-lockup">
+        <img src="/pecas-logo.svg" alt="Pecas" className="brand-logo" />
+        <div>
+          <div className="brand-name">Pecas</div>
+          <div className="brand-tagline">Cocina & Café</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPanel({ products, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu }) {
   const [password, setPassword] = useState(() => { try { return window.sessionStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) || ''; } catch { return ''; } });
   const [unlocked, setUnlocked] = useState(false);

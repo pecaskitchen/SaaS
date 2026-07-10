@@ -768,10 +768,20 @@ async function validateFamilyImportRows(env, rows = []) {
   const errors = [];
   const knownItems = new Set(((await env.DB.prepare(`SELECT lower(name) AS name FROM inventory_items`).all()).results || []).map((row) => row.name));
   const optionNames = new Map();
+  const existingOptions = (await env.DB.prepare(
+    `SELECT f.family_key, lower(oi.option_name) AS option_name
+     FROM stock_option_family_items oi
+     JOIN stock_option_families f ON f.id = oi.family_id`
+  ).all()).results || [];
+  for (const option of existingOptions) {
+    if (!optionNames.has(option.family_key)) optionNames.set(option.family_key, new Set());
+    optionNames.get(option.family_key).add(option.option_name);
+  }
   rows.forEach((row, index) => {
     const line = Number(row.__line || index + 2);
     const familyKey = String(row.family_key || '').trim();
     const rowType = String(row.row_type || row.record_type || '').trim().toLowerCase();
+    if (rowType === 'family') return;
     if (!familyKey) errors.push({ line, field: 'family_key', message: 'Falta la clave de familia.' });
     if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vacío'}.` });
     if (['option','family_option'].includes(rowType)) {
@@ -847,14 +857,18 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
       continue;
     }
 
-    await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id IN (SELECT id FROM stock_option_family_items WHERE family_id = ?)`).bind(fam.id).run();
-    await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE family_id = ?`).bind(fam.id).run();
+    if (group.options.length > 0) {
+      await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id IN (SELECT id FROM stock_option_family_items WHERE family_id = ?)`).bind(fam.id).run();
+      await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE family_id = ?`).bind(fam.id).run();
+    }
 
     const incomingRuleProducts = new Set((group.productRules || []).map((rule) => String(rule.product_id || '').trim()).filter(Boolean));
-    const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE family_id = ?`).bind(fam.id).all();
-    for (const existingRule of existingRules.results || []) {
-      if (!incomingRuleProducts.has(String(existingRule.product_id || '').trim())) {
-        await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE id = ?`).bind(getTimestamps().utc, existingRule.id).run();
+    if (group.productRules.length > 0) {
+      const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE family_id = ?`).bind(fam.id).all();
+      for (const existingRule of existingRules.results || []) {
+        if (!incomingRuleProducts.has(String(existingRule.product_id || '').trim())) {
+          await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE id = ?`).bind(getTimestamps().utc, existingRule.id).run();
+        }
       }
     }
 
@@ -876,6 +890,42 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
       }, Number(option.option_sort_order || option.sort_order || sort));
       if (ok) sort += 1;
       else skipped += 1;
+    }
+
+    if (group.options.length === 0 && group.components.length > 0) {
+      const componentsByOption = new Map();
+      for (const component of group.components) {
+        const optionName = String(component.option_name || '').trim();
+        if (!optionName) continue;
+        if (!componentsByOption.has(optionName)) componentsByOption.set(optionName, []);
+        componentsByOption.get(optionName).push(component);
+      }
+      for (const [optionName, components] of componentsByOption.entries()) {
+        const optionRow = await env.DB.prepare(
+          `SELECT id FROM stock_option_family_items WHERE family_id = ? AND lower(option_name) = lower(?) LIMIT 1`
+        ).bind(fam.id, optionName).first();
+        if (!optionRow?.id) {
+          skipped += components.length;
+          continue;
+        }
+        await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id = ?`).bind(optionRow.id).run();
+        for (let index = 0; index < components.length; index += 1) {
+          const component = components[index] || {};
+          const componentItemId = Number(component.item_id || 0)
+            || (component.ingredient_name ? (await getItemByName(env, component.ingredient_name))?.id : null)
+            || (component.item_name ? (await getItemByName(env, component.item_name))?.id : null);
+          if (!componentItemId || Number(component.quantity || 0) <= 0) {
+            skipped += 1;
+            continue;
+          }
+          const ts = getTimestamps();
+          await env.DB.prepare(
+            `INSERT INTO stock_option_family_item_components (option_item_id, item_id, quantity, sort_order, created_at_utc, updated_at_utc)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(option_item_id, item_id) DO UPDATE SET quantity = excluded.quantity, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
+          ).bind(optionRow.id, componentItemId, Number(component.quantity || 0), index + 1, ts.utc, ts.utc).run();
+        }
+      }
     }
 
     sort = 1;

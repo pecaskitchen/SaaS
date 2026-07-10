@@ -154,6 +154,12 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     return `${meta.emoji ? `${meta.emoji} ` : ''}${meta.label}`;
   };
 
+  const updateCategory = (id, key, value) => {
+    setCategoryItems((current) => current.map((category) => (
+      category.id === id ? { ...category, [key]: value, customCategory: true } : category
+    )));
+  };
+
   const addCategory = () => {
     const label = newCategoryDraft.label.trim();
     if (!label) {
@@ -386,7 +392,6 @@ export default function AdminPanel({ products, categoriesList = categories, cate
       };
     }
     const extraCategories = categoryItems
-      .filter((category) => category.customCategory)
       .map((category) => ({
         id: slugifyCatalogId(category.id || category.label, 'categoria'),
         label: category.label || category.id,
@@ -572,6 +577,14 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                 {orderedCategories.map((category) => (
                   <div className="admin-sort-row" key={category.id}>
                     <strong>{category.emoji} {category.label}</strong>
+                    <label className="field">
+                      <span>Icono</span>
+                      <input value={category.emoji || ''} onChange={(e) => updateCategory(category.id, 'emoji', e.target.value)} placeholder="Ej. ☕" />
+                    </label>
+                    <label className="field">
+                      <span>Nombre</span>
+                      <input value={category.label || ''} onChange={(e) => updateCategory(category.id, 'label', e.target.value)} />
+                    </label>
                     <label className="admin-inline-check">
                       <input type="checkbox" checked={!categoryHiddenDraft[category.id]} onChange={(e) => toggleCategoryHidden(category.id, e.target.checked)} />
                       <span>Mostrar sección</span>

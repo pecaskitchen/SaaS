@@ -216,6 +216,7 @@ export async function updateTenant(env, tenantId, input = {}) {
 
   const nextStatus = TENANT_STATUSES.includes(input.status) ? input.status : current.status;
   const nextPlan = PLANS.includes(input.plan) ? input.plan : current.plan;
+  const nextSlug = slugify(input.slug ?? current.slug, current.slug);
   const brand = {
     ...safeJson(current.brand_json, {}),
     ...(input.brand || {}),
@@ -223,13 +224,15 @@ export async function updateTenant(env, tenantId, input = {}) {
   const settings = {
     ...safeJson(current.settings_json, {}),
     ...(input.settings || {}),
+    ...(Object.prototype.hasOwnProperty.call(input, 'whatsappNumber') ? { whatsappNumber: String(input.whatsappNumber || '').trim() } : {}),
   };
 
   await db.prepare(`UPDATE saas_tenants SET
-    name = ?, legal_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?, status = ?, plan = ?,
+    slug = ?, name = ?, legal_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?, status = ?, plan = ?,
     domain = ?, subdomain = ?, brand_json = ?, settings_json = ?, notes = ?, updated_at_utc = ?
     WHERE id = ?`)
     .bind(
+      nextSlug,
       String(input.name ?? current.name).trim(),
       String(input.legalName ?? current.legal_name ?? '').trim(),
       String(input.contactName ?? current.contact_name ?? '').trim(),

@@ -3,6 +3,7 @@ import { Building2, RefreshCw, Save, Shield, WalletCards } from 'lucide-react';
 import '../styles.css';
 
 const emptyBusiness = {
+  id: '',
   name: '',
   slug: '',
   contactName: '',
@@ -153,21 +154,46 @@ export default function PlatformAdmin() {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
-  const createBusiness = async () => {
+  const editBusiness = (business) => {
+    setDraft({
+      ...emptyBusiness,
+      id: business.id,
+      name: business.name || '',
+      slug: business.slug || '',
+      contactName: business.contactName || '',
+      contactEmail: business.contactEmail || '',
+      contactPhone: business.contactPhone || '',
+      plan: business.plan || 'starter',
+      status: business.status || 'trial',
+      monthlyPriceCents: Number(business.monthlyPriceCents || 0),
+      domain: business.domain || '',
+      subdomain: business.subdomain || '',
+      whatsappNumber: business.settings?.whatsappNumber || '',
+      notes: business.notes || '',
+    });
+    setStatus(`Editando ${business.name}`);
+  };
+
+  const clearDraft = () => {
+    setDraft(emptyBusiness);
+    setStatus('');
+  };
+
+  const saveBusiness = async () => {
     if (!draft.name.trim()) {
       setStatus('Escribe el nombre del negocio.');
       return;
     }
     setLoading(true);
-    setStatus('Creando negocio...');
+    setStatus(draft.id ? 'Guardando negocio...' : 'Creando negocio...');
     try {
       await platformFetch('/api/platform/businesses', {
-        method: 'POST',
+        method: draft.id ? 'PATCH' : 'POST',
         body: JSON.stringify(draft),
       });
       setDraft(emptyBusiness);
       await loadAll();
-      setStatus('Negocio creado.');
+      setStatus(draft.id ? 'Negocio actualizado.' : 'Negocio creado.');
     } catch (error) {
       setStatus(error.message);
     } finally {
@@ -265,8 +291,8 @@ export default function PlatformAdmin() {
         </section>
 
         <section className="platform-grid">
-          <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); createBusiness(); }}>
-            <h2>Nuevo negocio</h2>
+          <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); saveBusiness(); }}>
+            <h2>{draft.id ? 'Editar negocio' : 'Nuevo negocio'}</h2>
             <div className="admin-promo-grid">
               <label className="field"><span>Nombre</span><input value={draft.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="Cafetería Luna" /></label>
               <label className="field"><span>Slug</span><input value={draft.slug} onChange={(e) => updateDraft('slug', e.target.value)} placeholder="cafeteria-luna" /></label>
@@ -278,9 +304,13 @@ export default function PlatformAdmin() {
               <label className="field"><span>Estado</span><select value={draft.status} onChange={(e) => updateDraft('status', e.target.value)}><option value="trial">Trial</option><option value="active">Activo</option><option value="past_due">Pago pendiente</option><option value="paused">Pausado</option></select></label>
               <label className="field"><span>Precio mensual</span><input type="number" value={draft.monthlyPriceCents / 100} onChange={(e) => updateDraft('monthlyPriceCents', Number(e.target.value || 0) * 100)} /></label>
               <label className="field"><span>Dominio</span><input value={draft.domain} onChange={(e) => updateDraft('domain', e.target.value)} placeholder="negocio.mx" /></label>
+              <label className="field"><span>Subdominio</span><input value={draft.subdomain} onChange={(e) => updateDraft('subdomain', e.target.value)} placeholder="filians" /></label>
               <label className="field full"><span>Notas internas</span><textarea value={draft.notes} onChange={(e) => updateDraft('notes', e.target.value)} placeholder="Pendientes, acuerdos, soporte..." /></label>
             </div>
-            <button type="submit" className="primary" disabled={loading}><Save size={16} /> Crear negocio</button>
+            <div className="inline-actions">
+              <button type="submit" className="primary" disabled={loading}><Save size={16} /> {draft.id ? 'Guardar cambios' : 'Crear negocio'}</button>
+              {draft.id ? <button type="button" className="ghost small" onClick={clearDraft} disabled={loading}>Cancelar</button> : null}
+            </div>
             {status && <p className="admin-status">{status}</p>}
           </form>
 
@@ -300,6 +330,7 @@ export default function PlatformAdmin() {
                     <span>{business.domain || `${business.subdomain || business.slug}.tuapp.mx`}</span>
                   </div>
                   <div className="inline-actions">
+                    <button type="button" className="ghost small" onClick={() => editBusiness(business)}>Editar</button>
                     <button type="button" className="ghost small" onClick={() => updateBusinessStatus(business, 'active')}>Activar</button>
                     <button type="button" className="ghost small" onClick={() => updateBusinessStatus(business, 'past_due')}>Pago pendiente</button>
                     <button type="button" className="ghost small danger-text" onClick={() => updateBusinessStatus(business, 'paused')}>Pausar</button>

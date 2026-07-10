@@ -55,10 +55,7 @@ async function readBranchSettings(env, tenantId) {
   try {
     await ensureTenantColumns(env, ['app_settings']);
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
-    let row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
-    if (!row && settingKey !== 'menu_overrides') {
-      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
-    }
+    const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
     return normalizeSavedMenu(row?.value_json || '').branchSettings;
   } catch {
     return normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS);

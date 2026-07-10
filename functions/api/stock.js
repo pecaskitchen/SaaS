@@ -1,4 +1,4 @@
-import { defaultTenantId, ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -578,15 +578,12 @@ function normalizeSavedMenu(raw) {
 }
 
 function currentTenantId(env) {
-  return String(env.__tenantId || defaultTenantId(env)).trim() || defaultTenantId(env);
+  return normalizeTenantId(env.__tenantId || defaultTenantId(env), env);
 }
 
 async function readMenuSettings(env, tenantId = currentTenantId(env)) {
   const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
-  let row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
-  if (!row && settingKey !== 'menu_overrides') {
-    row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
-  }
+  const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
   return normalizeSavedMenu(row?.value_json || '');
 }
 
@@ -641,22 +638,25 @@ async function saveCatalogProduct(env, product) {
 }
 
 async function archiveRecipe(env, recipeId, archived = true) {
+  const tenantId = currentTenantId(env);
   const id = Number(recipeId || 0);
   if (!id) throw new Error('Falta receta.');
-  await env.DB.prepare(`UPDATE stock_recipes SET is_active = ?, updated_at_utc = ? WHERE id = ?`).bind(archived ? 0 : 1, new Date().toISOString(), id).run();
+  await env.DB.prepare(`UPDATE stock_recipes SET is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(archived ? 0 : 1, new Date().toISOString(), tenantId, id).run();
 }
 
 
 async function syncBranchesFromSettings(env) {
+  const tenantId = currentTenantId(env);
   const settings = await readMenuSettings(env);
   const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);
   const ts = getTimestamps();
   for (const branch of branchSettings.branches) {
+    const rowId = `${tenantId}:${branch.id}`;
     await env.DB.prepare(
-      `INSERT INTO stock_branches (id, name, active, is_default, created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, active = excluded.active, is_default = excluded.is_default, updated_at_utc = excluded.updated_at_utc`
-    ).bind(branch.id, branch.name, branch.active !== false ? 1 : 0, branch.id === branchSettings.defaultBranchId ? 1 : 0, ts.utc, ts.utc).run();
+      `INSERT INTO stock_branches (id, tenant_id, name, active, is_default, created_at_utc, updated_at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET tenant_id = excluded.tenant_id, name = excluded.name, active = excluded.active, is_default = excluded.is_default, updated_at_utc = excluded.updated_at_utc`
+    ).bind(rowId, tenantId, branch.name, branch.active !== false ? 1 : 0, branch.id === branchSettings.defaultBranchId ? 1 : 0, ts.utc, ts.utc).run();
   }
   return branchSettings;
 }
@@ -668,35 +668,42 @@ async function resolveBranch(env, requestedBranchId) {
 }
 
 async function ensureBranchStock(env, branchId) {
+  const tenantId = currentTenantId(env);
   const ts = getTimestamps();
-  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE branch_id = ?`).bind(branchId).first();
+  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branchId).first();
   const count = Number(countRow?.count || 0);
-  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items`).all()).results || [];
+  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ?`).bind(tenantId).all()).results || [];
   for (const item of items) {
-    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE item_id = ? AND branch_id = ?`).bind(item.id, branchId).first();
+    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, item.id, branchId).first();
     if (existing) continue;
     const initialStock = count === 0 ? Number(item.current_stock || 0) : 0;
     await env.DB.prepare(
-      `INSERT OR IGNORE INTO inventory_branch_stock (item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?)`
-    ).bind(item.id, branchId, initialStock, ts.utc).run();
+      `INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?, ?)`
+    ).bind(tenantId, item.id, branchId, initialStock, ts.utc).run();
   }
 }
 
 async function getBranchStock(env, itemId, branchId) {
+  const tenantId = currentTenantId(env);
   await ensureBranchStock(env, branchId);
-  const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE item_id = ? AND branch_id = ?`).bind(itemId, branchId).first();
+  const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, itemId, branchId).first();
   if (row) return Number(row.current_stock || 0);
-  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE id = ?`).bind(itemId).first();
+  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   return Number(item?.current_stock || 0);
 }
 
 async function setBranchStock(env, itemId, branchId, nextStock) {
+  const tenantId = currentTenantId(env);
   const ts = getTimestamps();
-  await env.DB.prepare(
-    `INSERT INTO inventory_branch_stock (item_id, branch_id, current_stock, updated_at_utc)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(item_id, branch_id) DO UPDATE SET current_stock = excluded.current_stock, updated_at_utc = excluded.updated_at_utc`
-  ).bind(itemId, branchId, Number(nextStock || 0), ts.utc).run();
+  const updated = await env.DB.prepare(
+    `UPDATE inventory_branch_stock SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`
+  ).bind(Number(nextStock || 0), ts.utc, tenantId, itemId, branchId).run();
+  if (Number(updated.meta?.changes || 0) === 0) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
+       VALUES (?, ?, ?, ?, ?)`
+    ).bind(tenantId, itemId, branchId, Number(nextStock || 0), ts.utc).run();
+  }
 }
 
 async function setProductSoldOut(env, productId, soldOut, branchId = null) {
@@ -730,7 +737,7 @@ async function setProductSoldOut(env, productId, soldOut, branchId = null) {
 
 
 async function getItemByName(env, name) {
-  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE lower(name) = lower(?) LIMIT 1`).bind(name).first();
+  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?) LIMIT 1`).bind(currentTenantId(env), name).first();
   return row || null;
 }
 
@@ -1084,6 +1091,7 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
 }
 
 async function listData(env, requestedBranchId = null) {
+  const tenantId = currentTenantId(env);
   try { await seedOptionFamilies(env); } catch (error) {}
   // Ensure all menu product recipe shells exist before reading/exporting.
   // This makes Stock > Import > Descargar datos actuales show every product,
@@ -1104,80 +1112,86 @@ async function listData(env, requestedBranchId = null) {
         alt.name AS alt_supplier_name,
         pc.name AS purchase_category_name
        FROM inventory_items i
-       LEFT JOIN inventory_branch_stock bs ON bs.item_id = i.id AND bs.branch_id = ?
+       LEFT JOIN inventory_branch_stock bs ON bs.tenant_id = i.tenant_id AND bs.item_id = i.id AND bs.branch_id = ?
        LEFT JOIN stock_units u ON u.id = i.unit_id
        LEFT JOIN stock_suppliers ps ON ps.id = i.primary_supplier_id
        LEFT JOIN stock_suppliers alt ON alt.id = i.alt_supplier_id
        LEFT JOIN stock_purchase_categories pc ON pc.id = i.purchase_category_id
+       WHERE i.tenant_id = ?
        ORDER BY pc.sort_order ASC, i.name ASC`
-    ).bind(branchContext.branchId).all(),
+    ).bind(branchContext.branchId, tenantId).all(),
     env.DB.prepare(`SELECT * FROM stock_units ORDER BY sort_order ASC, name ASC`).all(),
     env.DB.prepare(`SELECT * FROM stock_purchase_categories ORDER BY sort_order ASC, name ASC`).all(),
     env.DB.prepare(`SELECT * FROM stock_suppliers ORDER BY name ASC`).all(),
     env.DB.prepare(
       `SELECT m.*, i.name AS item_name, u.code AS unit_code
        FROM stock_movements m
-       LEFT JOIN inventory_items i ON i.id = m.item_id
+       LEFT JOIN inventory_items i ON i.tenant_id = m.tenant_id AND i.id = m.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
-       WHERE COALESCE(m.branch_id, 'dominio') = ?
+       WHERE m.tenant_id = ? AND COALESCE(m.branch_id, 'dominio') = ?
        ORDER BY m.created_at_utc DESC
        LIMIT 150`
-    ).bind(branchContext.branchId).all(),
+    ).bind(tenantId, branchContext.branchId).all(),
     env.DB.prepare(
       `SELECT w.*, i.name AS item_name, u.code AS unit_code
        FROM waste_requests w
-       LEFT JOIN inventory_items i ON i.id = w.item_id
+       LEFT JOIN inventory_items i ON i.tenant_id = w.tenant_id AND i.id = w.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
-       WHERE COALESCE(w.branch_id, 'dominio') = ?
+       WHERE w.tenant_id = ? AND COALESCE(w.branch_id, 'dominio') = ?
        ORDER BY w.created_at_utc DESC
        LIMIT 100`
-    ).bind(branchContext.branchId).all(),
+    ).bind(tenantId, branchContext.branchId).all(),
     env.DB.prepare(
       `SELECT c.*, i.name AS item_name, u.code AS unit_code
        FROM inventory_count_requests c
-       LEFT JOIN inventory_items i ON i.id = c.item_id
+       LEFT JOIN inventory_items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
-       WHERE COALESCE(c.branch_id, 'dominio') = ?
+       WHERE c.tenant_id = ? AND COALESCE(c.branch_id, 'dominio') = ?
        ORDER BY c.created_at_utc DESC
        LIMIT 150`
-    ).bind(branchContext.branchId).all(),
+    ).bind(tenantId, branchContext.branchId).all(),
     env.DB.prepare(
       `SELECT r.*, i.name AS output_item_name, u.code AS output_unit_code
        FROM stock_recipes r
-       LEFT JOIN inventory_items i ON i.id = r.output_item_id
+       LEFT JOIN inventory_items i ON i.tenant_id = r.tenant_id AND i.id = r.output_item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
+       WHERE r.tenant_id = ?
        ORDER BY r.recipe_type ASC, r.name ASC`
-    ).all(),
+    ).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT l.*, i.name AS item_name, i.brand AS item_brand, u.code AS unit_code
        FROM stock_recipe_lines l
-       LEFT JOIN inventory_items i ON i.id = l.item_id
+       LEFT JOIN inventory_items i ON i.tenant_id = l.tenant_id AND i.id = l.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
+       WHERE l.tenant_id = ?
        ORDER BY l.recipe_id ASC, l.sort_order ASC, l.id ASC`
-    ).all(),
-    env.DB.prepare(`SELECT * FROM stock_option_families ORDER BY sort_order ASC, name ASC`).all(),
+    ).bind(tenantId).all(),
+    env.DB.prepare(`SELECT * FROM stock_option_families WHERE tenant_id = ? ORDER BY sort_order ASC, name ASC`).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT oi.*, f.family_key, i.name AS item_name, i.brand AS item_brand, u.code AS unit_code
        FROM stock_option_family_items oi
-       JOIN stock_option_families f ON f.id = oi.family_id
-       JOIN inventory_items i ON i.id = oi.item_id
+       JOIN stock_option_families f ON f.tenant_id = oi.tenant_id AND f.id = oi.family_id
+       JOIN inventory_items i ON i.tenant_id = oi.tenant_id AND i.id = oi.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
+       WHERE oi.tenant_id = ?
        ORDER BY oi.family_id ASC, oi.sort_order ASC, oi.id ASC`
-    ).all(),
+    ).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT c.*, oi.family_id, oi.option_name, i.name AS item_name, u.code AS unit_code
        FROM stock_option_family_item_components c
-       JOIN stock_option_family_items oi ON oi.id = c.option_item_id
-       JOIN inventory_items i ON i.id = c.item_id
+       JOIN stock_option_family_items oi ON oi.tenant_id = c.tenant_id AND oi.id = c.option_item_id
+       JOIN inventory_items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
+       WHERE c.tenant_id = ?
        ORDER BY c.option_item_id ASC, c.sort_order ASC, c.id ASC`
-    ).all(),
+    ).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT pg.*, f.family_key, f.name AS family_name
        FROM stock_product_option_groups pg
-       JOIN stock_option_families f ON f.id = pg.family_id
+       JOIN stock_option_families f ON f.tenant_id = pg.tenant_id AND f.id = pg.family_id
+       WHERE pg.tenant_id = ?
        ORDER BY pg.product_id ASC, pg.sort_order ASC, pg.id ASC`
-    ).all(),
+    ).bind(tenantId).all(),
   ]);
 
   const linesByRecipe = new Map();
@@ -1423,6 +1437,7 @@ function nonNegativeNumber(value, fallback = 0) {
 }
 
 async function saveItem(env, item) {
+  const tenantId = currentTenantId(env);
   const now = new Date().toISOString();
   const values = [
     item.name?.trim(),
@@ -1463,27 +1478,28 @@ async function saveItem(env, item) {
         purchase_unit_label = ?, purchase_unit_quantity = ?, purchase_price = ?, expiry_date = ?,
         is_active = ?, client_visible = ?, client_removable = ?, client_changeable = ?, deducts_inventory = ?,
         is_packaging = ?, is_internal_dressing = ?, is_side_dressing = ?, is_sellable_extra = ?, updated_at_utc = ?
-       WHERE id = ?`
-    ).bind(...values, item.id).run();
+       WHERE tenant_id = ? AND id = ?`
+    ).bind(...values, tenantId, item.id).run();
     return;
   }
 
   await env.DB.prepare(
     `INSERT INTO inventory_items (
-      name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
+      tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
       primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
       purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
       client_changeable, deducts_inventory, is_packaging, is_internal_dressing, is_side_dressing,
       is_sellable_extra, created_at_utc, updated_at_utc
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(...values, now).run();
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(tenantId, ...values, now).run();
 }
 
 async function addMovement(env, { itemId, movementType, quantity, reason, sourceType, sourceId, user, approvedBy, branchId, branchName }) {
+  const tenantId = currentTenantId(env);
   const branchContext = await resolveBranch(env, branchId);
   const selectedBranchId = branchContext.branchId;
   const selectedBranchName = branchName || branchContext.branchName;
-  const item = await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE id = ?`).bind(itemId).first();
+  const item = await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   if (!item) throw new Error('Ingrediente no encontrado.');
 
   const stockBefore = await getBranchStock(env, itemId, selectedBranchId);
@@ -1497,17 +1513,18 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 
   // Mantiene current_stock como espejo de la sucursal default para compatibilidad con vistas/exports viejos.
   if (selectedBranchId === branchContext.branchSettings.defaultBranchId) {
-    await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE id = ?`).bind(stockAfter, ts.utc, itemId).run();
+    await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(stockAfter, ts.utc, tenantId, itemId).run();
   } else {
-    await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE id = ?`).bind(ts.utc, itemId).run();
+    await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, itemId).run();
   }
 
   await env.DB.prepare(
     `INSERT INTO stock_movements (
-      item_id, movement_type, quantity, stock_before, stock_after, reason, source_type, source_id,
+      tenant_id, item_id, movement_type, quantity, stock_before, stock_after, reason, source_type, source_id,
       reported_by, reported_role, reported_shift, approved_by, branch_id, branch_name, created_at_utc, created_at_monterrey
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
+    tenantId,
     itemId,
     movementType,
     qty,
@@ -1528,11 +1545,12 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 }
 
 async function updateQuickItems(env, items, user, branchId) {
+  const tenantId = currentTenantId(env);
   const ts = getTimestamps();
   for (const item of items || []) {
     const itemId = Number(item.id);
     if (!itemId) continue;
-    const existing = await env.DB.prepare(`SELECT id FROM inventory_items WHERE id = ?`).bind(itemId).first();
+    const existing = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
     if (!existing) continue;
 
     const nextStock = nonNegativeNumber(item.current_stock);
@@ -1546,8 +1564,8 @@ async function updateQuickItems(env, items, user, branchId) {
     await env.DB.prepare(
       `UPDATE inventory_items
        SET min_stock = ?, max_stock = ?, purchase_price = ?, expiry_date = ?, updated_at_utc = ?
-       WHERE id = ?`
-    ).bind(minStock, maxStock, purchasePrice, expiryDate, ts.utc, itemId).run();
+       WHERE tenant_id = ? AND id = ?`
+    ).bind(minStock, maxStock, purchasePrice, expiryDate, ts.utc, tenantId, itemId).run();
 
     if (diff !== 0) {
       await addMovement(env, {
@@ -1565,10 +1583,11 @@ async function updateQuickItems(env, items, user, branchId) {
 }
 
 async function itemByName(env, name) {
-  return env.DB.prepare(`SELECT * FROM inventory_items WHERE lower(name) = lower(?)`).bind(name).first();
+  return env.DB.prepare(`SELECT * FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
 }
 
 async function importItems(env, rows, mode, user, branchId) {
+  const tenantId = currentTenantId(env);
   const ts = getTimestamps();
   let created = 0;
   let updated = 0;
@@ -1610,7 +1629,7 @@ async function importItems(env, rows, mode, user, branchId) {
           brand = ?, item_type = ?, unit_id = ?, min_stock = ?, max_stock = ?, accuracy_target = ?,
           primary_supplier_id = ?, alt_supplier_id = ?, purchase_category_id = ?, purchase_unit_label = ?,
           purchase_unit_quantity = ?, purchase_price = ?, expiry_date = ?, updated_at_utc = ?
-         WHERE id = ?`
+         WHERE tenant_id = ? AND id = ?`
       ).bind(
         row.brand || existing.brand || '',
         row.item_type || existing.item_type || 'Ingrediente comprado',
@@ -1626,6 +1645,7 @@ async function importItems(env, rows, mode, user, branchId) {
         purchasePrice,
         row.expiry_date || null,
         ts.utc,
+        tenantId,
         existing.id
       ).run();
 
@@ -1648,13 +1668,14 @@ async function importItems(env, rows, mode, user, branchId) {
 
     const insert = await env.DB.prepare(
       `INSERT INTO inventory_items (
-        name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
+        tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
         primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
         purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
         client_changeable, deducts_inventory, is_packaging, is_internal_dressing, is_side_dressing,
         is_sellable_extra, created_at_utc, updated_at_utc
-      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 0, 1, 0, 0, 0, 0, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 0, 1, 0, 0, 0, 0, ?, ?)`
     ).bind(
+      tenantId,
       name,
       row.brand || '',
       row.item_type || 'Ingrediente comprado',
@@ -1694,11 +1715,12 @@ async function importItems(env, rows, mode, user, branchId) {
 
 
 async function getItemIdByName(env, name) {
-  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE lower(name) = lower(?)`).bind(name).first();
+  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
   return row?.id || null;
 }
 
 async function saveRecipe(env, recipe) {
+  const tenantId = currentTenantId(env);
   const now = new Date().toISOString();
   const recipeKey = String(recipe.recipe_key || '').trim();
   const recipeType = String(recipe.recipe_type || 'product').trim();
@@ -1709,24 +1731,24 @@ async function saveRecipe(env, recipe) {
   const lines = Array.isArray(recipe.lines) ? recipe.lines : [];
 
   let recipeId = recipe.id ? Number(recipe.id) : null;
-  const existing = recipeId ? await env.DB.prepare(`SELECT id FROM stock_recipes WHERE id = ?`).bind(recipeId).first() : null;
+  const existing = recipeId ? await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND id = ?`).bind(tenantId, recipeId).first() : null;
 
   if (existing?.id) {
     await env.DB.prepare(
-      `UPDATE stock_recipes SET recipe_key = ?, recipe_type = ?, name = ?, output_item_id = ?, output_quantity = ?, notes = ?, is_active = ?, updated_at_utc = ? WHERE id = ?`
-    ).bind(recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, recipeId).run();
+      `UPDATE stock_recipes SET recipe_key = ?, recipe_type = ?, name = ?, output_item_id = ?, output_quantity = ?, notes = ?, is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`
+    ).bind(recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, tenantId, recipeId).run();
   } else {
     await env.DB.prepare(
-      `INSERT INTO stock_recipes (recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(recipe_key) DO UPDATE SET recipe_type = excluded.recipe_type, name = excluded.name, output_item_id = excluded.output_item_id, output_quantity = excluded.output_quantity, notes = excluded.notes, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
-    ).bind(recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, now).run();
-    const row = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE recipe_key = ?`).bind(recipeKey).first();
+      `INSERT INTO stock_recipes (tenant_id, recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(recipe_key) DO UPDATE SET tenant_id = excluded.tenant_id, recipe_type = excluded.recipe_type, name = excluded.name, output_item_id = excluded.output_item_id, output_quantity = excluded.output_quantity, notes = excluded.notes, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
+    ).bind(tenantId, recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, now).run();
+    const row = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
     recipeId = row?.id;
   }
 
   if (!recipeId) throw new Error('No se pudo guardar la receta.');
-  await env.DB.prepare(`DELETE FROM stock_recipe_lines WHERE recipe_id = ?`).bind(recipeId).run();
+  await env.DB.prepare(`DELETE FROM stock_recipe_lines WHERE tenant_id = ? AND recipe_id = ?`).bind(tenantId, recipeId).run();
 
   let sort = 1;
   for (const line of lines) {
@@ -1736,10 +1758,11 @@ async function saveRecipe(env, recipe) {
     const normalizedLine = normalizeRecipeLineFlags(line);
     await env.DB.prepare(
       `INSERT INTO stock_recipe_lines (
-        recipe_id, item_id, quantity, line_role, client_visible, client_removable,
+        tenant_id, recipe_id, item_id, quantity, line_role, client_visible, client_removable,
         client_changeable, is_default, is_optional, is_extra_billable, extra_price, sort_order
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
+      tenantId,
       recipeId,
       itemId,
       quantity,
@@ -1782,16 +1805,20 @@ const PRODUCT_RECIPE_SHELLS = [
 ];
 
 async function ensureProductRecipeShells(env) {
+  const tenantId = currentTenantId(env);
+  if (tenantId !== defaultTenantId(env)) {
+    return { created: 0, existing: 0, total: 0 };
+  }
   const now = new Date().toISOString();
   let created = 0;
   let existing = 0;
   for (const [recipeKey, name] of PRODUCT_RECIPE_SHELLS) {
-    const found = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE recipe_key = ?`).bind(recipeKey).first();
+    const found = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
     if (found?.id) {
       existing += 1;
       await env.DB.prepare(
-        `UPDATE stock_recipes SET recipe_type = 'product', name = ?, is_active = 1, updated_at_utc = ? WHERE recipe_key = ?`
-      ).bind(name, now, recipeKey).run();
+        `UPDATE stock_recipes SET recipe_type = 'product', name = ?, is_active = 1, updated_at_utc = ? WHERE tenant_id = ? AND recipe_key = ?`
+      ).bind(name, now, tenantId, recipeKey).run();
       continue;
     }
     await env.DB.prepare(
@@ -2095,9 +2122,10 @@ function sanitizeStockPayloadForUser(data, user) {
 
 export async function onRequestGet({ request, env }) {
   try {
+    if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    env.__tenantId = await resolveTenantId(request, env);
     const user = await auth(request, env);
     if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
-    if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
     await ensureLookupDefaults(env);
     const data = await listData(env, new URL(request.url).searchParams.get('branch'));

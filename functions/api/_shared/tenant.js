@@ -10,6 +10,15 @@ export function defaultTenantId(env) {
   return String(env.DEFAULT_TENANT_ID || env.TENANT_ID || 'default').trim() || 'default';
 }
 
+export function normalizeTenantId(value, env) {
+  const fallback = defaultTenantId(env);
+  return String(value || fallback)
+    .trim()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[?#].*$/g, '')
+    || fallback;
+}
+
 export async function ensureTenantDomainTable(env) {
   const db = requireDb(env);
   await db.prepare(`CREATE TABLE IF NOT EXISTS saas_tenant_domains (
@@ -41,7 +50,16 @@ export async function resolveTenantByHostname(env, hostname) {
 export async function resolveTenantId(request, env) {
   try {
     const explicit = request.headers.get('x-tenant-id') || new URL(request.url).searchParams.get('tenant_id');
-    if (explicit) return String(explicit).trim();
+    if (explicit) {
+      const clean = normalizeTenantId(explicit, env);
+      try {
+        const db = requireDb(env);
+        const row = await db.prepare(`SELECT id FROM saas_tenants WHERE id = ? OR slug = ? LIMIT 1`).bind(clean, clean).first();
+        return row?.id || clean;
+      } catch {
+        return clean;
+      }
+    }
     const hostname = hostnameFromRequest(request);
     const tenant = await resolveTenantByHostname(env, hostname);
     return tenant?.id || defaultTenantId(env);
@@ -93,7 +111,7 @@ export async function ensureTenantColumns(env, tables = []) {
 }
 
 export function tenantSettingKey(key, tenantId, env) {
-  const cleanTenant = String(tenantId || defaultTenantId(env)).trim() || defaultTenantId(env);
+  const cleanTenant = normalizeTenantId(tenantId, env);
   const cleanKey = String(key || '').trim();
   return cleanTenant === defaultTenantId(env) ? cleanKey : `${cleanTenant}:${cleanKey}`;
 }

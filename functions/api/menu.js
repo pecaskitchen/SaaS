@@ -79,12 +79,9 @@ export async function onRequestGet({ request, env }) {
     await ensureTenantColumns(env, ['app_settings']);
     const tenantId = await resolveTenantId(request, env);
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
-    let row = await env.DB.prepare(
+    const row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
     ).bind(settingKey).first();
-    if (!row && settingKey !== 'menu_overrides') {
-      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
-    }
 
     const saved = normalizeSavedMenu(row?.value_json || '');
 

@@ -108,12 +108,9 @@ export async function onRequestGet({ request, env }) {
     const tenantId = await resolveTenantId(request, env);
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
-    let row = await env.DB.prepare(
+    const row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
     ).bind(settingKey).first();
-    if (!row && settingKey !== 'menu_overrides') {
-      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
-    }
 
     return jsonResponse(menuPayload(normalizeSavedMenu(row?.value_json || '')));
   } catch (error) {
@@ -132,12 +129,9 @@ export async function onRequestPost({ request, env }) {
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
     const body = await request.json();
-    let currentRow = await env.DB.prepare(
+    const currentRow = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
     ).bind(settingKey).first();
-    if (!currentRow && settingKey !== 'menu_overrides') {
-      currentRow = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
-    }
     const current = normalizeSavedMenu(currentRow?.value_json || '');
     const hasOverrides = Object.prototype.hasOwnProperty.call(body, 'overrides');
     const incomingOverrides = hasOverrides ? (body.overrides || {}) : (current.overrides || {});

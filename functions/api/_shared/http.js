@@ -13,6 +13,10 @@ export function forbidden(error = 'Sin permiso.') {
   return jsonResponse({ ok: false, error }, 403);
 }
 
+export function nowIso() {
+  return new Date().toISOString();
+}
+
 export async function readJson(request) {
   return request.json().catch(() => ({}));
 }

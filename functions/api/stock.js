@@ -382,7 +382,39 @@ async function getLookupId(env, table, column, value) {
   return row?.id || null;
 }
 
+async function ensureLookupDefaults(env) {
+  const units = [
+    ['pieza', 'Pieza', 'count', 1],
+    ['g', 'Gramo', 'weight', 2],
+    ['kg', 'Kilogramo', 'weight', 3],
+    ['ml', 'Mililitro', 'volume', 4],
+    ['l', 'Litro', 'volume', 5],
+    ['bolsa', 'Bolsa', 'count', 6],
+    ['paquete', 'Paquete', 'count', 7],
+    ['caja', 'Caja', 'count', 8],
+    ['porcion', 'Porcion', 'count', 9],
+  ];
+  for (const unit of units) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO stock_units (code, name, kind, sort_order) VALUES (?, ?, ?, ?)`
+    ).bind(...unit).run();
+  }
+
+  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Cafe y bebidas', 'Empaque', 'Limpieza / otros'];
+  for (let index = 0; index < categories.length; index += 1) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO stock_purchase_categories (name, sort_order) VALUES (?, ?)`
+    ).bind(categories[index], index + 1).run();
+  }
+
+  const suppliers = ['Costco', 'Sams', 'HEB', 'Proveedor local', 'Empaques'];
+  for (const supplier of suppliers) {
+    await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (name) VALUES (?)`).bind(supplier).run();
+  }
+}
+
 async function seedDefaults(env) {
+  await ensureLookupDefaults(env);
   const units = [
     ['pieza', 'Pieza', 'count', 1],
     ['g', 'Gramo', 'weight', 2],
@@ -1860,6 +1892,7 @@ export async function onRequestGet({ request, env }) {
     if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
+    await ensureLookupDefaults(env);
     const data = await listData(env, new URL(request.url).searchParams.get('branch'));
     return jsonResponse({ ok: true, role: user.role, accessScope: user.accessScope || 'legacy', lockedBranchId: user.lockedBranchId || null, ...sanitizeStockPayloadForUser(data, user) });
   } catch (error) {
@@ -1874,6 +1907,7 @@ export async function onRequestPost({ request, env }) {
     if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
+    await ensureLookupDefaults(env);
     const requestedBranchId = user.lockedBranchId || body.branchId || body.branch_id || body.selectedBranchId;
     const branchContext = await resolveBranch(env, requestedBranchId);
     const actionBranchId = branchContext.branchId;

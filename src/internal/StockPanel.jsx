@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
 import { formatOrderDate } from '../lib/dates.js';
-import { CATALOG_PRODUCTS } from '../lib/catalog.js';
+import { CATALOG_PRODUCTS, categoryMeta } from '../lib/catalog.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   activeBranches,

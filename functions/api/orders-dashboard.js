@@ -135,6 +135,73 @@ async function ensureStockBranchColumns(env) {
 }
 
 async function ensureOrderStockColumns(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_number TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      branch_id TEXT NOT NULL DEFAULT 'dominio',
+      branch_name TEXT NOT NULL DEFAULT 'Dominio',
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT NOT NULL,
+      customer_address TEXT NOT NULL,
+      customer_notes TEXT,
+      subtotal INTEGER NOT NULL DEFAULT 0,
+      delivery_fee INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      whatsapp_message TEXT,
+      created_at_utc TEXT NOT NULL,
+      created_at_monterrey TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'America/Monterrey',
+      updated_at_utc TEXT NOT NULL,
+      updated_at_monterrey TEXT NOT NULL,
+      stock_deducted INTEGER NOT NULL DEFAULT 0,
+      stock_deducted_at_utc TEXT,
+      stock_deducted_at_monterrey TEXT,
+      stock_deduction_error TEXT,
+      order_source TEXT NOT NULL DEFAULT 'online',
+      cashier_name TEXT,
+      cashier_shift TEXT,
+      payment_method TEXT,
+      payment_status TEXT
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      product_id TEXT,
+      product_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      unit_price INTEGER NOT NULL DEFAULT 0,
+      line_total INTEGER NOT NULL DEFAULT 0,
+      options_json TEXT,
+      item_notes TEXT,
+      created_at_utc TEXT NOT NULL,
+      created_at_monterrey TEXT NOT NULL,
+      FOREIGN KEY (order_id) REFERENCES orders(id)
+    )
+  `).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS order_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      event_note TEXT,
+      created_at_utc TEXT NOT NULL,
+      created_at_monterrey TEXT NOT NULL,
+      FOREIGN KEY (order_id) REFERENCES orders(id)
+    )
+  `).run();
+
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_branch_id ON orders(branch_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_created_at_monterrey ON orders(created_at_monterrey)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`).run();
+
   const info = await env.DB.prepare(`PRAGMA table_info(orders)`).all();
   const columns = new Set((info.results || []).map((row) => row.name));
   const alters = [];

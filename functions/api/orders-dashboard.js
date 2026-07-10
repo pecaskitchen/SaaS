@@ -233,6 +233,28 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function slugifyRecipePart(value) {
+  return normalizeText(value)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function recipeKeyCandidates(productId, productName) {
+  const candidates = [];
+  const add = (value) => {
+    const clean = String(value || '').trim();
+    if (clean && !candidates.includes(clean)) candidates.push(clean);
+  };
+  const cleanId = String(productId || '').trim();
+  if (cleanId) {
+    add(cleanId.startsWith('product:') ? cleanId : `product:${cleanId}`);
+    add(`product:${slugifyRecipePart(cleanId)}`);
+  }
+  const cleanName = String(productName || '').trim();
+  if (cleanName) add(`product:${slugifyRecipePart(cleanName)}`);
+  return candidates;
+}
+
 function selectedOptionNames(options = {}) {
   const names = [];
   const add = (value) => {
@@ -284,11 +306,20 @@ function shouldUseRecipeLine(line, options = {}) {
   return true;
 }
 
-async function getRecipeLinesForProduct(env, productId) {
-  const recipeKey = `product:${productId}`;
-  const recipe = await env.DB.prepare(
-    `SELECT id FROM stock_recipes WHERE recipe_key = ? AND recipe_type = 'product' AND is_active = 1`
-  ).bind(recipeKey).first();
+async function getRecipeLinesForProduct(env, productId, productName = '') {
+  const candidates = recipeKeyCandidates(productId, productName);
+  let recipe = null;
+  for (const recipeKey of candidates) {
+    recipe = await env.DB.prepare(
+      `SELECT id FROM stock_recipes WHERE lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
+    ).bind(recipeKey).first();
+    if (recipe?.id) break;
+  }
+  if (!recipe?.id && productName) {
+    recipe = await env.DB.prepare(
+      `SELECT id FROM stock_recipes WHERE lower(name) = lower(?) AND recipe_type = 'product' AND is_active = 1 ORDER BY updated_at_utc DESC, id DESC LIMIT 1`
+    ).bind(String(productName || '').trim()).first();
+  }
   if (!recipe?.id) return [];
 
   const result = await env.DB.prepare(
@@ -362,8 +393,8 @@ async function aggregateOrderConsumption(env, orderId) {
       for (const promoItem of options.promoItems) {
         const productId = promoItem.productId;
         const multiplier = Number(promoItem.quantity || 1) * Number(orderItem.quantity || 1);
-        const lines = await getRecipeLinesForProduct(env, productId);
-        if (lines.length === 0) missingRecipes.push(productId);
+        const lines = await getRecipeLinesForProduct(env, productId, promoItem.productName);
+        if (lines.length === 0) missingRecipes.push(promoItem.productName || productId);
         const promoOptions = options.extrasByProductId?.[productId] || {};
         for (const line of lines) {
           if (shouldUseRecipeLine(line, promoOptions)) addLine(line, multiplier);
@@ -375,8 +406,8 @@ async function aggregateOrderConsumption(env, orderId) {
     }
 
     const productId = orderItem.product_id || orderItem.productId || orderItem.id;
-    const lines = await getRecipeLinesForProduct(env, productId);
-    if (lines.length === 0) missingRecipes.push(productId);
+    const lines = await getRecipeLinesForProduct(env, productId, orderItem.product_name);
+    if (lines.length === 0) missingRecipes.push(orderItem.product_name || productId);
     const multiplier = Number(orderItem.quantity || 1);
     for (const line of lines) {
       if (shouldUseRecipeLine(line, options)) addLine(line, multiplier);

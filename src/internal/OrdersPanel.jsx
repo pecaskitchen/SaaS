@@ -159,7 +159,7 @@ export default function OrdersPanel() {
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        setStatus(result.error || 'No se pudo actualizar el pedido.');
+        setStatus([result.error || 'No se pudo actualizar el pedido.', result.detail].filter(Boolean).join(' '));
         return;
       }
 

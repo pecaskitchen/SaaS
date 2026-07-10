@@ -79,7 +79,7 @@ export default function OrdersPanel() {
   });
   const [unlocked, setUnlocked] = useState(Boolean(password));
   const [orders, setOrders] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
   const [branchFilter, setBranchFilter] = useState('all');
   const [ordersAccessScope, setOrdersAccessScope] = useState('legacy');

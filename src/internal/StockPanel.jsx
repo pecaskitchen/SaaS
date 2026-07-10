@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
 import { formatOrderDate } from '../lib/dates.js';
-import { CATALOG_PRODUCTS, categoryMeta, mergeProductsWithExtras } from '../lib/catalog.js';
+import { CATALOG_PRODUCTS, categoryMeta, mergeProductsWithExtras, slugifyCatalogId } from '../lib/catalog.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   activeBranches,
@@ -544,7 +544,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [stockAccessScope, setStockAccessScope] = useState(savedSession.accessScope || 'legacy');
   const [stockLockedBranchId, setStockLockedBranchId] = useState(savedSession.lockedBranchId || null);
   const [unlocked, setUnlocked] = useState(isAdminConfigMode ? Boolean(embeddedPassword) : Boolean(savedSession.password));
-  const [activeTab, setActiveTab] = useState(isAdminConfigMode ? 'items' : 'dashboard');
+  const [activeTab, setActiveTab] = useState(isAdminConfigMode ? 'productSetup' : 'dashboard');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ items: [], units: [], categories: [], suppliers: [], movements: [], wasteRequests: [], inventoryCountRequests: [], recipes: [], optionFamilies: [], menuSettings: { overrides: {}, categoryHidden: {} }, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS), selectedBranch: DEFAULT_BRANCH_SETTINGS.branches[0] });
@@ -559,6 +559,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [productFamilyRuleDraft, setProductFamilyRuleDraft] = useState(emptyProductFamilyRuleDraft);
   const [productionDraft, setProductionDraft] = useState({ recipeId: '', batchMultiplier: '1', note: '' });
   const [selectedProductSetupId, setSelectedProductSetupId] = useState('');
+  const [productDraft, setProductDraft] = useState({ name: '', category: '', price: '', description: '', emoji: '🍽️' });
 
   const [quickDrafts, setQuickDrafts] = useState([]);
   const [inventoryCounts, setInventoryCounts] = useState({});
@@ -823,6 +824,64 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       return;
     }
     const ok = await postStockAction({ action: 'saveRecipe', recipe: recipeDraft }, 'Receta guardada.');
+    if (ok) setRecipeDraft(emptyRecipeDraft);
+  };
+
+  const saveCatalogProduct = async (productInput = productDraft, options = {}) => {
+    if (role !== 'admin') return null;
+    const name = String(productInput.name || '').trim();
+    if (!name) {
+      setStatus('El producto necesita nombre.');
+      return null;
+    }
+    const id = slugifyCatalogId(productInput.id || name, 'producto');
+    const category = slugifyCatalogId(productInput.category || stockMenuProducts[0]?.category || 'sin-categoria', 'sin-categoria');
+    const payload = {
+      id,
+      name,
+      category,
+      categoryLabel: productInput.categoryLabel || category,
+      price: Number(productInput.price || 0),
+      description: productInput.description || '',
+      emoji: productInput.emoji || '🍽️',
+    };
+    const ok = await postStockAction({ action: 'saveCatalogProduct', product: payload }, options.successMessage || 'Producto guardado en menú.');
+    if (!ok) return null;
+    setSelectedProductSetupId(id);
+    if (!options.keepDraft) setProductDraft({ name: '', category: category || '', price: '', description: '', emoji: '🍽️' });
+    return payload;
+  };
+
+  const createProductFromDraft = async () => {
+    const product = await saveCatalogProduct(productDraft);
+    if (!product) return;
+    setRecipeEditorType('product');
+    setRecipeDraft({
+      ...emptyRecipeDraft,
+      recipe_type: 'product',
+      recipe_key: `product:${product.id}`,
+      name: product.name,
+      is_active: true,
+      lines: [],
+    });
+  };
+
+  const publishRecipeAsProduct = async (recipe) => {
+    const cleanKey = String(recipe.recipe_key || '').replace(/^product:/, '');
+    const product = await saveCatalogProduct({
+      id: cleanKey || recipe.name,
+      name: recipe.name,
+      category: productDraft.category || stockMenuProducts[0]?.category || 'sin-categoria',
+      price: productDraft.price || 0,
+      description: recipe.notes || '',
+      emoji: productDraft.emoji || '🍽️',
+    }, { keepDraft: true, successMessage: 'Receta publicada como producto del menú.' });
+    if (product) setSelectedProductSetupId(product.id);
+  };
+
+  const archiveSelectedRecipe = async (recipe, archived = true) => {
+    if (!recipe?.id || role !== 'admin') return;
+    const ok = await postStockAction({ action: archived ? 'archiveRecipe' : 'restoreRecipe', recipeId: recipe.id }, archived ? 'Receta archivada.' : 'Receta restaurada.');
     if (ok) setRecipeDraft(emptyRecipeDraft);
   };
 
@@ -1298,6 +1357,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     ...line,
     item: itemById.get(Number(line.item_id)),
   }));
+  const orphanProductRecipes = productRecipes.filter((recipe) => {
+    const productId = String(recipe.recipe_key || '').replace(/^product:/, '');
+    return productId && !productById.has(productId);
+  });
 
   const setProductSoldOut = async (productId, soldOut) => {
     await postStockAction({ action: 'setProductSoldOut', productId, soldOut }, soldOut ? 'Producto marcado como agotado.' : 'Producto disponible de nuevo.');
@@ -1398,6 +1461,20 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 </select>
               </label>
 
+              {role === 'admin' && (
+                <div className="recipe-line-builder">
+                  <h3>Agregar producto</h3>
+                  <div className="stock-form-grid compact-grid">
+                    <label className="field"><span>Nombre</span><input value={productDraft.name} onChange={(e) => setProductDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ej. Producto test" /></label>
+                    <label className="field"><span>Categoria</span><input value={productDraft.category} onChange={(e) => setProductDraft((current) => ({ ...current, category: e.target.value }))} placeholder={selectedProductSetup?.category || 'cafes'} /></label>
+                    <label className="field"><span>Precio</span><input type="number" value={productDraft.price} onChange={(e) => setProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
+                    <label className="field"><span>Icono</span><input value={productDraft.emoji} onChange={(e) => setProductDraft((current) => ({ ...current, emoji: e.target.value }))} /></label>
+                    <label className="field full"><span>Descripcion</span><input value={productDraft.description} onChange={(e) => setProductDraft((current) => ({ ...current, description: e.target.value }))} placeholder="Descripcion corta para el menu" /></label>
+                  </div>
+                  <button type="button" className="ghost" onClick={createProductFromDraft}>Agregar producto y preparar receta</button>
+                </div>
+              )}
+
               {selectedProductSetup ? (
                 <div className="stock-alert">
                   <b>{selectedProductSetup.name}</b>
@@ -1409,6 +1486,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <div className="inline-actions">
                 {selectedProductSetup && <button type="button" className="ghost" onClick={() => editProductRecipe(selectedProductSetup)}>{selectedProductRecipe ? 'Editar receta del producto' : 'Crear receta del producto'}</button>}
                 {selectedProductSetup && <button type="button" className="ghost" onClick={() => startProductFamilyAssignment(selectedProductSetup)}>Asignar familia/modificador</button>}
+                {selectedProductRecipe && <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(selectedProductRecipe, Boolean(selectedProductRecipe.is_active))}>{selectedProductRecipe.is_active ? 'Archivar receta' : 'Restaurar receta'}</button>}
                 <button type="button" className="ghost" onClick={() => { setRecipeEditorType('subrecipe'); startNewRecipe('subrecipe'); }}>Crear sub-receta</button>
               </div>
             </section>
@@ -1458,6 +1536,23 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="recipe-card-mini" key={recipe.id}>
                     <div><b>{recipeLabel(recipe)}</b><span>{recipe.output_item_name || 'Sin ingrediente producido'}</span><small>{(recipe.lines || []).length} ingrediente(s)</small></div>
                     <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="stock-card-block">
+              <h2>Recetas sin producto publicado</h2>
+              {orphanProductRecipes.length === 0 ? <p>No hay recetas de producto fuera del menu.</p> : null}
+              <div className="recipe-list">
+                {orphanProductRecipes.map((recipe) => (
+                  <div className="recipe-card-mini" key={recipe.id}>
+                    <div><b>{recipeLabel(recipe)}</b><span>{recipe.recipe_key}</span><small>{(recipe.lines || []).length} ingrediente(s)</small></div>
+                    <div className="inline-actions">
+                      <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
+                      <button type="button" className="ghost" onClick={() => publishRecipeAsProduct(recipe)}>Publicar producto</button>
+                      <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(recipe, true)}>Archivar</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1620,6 +1715,12 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               </div>
               <button type="button" className="primary" onClick={submitInventoryCounts}>{role === 'admin' ? 'Aplicar conteo' : 'Enviar para aprobación'}</button>
             </div>
+            {role === 'admin' && pendingInventoryCounts.length > 0 && (
+              <div className="stock-alert warning">
+                <b>{pendingInventoryCounts.length} conteo(s) pendiente(s) por aprobar</b>
+                <span>Revisa la seccion "Conteos pendientes por aprobar" debajo de la tabla de inventario.</span>
+              </div>
+            )}
             <label className="field full"><span>Motivo / nota</span><input value={inventoryReason} onChange={(e) => setInventoryReason(e.target.value)} placeholder="Ej. conteo de cierre, conteo semanal" /></label>
             <div className="stock-table-wrap quick-stock-wrap">
               <table className="stock-table quick-stock-table inventory-count-table">
@@ -1836,6 +1937,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="inline-actions">
                     <button type="button" className="primary" onClick={saveRecipe}>Guardar receta</button>
                     <button type="button" className="ghost" onClick={() => startNewRecipe(recipeEditorType)}>Limpiar</button>
+                    {recipeDraft.id && <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(recipeDraft, Boolean(recipeDraft.is_active))}>{recipeDraft.is_active ? 'Archivar' : 'Restaurar'}</button>}
                   </div>
                 </>
               )}
@@ -1850,9 +1952,12 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     <div>
                       <b>{recipeLabel(recipe)}</b>
                       <span>{recipe.recipe_key}</span>
-                      <small>{(recipe.lines || []).length} línea(s)</small>
+                      <small>{(recipe.lines || []).length} línea(s) · {recipe.is_active ? 'Activa' : 'Archivada'}</small>
                     </div>
-                    <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
+                    <div className="inline-actions">
+                      <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
+                      <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(recipe, Boolean(recipe.is_active))}>{recipe.is_active ? 'Archivar' : 'Restaurar'}</button>
+                    </div>
                   </div>
                 ))}
               </div>

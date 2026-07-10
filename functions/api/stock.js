@@ -550,6 +550,52 @@ async function writeMenuSettings(env, settings) {
   ).bind('menu_overrides', JSON.stringify(settings), now).run();
 }
 
+function slugifyCatalogId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || `producto-${Date.now()}`;
+}
+
+async function saveCatalogProduct(env, product) {
+  const settings = await readMenuSettings(env);
+  const name = String(product.name || '').trim();
+  if (!name) throw new Error('El producto necesita nombre.');
+  const id = slugifyCatalogId(product.id || name);
+  const category = slugifyCatalogId(product.category || 'sin-categoria');
+  const nextProduct = {
+    id,
+    category,
+    name,
+    description: String(product.description || '').trim(),
+    price: Number(product.price || 0),
+    emoji: String(product.emoji || product.icon || '🍽️').trim() || '🍽️',
+  };
+  const extraCategories = Array.isArray(settings.extraCategories) ? [...settings.extraCategories] : [];
+  if (!extraCategories.some((item) => item.id === category)) {
+    extraCategories.push({ id: category, label: String(product.categoryLabel || product.category || 'Sin categoria').trim() || 'Sin categoria', emoji: '🍽️' });
+  }
+  const baseProducts = Array.isArray(settings.extraProducts) ? settings.extraProducts : [];
+  const extraProducts = [
+    ...baseProducts.filter((item) => item.id !== id),
+    nextProduct,
+  ];
+  const productOrder = Array.isArray(settings.productOrder) && settings.productOrder.includes(id)
+    ? settings.productOrder
+    : [...(settings.productOrder || []), id];
+  await writeMenuSettings(env, { ...settings, extraCategories, extraProducts, productOrder });
+  return nextProduct;
+}
+
+async function archiveRecipe(env, recipeId, archived = true) {
+  const id = Number(recipeId || 0);
+  if (!id) throw new Error('Falta receta.');
+  await env.DB.prepare(`UPDATE stock_recipes SET is_active = ?, updated_at_utc = ? WHERE id = ?`).bind(archived ? 0 : 1, new Date().toISOString(), id).run();
+}
+
 
 async function syncBranchesFromSettings(env) {
   const settings = await readMenuSettings(env);
@@ -1969,6 +2015,18 @@ export async function onRequestPost({ request, env }) {
       if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar recetas.' }, 403);
       await saveRecipe(env, body.recipe || {});
       return jsonResponse({ ok: true });
+    }
+
+    if (body.action === 'archiveRecipe' || body.action === 'restoreRecipe') {
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede archivar recetas.' }, 403);
+      await archiveRecipe(env, body.recipeId, body.action === 'archiveRecipe');
+      return jsonResponse({ ok: true });
+    }
+
+    if (body.action === 'saveCatalogProduct') {
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar productos.' }, 403);
+      const product = await saveCatalogProduct(env, body.product || {});
+      return jsonResponse({ ok: true, product });
     }
 
     if (body.action === 'saveOptionFamily') {

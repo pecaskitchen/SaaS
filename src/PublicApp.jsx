@@ -2,7 +2,7 @@
 import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils, Lock, Save } from 'lucide-react';
 import './styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from './lib/csv.js';
-import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
+import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
 import {
   BRANCH_STORAGE_KEY,
   DEFAULT_BRANCH_SETTINGS,
@@ -1654,6 +1654,8 @@ export default function PublicApp() {
   const [activeCategory, setActiveCategory] = useState(categories[0].id);
   const [cart, setCart] = useState([]);
   const [menuOverrides, setMenuOverrides] = useState({});
+  const [extraCategories, setExtraCategories] = useState([]);
+  const [extraProducts, setExtraProducts] = useState([]);
   const [categoryOrder, setCategoryOrder] = useState(() => categories.map((category) => category.id));
   const [productOrder, setProductOrder] = useState(() => CATALOG_PRODUCTS.map((product) => product.id));
   const [categoryHidden, setCategoryHidden] = useState({});
@@ -1719,16 +1721,22 @@ export default function PublicApp() {
       const result = await response.json();
       if (response.ok && result.ok) {
         setMenuOverrides(result.overrides || {});
-        setCategoryOrder(result.categoryOrder || categories.map((category) => category.id));
-        setProductOrder(result.productOrder || CATALOG_PRODUCTS.map((product) => product.id));
+        const nextCategories = mergeCategoriesWithExtras(categories, result.extraCategories || []);
+        const nextProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, result.extraProducts || []);
+        setExtraCategories(result.extraCategories || []);
+        setExtraProducts(result.extraProducts || []);
+        setCategoryOrder(result.categoryOrder || nextCategories.map((category) => category.id));
+        setProductOrder(result.productOrder || nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
-        setPromotion(normalizePromotion(result.promotion, CATALOG_PRODUCTS));
+        setPromotion(normalizePromotion(result.promotion, nextProducts));
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
       }
     } catch {
       setMenuOverrides({});
+      setExtraCategories([]);
+      setExtraProducts([]);
       setCategoryHidden({});
       setPromotion(makeDefaultPromotion(CATALOG_PRODUCTS));
       setBranchPromotions({});
@@ -1745,8 +1753,10 @@ export default function PublicApp() {
     loadProductCustomizations();
   }, []);
 
-  const currentCategories = useMemo(() => sortByOrder(categories, categoryOrder).filter((category) => !categoryHidden[category.id]), [categoryOrder, categoryHidden]);
-  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(CATALOG_PRODUCTS, menuOverrides), productOrder), [menuOverrides, productOrder]);
+  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(categories, extraCategories), [extraCategories]);
+  const catalogProducts = useMemo(() => mergeProductsWithExtras(CATALOG_PRODUCTS, extraProducts), [extraProducts]);
+  const currentCategories = useMemo(() => sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id]), [catalogCategories, categoryOrder, categoryHidden]);
+  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours((branchSettings.multiBranchEnabled && selectedBranch?.businessHours) ? selectedBranch.businessHours : businessHours), [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
   const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils } from 'lucide-react';
 import './styles.css';
-import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
+import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
 import {
   BRANCH_STORAGE_KEY,
   DEFAULT_BRANCH_SETTINGS,
@@ -2082,6 +2082,8 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState(categories[0].id);
   const [cart, setCart] = useState([]);
   const [menuOverrides, setMenuOverrides] = useState({});
+  const [extraCategories, setExtraCategories] = useState([]);
+  const [extraProducts, setExtraProducts] = useState([]);
   const [categoryOrder, setCategoryOrder] = useState(() => categories.map((category) => category.id));
   const [productOrder, setProductOrder] = useState(() => CATALOG_PRODUCTS.map((product) => product.id));
   const [categoryHidden, setCategoryHidden] = useState({});
@@ -2152,16 +2154,22 @@ export default function App() {
       const result = await response.json();
       if (response.ok && result.ok) {
         setMenuOverrides(result.overrides || {});
-        setCategoryOrder(result.categoryOrder || categories.map((category) => category.id));
-        setProductOrder(result.productOrder || CATALOG_PRODUCTS.map((product) => product.id));
+        const nextCategories = mergeCategoriesWithExtras(categories, result.extraCategories || []);
+        const nextProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, result.extraProducts || []);
+        setExtraCategories(result.extraCategories || []);
+        setExtraProducts(result.extraProducts || []);
+        setCategoryOrder(result.categoryOrder || nextCategories.map((category) => category.id));
+        setProductOrder(result.productOrder || nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
-        setPromotion(normalizePromotion(result.promotion, CATALOG_PRODUCTS));
+        setPromotion(normalizePromotion(result.promotion, nextProducts));
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
       }
     } catch {
       setMenuOverrides({});
+      setExtraCategories([]);
+      setExtraProducts([]);
       setCategoryHidden({});
       setPromotion(makeDefaultPromotion(CATALOG_PRODUCTS));
       setBranchPromotions({});
@@ -2179,8 +2187,10 @@ export default function App() {
     loadProductCustomizations();
   }, [isStorefront, isCashier]);
 
-  const currentCategories = useMemo(() => sortByOrder(categories, categoryOrder).filter((category) => !categoryHidden[category.id]), [categoryOrder, categoryHidden]);
-  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(CATALOG_PRODUCTS, menuOverrides), productOrder), [menuOverrides, productOrder]);
+  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(categories, extraCategories), [extraCategories]);
+  const catalogProducts = useMemo(() => mergeProductsWithExtras(CATALOG_PRODUCTS, extraProducts), [extraProducts]);
+  const currentCategories = useMemo(() => sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id]), [catalogCategories, categoryOrder, categoryHidden]);
+  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours((branchSettings.multiBranchEnabled && selectedBranch?.businessHours) ? selectedBranch.businessHours : businessHours), [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
   const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
@@ -2219,7 +2229,7 @@ export default function App() {
   const removeItem = (uid) => setCart((current) => current.filter((item) => item.uid !== uid));
 
   if (isAdmin) {
-    return <AdminPanel products={currentProducts} categoryOrder={categoryOrder} productOrder={productOrder} categoryHidden={categoryHidden} promotion={activePromotion} businessHours={businessHours} branchSettings={branchSettings} reloadMenu={loadMenuOverrides} />;
+    return <AdminPanel products={currentProducts} categoriesList={catalogCategories} categoryOrder={categoryOrder} productOrder={productOrder} categoryHidden={categoryHidden} promotion={activePromotion} businessHours={businessHours} branchSettings={branchSettings} reloadMenu={loadMenuOverrides} />;
   }
 
   if (isSuper) {
@@ -2235,7 +2245,7 @@ export default function App() {
   }
 
   if (isCashier) {
-    return <CashierPanel products={currentProductsForBranch} categoriesList={categories} categoryOrder={categoryOrder} productOrder={productOrder} categoryHidden={categoryHidden} branchSettings={branchSettings} productCustomizations={productCustomizations} reloadMenu={loadMenuOverrides} />;
+    return <CashierPanel products={currentProductsForBranch} categoriesList={catalogCategories} categoryOrder={categoryOrder} productOrder={productOrder} categoryHidden={categoryHidden} branchSettings={branchSettings} productCustomizations={productCustomizations} reloadMenu={loadMenuOverrides} />;
   }
 
   return (

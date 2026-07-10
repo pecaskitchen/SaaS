@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Save } from 'lucide-react';
 import '../styles.css';
-import { categoryMeta, normalizePromotion, sortByOrder } from '../lib/catalog.js';
+import { categoryMeta, normalizePromotion, slugifyCatalogId, sortByOrder } from '../lib/catalog.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   DEFAULT_BUSINESS_HOURS,
@@ -56,16 +56,55 @@ function Logo() {
   );
 }
 
-export default function AdminPanel({ products, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu }) {
+function parseMenuCsv(text) {
+  const lines = String(text || '').split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return { categories: [], products: [] };
+  const headers = lines[0].split(',').map((header) => header.trim().toLowerCase());
+  const readRow = (line) => {
+    const values = line.split(',').map((value) => value.trim());
+    return headers.reduce((row, header, index) => ({ ...row, [header]: values[index] || '' }), {});
+  };
+  const categoriesById = new Map();
+  const products = [];
+  lines.slice(1).map(readRow).forEach((row, index) => {
+    const categoryId = slugifyCatalogId(row.category_id || row.category || row.categoria || 'sin-categoria', 'sin-categoria');
+    const categoryLabel = row.category_label || row.categoria_nombre || row.category || row.categoria || categoryId;
+    if (!categoriesById.has(categoryId)) {
+      categoriesById.set(categoryId, { id: categoryId, label: categoryLabel, emoji: row.emoji || '', customCategory: true });
+    }
+    const productName = row.name || row.nombre || row.product || row.producto;
+    if (!productName) return;
+    products.push({
+      id: slugifyCatalogId(row.id || productName, `producto-${index + 1}`),
+      name: productName,
+      category: categoryId,
+      type: row.type || row.tipo || 'custom',
+      price: Number(row.price || row.precio || 0),
+      badge: row.badge || row.etiqueta || '',
+      description: row.description || row.descripcion || '',
+      ingredients: row.ingredients || row.ingredientes || '',
+      image: row.image || row.imagen || '',
+      unavailable: false,
+      customProduct: true,
+    });
+  });
+  return { categories: [...categoriesById.values()], products };
+}
+
+export default function AdminPanel({ products, categoriesList = categories, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu }) {
   const [password, setPassword] = useState(() => { try { return window.sessionStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) || ''; } catch { return ''; } });
   const [unlocked, setUnlocked] = useState(false);
   const [drafts, setDrafts] = useState(() => products.map((product) => ({ ...product })));
-  const [categoryDraft, setCategoryDraft] = useState(() => categoryOrder.length ? categoryOrder : categories.map((category) => category.id));
+  const [categoryItems, setCategoryItems] = useState(() => categoriesList.map((category) => ({ ...category })));
+  const [categoryDraft, setCategoryDraft] = useState(() => categoryOrder.length ? categoryOrder : categoriesList.map((category) => category.id));
   const [productOrderDraft, setProductOrderDraft] = useState(() => productOrder.length ? productOrder : products.map((product) => product.id));
   const [promotionDraft, setPromotionDraft] = useState(() => normalizePromotion(promotion, products));
   const [categoryHiddenDraft, setCategoryHiddenDraft] = useState(() => ({ ...(categoryHidden || {}) }));
   const [businessHoursDraft, setBusinessHoursDraft] = useState(() => normalizeBusinessHours(businessHours));
   const [branchSettingsDraft, setBranchSettingsDraft] = useState(() => normalizeBranchSettings(branchSettings));
+  const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
+  const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
+  const [importText, setImportText] = useState('');
   const [openAdminSections, setOpenAdminSections] = useState({ branches: true, catalog: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
@@ -75,8 +114,12 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
   }, [products]);
 
   useEffect(() => {
-    setCategoryDraft(categoryOrder.length ? categoryOrder : categories.map((category) => category.id));
-  }, [categoryOrder]);
+    setCategoryItems(categoriesList.map((category) => ({ ...category })));
+  }, [categoriesList]);
+
+  useEffect(() => {
+    setCategoryDraft(categoryOrder.length ? categoryOrder : categoriesList.map((category) => category.id));
+  }, [categoryOrder, categoriesList]);
 
   useEffect(() => {
     setProductOrderDraft(productOrder.length ? productOrder : products.map((product) => product.id));
@@ -102,6 +145,88 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
     setDrafts((current) => current.map((product) => (
       product.id === id ? { ...product, [key]: value } : product
     )));
+  };
+
+  const categoryLabel = (categoryId) => {
+    const category = categoryItems.find((item) => item.id === categoryId);
+    if (category) return `${category.emoji ? `${category.emoji} ` : ''}${category.label}`;
+    const meta = categoryMeta(categoryId);
+    return `${meta.emoji ? `${meta.emoji} ` : ''}${meta.label}`;
+  };
+
+  const addCategory = () => {
+    const label = newCategoryDraft.label.trim();
+    if (!label) {
+      setStatus('Escribe el nombre de la categoría.');
+      return;
+    }
+    const id = slugifyCatalogId(label, `categoria-${categoryItems.length + 1}`);
+    if (categoryItems.some((category) => category.id === id)) {
+      setStatus('Ya existe una categoría con ese nombre.');
+      return;
+    }
+    const category = { id, label, emoji: newCategoryDraft.emoji.trim(), customCategory: true };
+    setCategoryItems((current) => [...current, category]);
+    setCategoryDraft((current) => [...current, id]);
+    setNewCategoryDraft({ label: '', emoji: '' });
+    setStatus('Categoría agregada. Guarda cambios para publicarla.');
+  };
+
+  const addProduct = () => {
+    const name = newProductDraft.name.trim();
+    if (!name) {
+      setStatus('Escribe el nombre del producto.');
+      return;
+    }
+    const id = slugifyCatalogId(name, `producto-${drafts.length + 1}`);
+    if (drafts.some((product) => product.id === id)) {
+      setStatus('Ya existe un producto con ese nombre.');
+      return;
+    }
+    const product = {
+      id,
+      name,
+      category: newProductDraft.category || categoryItems[0]?.id || 'sin-categoria',
+      type: 'custom',
+      price: Number(newProductDraft.price || 0),
+      description: '',
+      ingredients: '',
+      image: '',
+      unavailable: false,
+      customProduct: true,
+    };
+    setDrafts((current) => [...current, product]);
+    setProductOrderDraft((current) => [...current, id]);
+    setNewProductDraft({ name: '', category: product.category, price: 0 });
+    setStatus('Producto agregado. Completa sus datos y guarda cambios.');
+  };
+
+  const importMenuCsv = () => {
+    const parsed = parseMenuCsv(importText);
+    if (!parsed.categories.length && !parsed.products.length) {
+      setStatus('No encontré productos en el CSV.');
+      return;
+    }
+    setCategoryItems((current) => {
+      const byId = new Map(current.map((category) => [category.id, category]));
+      parsed.categories.forEach((category) => byId.set(category.id, { ...(byId.get(category.id) || {}), ...category, customCategory: true }));
+      return [...byId.values()];
+    });
+    setCategoryDraft((current) => [...new Set([...current, ...parsed.categories.map((category) => category.id)])]);
+    setDrafts((current) => {
+      const byId = new Map(current.map((product) => [product.id, product]));
+      parsed.products.forEach((product) => byId.set(product.id, { ...(byId.get(product.id) || {}), ...product, customProduct: true }));
+      return [...byId.values()];
+    });
+    setProductOrderDraft((current) => [...new Set([...current, ...parsed.products.map((product) => product.id)])]);
+    setImportText('');
+    setStatus(`Importados ${parsed.products.length} productos. Guarda cambios para publicarlos.`);
+  };
+
+  const makeCurrentCatalogEditable = () => {
+    setCategoryItems((current) => current.map((category) => ({ ...category, customCategory: true })));
+    setDrafts((current) => current.map((product) => ({ ...product, customProduct: true })));
+    setStatus('Catálogo actual copiado a DB. Guarda cambios para que deje de depender del catálogo base.');
   };
 
   const updatePromotion = (key, value) => {
@@ -219,7 +344,7 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
   };
 
   const orderedDrafts = useMemo(() => sortByOrder(drafts, productOrderDraft), [drafts, productOrderDraft]);
-  const orderedCategories = useMemo(() => sortByOrder(categories, categoryDraft), [categoryDraft]);
+  const orderedCategories = useMemo(() => sortByOrder(categoryItems, categoryDraft), [categoryItems, categoryDraft]);
 
   const unlock = async () => {
     setStatus('Validando...');
@@ -260,6 +385,29 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
         unavailable: Boolean(product.unavailable),
       };
     }
+    const extraCategories = categoryItems
+      .filter((category) => category.customCategory)
+      .map((category) => ({
+        id: slugifyCatalogId(category.id || category.label, 'categoria'),
+        label: category.label || category.id,
+        emoji: category.emoji || '',
+        customCategory: true,
+      }));
+    const extraProducts = drafts
+      .filter((product) => product.customProduct)
+      .map((product) => ({
+        id: slugifyCatalogId(product.id || product.name, 'producto'),
+        name: product.name,
+        category: product.category,
+        type: product.type || 'custom',
+        price: Number(product.price || 0),
+        badge: product.badge || '',
+        description: product.description || '',
+        ingredients: product.ingredients || '',
+        image: product.image || '',
+        unavailable: Boolean(product.unavailable),
+        customProduct: true,
+      }));
 
     try {
       const response = await fetch('/api/admin/menu', {
@@ -270,6 +418,8 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
         },
         body: JSON.stringify({
           overrides,
+          extraCategories,
+          extraProducts,
           categoryOrder: categoryDraft,
           productOrder: productOrderDraft,
           categoryHidden: categoryHiddenDraft,
@@ -400,6 +550,22 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
             {openAdminSections.sections && (
             <>
             <div className="admin-order-box">
+              <h2>Crear e importar menú</h2>
+              <div className="admin-promo-grid">
+                <label className="field"><span>Nueva categoría</span><input value={newCategoryDraft.label} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, label: e.target.value }))} placeholder="Ej. Tacos" /></label>
+                <label className="field"><span>Emoji/icono</span><input value={newCategoryDraft.emoji} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, emoji: e.target.value }))} placeholder="🌮" /></label>
+                <button type="button" className="ghost" onClick={addCategory}>Agregar categoría</button>
+                <label className="field"><span>Nuevo producto</span><input value={newProductDraft.name} onChange={(e) => setNewProductDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ej. Taco de sirloin" /></label>
+                <label className="field"><span>Categoría</span><select value={newProductDraft.category} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
+                <label className="field"><span>Precio</span><input type="number" value={newProductDraft.price} onChange={(e) => setNewProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
+                <button type="button" className="ghost" onClick={addProduct}>Agregar producto</button>
+                <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,🌮,taco-sirloin,Taco de sirloin,85,Con tortilla de maíz,Sirloin y salsa,/products/taco.jpg" /></label>
+                <button type="button" className="ghost" onClick={importMenuCsv}>Importar productos</button>
+                <button type="button" className="ghost" onClick={makeCurrentCatalogEditable}>Convertir catálogo actual a editable</button>
+              </div>
+            </div>
+
+            <div className="admin-order-box">
               <h2>Orden de secciones</h2>
               <p>Mueve las secciones para elegir cuál aparece primero en el menú.</p>
               <div className="admin-sort-list">
@@ -437,7 +603,7 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
                       <article className="admin-product" key={product.id}>
                         <div className="admin-product-head">
                           <strong>{product.name}</strong>
-                          <span>{categoryMeta(product.category).label}</span>
+                          <span>{categoryLabel(product.category)}</span>
                         </div>
                         <div className="admin-product-move">
                           <button type="button" className="ghost mini" onClick={() => moveProduct(product.id, -1)}>Mover arriba ↑</button>
@@ -446,6 +612,12 @@ export default function AdminPanel({ products, categoryOrder, productOrder, cate
                         <label className="check-row full admin-availability">
                           <input type="checkbox" checked={!product.unavailable} onChange={(e) => updateDraft(product.id, 'unavailable', !e.target.checked)} />
                           <span>Disponible para ordenar</span>
+                        </label>
+                        <label className="field">
+                          <span>Categoría</span>
+                          <select value={product.category} onChange={(e) => updateDraft(product.id, 'category', e.target.value)}>
+                            {categoryItems.map((categoryOption) => <option key={categoryOption.id} value={categoryOption.id}>{categoryLabel(categoryOption.id)}</option>)}
+                          </select>
                         </label>
                         <label className="field">
                           <span>Nombre</span>

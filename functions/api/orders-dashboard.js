@@ -348,7 +348,15 @@ async function getSelectedFamilyComponents(env, productId, options = {}) {
   for (const pair of selectedPairs) {
     try {
       const result = await env.DB.prepare(
-        `SELECT c.item_id, c.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
+        `SELECT oi.item_id, oi.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
+         FROM stock_product_option_groups pg
+         JOIN stock_option_families f ON f.id = pg.family_id
+         JOIN stock_option_family_items oi ON oi.family_id = f.id
+         JOIN inventory_items i ON i.id = oi.item_id
+         LEFT JOIN stock_units u ON u.id = i.unit_id
+         WHERE pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
+        UNION ALL
+        SELECT c.item_id, c.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
          FROM stock_product_option_groups pg
          JOIN stock_option_families f ON f.id = pg.family_id
          JOIN stock_option_family_items oi ON oi.family_id = f.id
@@ -356,7 +364,7 @@ async function getSelectedFamilyComponents(env, productId, options = {}) {
          JOIN inventory_items i ON i.id = c.item_id
          LEFT JOIN stock_units u ON u.id = i.unit_id
          WHERE pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
-      ).bind(productId, pair.familyKey, pair.optionName).all();
+      ).bind(productId, pair.familyKey, pair.optionName, productId, pair.familyKey, pair.optionName).all();
       rows.push(...(result.results || []));
     } catch { /* components table may not exist before first stock load */ }
   }
@@ -371,11 +379,25 @@ async function aggregateOrderConsumption(env, orderId) {
   const orderItems = itemsResult.results || [];
   const consumption = new Map();
   const missingRecipes = [];
+  const stats = {
+    orderItemCount: orderItems.length,
+    recipeLineCount: 0,
+    matchedLineCount: 0,
+    skippedNoInventory: [],
+    skippedNoQuantity: [],
+    skippedByOptions: [],
+  };
 
   const addLine = (line, multiplier) => {
-    if (!Number(line.deducts_inventory ?? 1)) return;
+    if (!Number(line.deducts_inventory ?? 1)) {
+      stats.skippedNoInventory.push(line.item_name || `Ingrediente ${line.item_id}`);
+      return;
+    }
     const qty = Number(line.quantity || 0) * multiplier;
-    if (!qty) return;
+    if (!qty) {
+      stats.skippedNoQuantity.push(line.item_name || `Ingrediente ${line.item_id}`);
+      return;
+    }
     const existing = consumption.get(line.item_id) || {
       item_id: line.item_id,
       item_name: line.item_name,
@@ -395,11 +417,18 @@ async function aggregateOrderConsumption(env, orderId) {
         const multiplier = Number(promoItem.quantity || 1) * Number(orderItem.quantity || 1);
         const lines = await getRecipeLinesForProduct(env, productId, promoItem.productName);
         if (lines.length === 0) missingRecipes.push(promoItem.productName || productId);
+        stats.recipeLineCount += lines.length;
         const promoOptions = options.extrasByProductId?.[productId] || {};
         for (const line of lines) {
-          if (shouldUseRecipeLine(line, promoOptions)) addLine(line, multiplier);
+          if (shouldUseRecipeLine(line, promoOptions)) {
+            stats.matchedLineCount += 1;
+            addLine(line, multiplier);
+          } else {
+            stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
+          }
         }
         const familyComponents = await getSelectedFamilyComponents(env, productId, promoOptions);
+        stats.recipeLineCount += familyComponents.length;
         for (const component of familyComponents) addLine(component, multiplier);
       }
       continue;
@@ -408,15 +437,22 @@ async function aggregateOrderConsumption(env, orderId) {
     const productId = orderItem.product_id || orderItem.productId || orderItem.id;
     const lines = await getRecipeLinesForProduct(env, productId, orderItem.product_name);
     if (lines.length === 0) missingRecipes.push(orderItem.product_name || productId);
+    stats.recipeLineCount += lines.length;
     const multiplier = Number(orderItem.quantity || 1);
     for (const line of lines) {
-      if (shouldUseRecipeLine(line, options)) addLine(line, multiplier);
+      if (shouldUseRecipeLine(line, options)) {
+        stats.matchedLineCount += 1;
+        addLine(line, multiplier);
+      } else {
+        stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
+      }
     }
     const familyComponents = await getSelectedFamilyComponents(env, productId, options);
+    stats.recipeLineCount += familyComponents.length;
     for (const component of familyComponents) addLine(component, multiplier);
   }
 
-  return { consumption: [...consumption.values()], missingRecipes };
+  return { consumption: [...consumption.values()], missingRecipes, stats };
 }
 
 
@@ -463,9 +499,15 @@ async function deductOrderStock(env, orderId, orderNumber) {
   if (!order) throw new Error('Pedido no encontrado.');
   if (Number(order.stock_deducted || 0) === 1) return { skipped: true, reason: 'El stock ya estaba descontado.' };
 
-  const { consumption, missingRecipes } = await aggregateOrderConsumption(env, orderId);
+  const { consumption, missingRecipes, stats } = await aggregateOrderConsumption(env, orderId);
   if (consumption.length === 0) {
-    throw new Error(missingRecipes.length ? `No hay recetas configuradas para: ${missingRecipes.join(', ')}` : 'No hay consumo de stock para este pedido.');
+    if (!stats.orderItemCount) throw new Error('El pedido no tiene productos guardados en order_items. Crea un pedido nuevo para probar descuento.');
+    if (missingRecipes.length) throw new Error(`No hay recetas configuradas para: ${missingRecipes.join(', ')}`);
+    if (!stats.recipeLineCount) throw new Error('La receta del producto no tiene ingredientes guardados.');
+    if (stats.skippedNoInventory.length) throw new Error(`Los ingredientes de la receta estan marcados como "no descuentan inventario": ${[...new Set(stats.skippedNoInventory)].join(', ')}`);
+    if (stats.skippedNoQuantity.length) throw new Error(`Las lineas de receta tienen cantidad 0: ${[...new Set(stats.skippedNoQuantity)].join(', ')}`);
+    if (stats.skippedByOptions.length) throw new Error(`Las lineas de receta son opcionales y no fueron seleccionadas en el pedido: ${[...new Set(stats.skippedByOptions)].join(', ')}`);
+    throw new Error('No hay consumo de stock para este pedido.');
   }
 
   const shortages = [];

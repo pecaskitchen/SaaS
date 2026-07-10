@@ -25,6 +25,15 @@ function platformToken() {
   }
 }
 
+function setPlatformToken(token) {
+  try {
+    if (token) window.sessionStorage.setItem('platform_admin_token', token);
+    else window.sessionStorage.removeItem('platform_admin_token');
+  } catch {
+    // ignore storage errors
+  }
+}
+
 async function platformFetch(path, options = {}) {
   const response = await fetch(path, {
     ...options,
@@ -35,6 +44,11 @@ async function platformFetch(path, options = {}) {
     },
   });
   const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    const error = new Error(data.error || 'No autorizado como admin de plataforma.');
+    error.status = 401;
+    throw error;
+  }
   if (!response.ok || data.ok === false) throw new Error(data.detail || data.error || 'Error de plataforma.');
   return data;
 }
@@ -51,6 +65,8 @@ export default function PlatformAdmin() {
   const [businesses, setBusinesses] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [draft, setDraft] = useState(emptyBusiness);
+  const [password, setPassword] = useState('');
+  const [authorized, setAuthorized] = useState(() => Boolean(platformToken()));
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,6 +79,11 @@ export default function PlatformAdmin() {
   }, 0), [businesses]);
 
   const loadAll = async () => {
+    if (!platformToken()) {
+      setAuthorized(false);
+      setStatus('');
+      return;
+    }
     setLoading(true);
     setStatus('Cargando negocios...');
     try {
@@ -72,8 +93,13 @@ export default function PlatformAdmin() {
       ]);
       setBusinesses(businessData.businesses || []);
       setDashboard(dashboardData);
+      setAuthorized(true);
       setStatus('');
     } catch (error) {
+      if (error.status === 401) {
+        setPlatformToken('');
+        setAuthorized(false);
+      }
       setStatus(error.message);
     } finally {
       setLoading(false);
@@ -83,6 +109,45 @@ export default function PlatformAdmin() {
   useEffect(() => {
     loadAll();
   }, []);
+
+  const loginPlatform = async () => {
+    const cleanPassword = password.trim();
+    if (!cleanPassword) {
+      setStatus('Ingresa la contraseña de plataforma.');
+      return;
+    }
+    setLoading(true);
+    setStatus('Validando acceso...');
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: cleanPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false || data.role !== 'platform_admin' || !data.sessionToken) {
+        throw new Error(data.error || 'Contraseña de plataforma inválida.');
+      }
+      setPlatformToken(data.sessionToken);
+      setPassword('');
+      setAuthorized(true);
+      await loadAll();
+    } catch (error) {
+      setPlatformToken('');
+      setAuthorized(false);
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logoutPlatform = () => {
+    setPlatformToken('');
+    setAuthorized(false);
+    setBusinesses([]);
+    setDashboard(null);
+    setStatus('');
+  };
 
   const updateDraft = (key, value) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -127,6 +192,33 @@ export default function PlatformAdmin() {
     }
   };
 
+  if (!authorized) {
+    return (
+      <main className="platform-page">
+        <section className="platform-shell">
+          <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); loginPlatform(); }}>
+            <span className="eyebrow"><Shield size={14} /> Admin global</span>
+            <h1>Acceso de plataforma</h1>
+            <label className="field">
+              <span>Contraseña</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Contraseña de plataforma"
+                autoFocus
+              />
+            </label>
+            <button type="submit" className="primary" disabled={loading}>
+              <Shield size={16} /> Entrar
+            </button>
+            {status && <p className="admin-status">{status}</p>}
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="platform-page">
       <section className="platform-shell">
@@ -138,6 +230,9 @@ export default function PlatformAdmin() {
           </div>
           <button type="button" className="ghost" onClick={loadAll} disabled={loading}>
             <RefreshCw size={16} /> Actualizar
+          </button>
+          <button type="button" className="ghost" onClick={logoutPlatform} disabled={loading}>
+            Salir
           </button>
         </header>
 

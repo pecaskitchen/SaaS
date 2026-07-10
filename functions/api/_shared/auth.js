@@ -1,7 +1,7 @@
 import { jsonResponse } from './http.js';
 
 export function platformToken(env) {
-  return env.PLATFORM_ADMIN_TOKEN || env.PLATFORM_ADMIN_PASSWORD || env.ADMIN_PASSWORD || '';
+  return env.PLATFORM_ADMIN_TOKEN || env.PLATFORM_ADMIN_PASSWORD || '';
 }
 
 export function requestToken(request) {

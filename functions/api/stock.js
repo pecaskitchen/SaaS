@@ -515,11 +515,13 @@ async function seedDefaults(env) {
 
 function normalizeSavedMenu(raw) {
   try {
-    if (!raw) return { overrides: {}, categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    if (!raw) return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
     const parsed = JSON.parse(raw);
-    if (parsed.overrides || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.businessHours || parsed.branchSettings) {
+    if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.businessHours || parsed.branchSettings) {
       return {
         overrides: parsed.overrides || {},
+        extraCategories: Array.isArray(parsed.extraCategories) ? parsed.extraCategories : [],
+        extraProducts: Array.isArray(parsed.extraProducts) ? parsed.extraProducts : [],
         categoryOrder: parsed.categoryOrder || [],
         productOrder: parsed.productOrder || [],
         categoryHidden: parsed.categoryHidden || {},
@@ -528,9 +530,9 @@ function normalizeSavedMenu(raw) {
         branchSettings: normalizeBranchSettings(parsed.branchSettings || DEFAULT_BRANCH_SETTINGS),
       };
     }
-    return { overrides: parsed || {}, categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    return { overrides: parsed || {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
   } catch {
-    return { overrides: {}, categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, businessHours: null, branchSettings: normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS) };
   }
 }
 

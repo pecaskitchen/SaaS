@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
 import { formatOrderDate } from '../lib/dates.js';
-import { CATALOG_PRODUCTS, categoryMeta } from '../lib/catalog.js';
+import { CATALOG_PRODUCTS, categoryMeta, mergeProductsWithExtras } from '../lib/catalog.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   activeBranches,
@@ -41,6 +41,7 @@ const STOCK_OPERATION_TABS = [
 ];
 
 const STOCK_ADMIN_CONFIG_TABS = [
+  { id: 'productSetup', label: 'Productos' },
   { id: 'items', label: 'Ingredientes' },
   { id: 'recipesSub', label: 'Recetas/Sub' },
   { id: 'families', label: 'Familias' },
@@ -557,6 +558,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [familyComponentDraft, setFamilyComponentDraft] = useState(emptyFamilyComponentDraft);
   const [productFamilyRuleDraft, setProductFamilyRuleDraft] = useState(emptyProductFamilyRuleDraft);
   const [productionDraft, setProductionDraft] = useState({ recipeId: '', batchMultiplier: '1', note: '' });
+  const [selectedProductSetupId, setSelectedProductSetupId] = useState('');
 
   const [quickDrafts, setQuickDrafts] = useState([]);
   const [inventoryCounts, setInventoryCounts] = useState({});
@@ -783,6 +785,30 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         is_default: Boolean(line.is_default),
       })),
     });
+  };
+
+  const editProductRecipe = (product) => {
+    const existing = data.recipes.find((recipe) => recipe.recipe_type === 'product' && recipe.recipe_key === `product:${product.id}`);
+    if (existing) {
+      editRecipe(existing);
+      return;
+    }
+    setRecipeEditorType('product');
+    setRecipeDraft({
+      ...emptyRecipeDraft,
+      recipe_type: 'product',
+      recipe_key: `product:${product.id}`,
+      name: product.name,
+      is_active: true,
+      lines: [],
+    });
+    setRecipeLineDraft(emptyRecipeLineDraft);
+    setActiveTab('recipesSub');
+  };
+
+  const startProductFamilyAssignment = (product) => {
+    setProductFamilyRuleDraft((current) => ({ ...emptyProductFamilyRuleDraft, ...current, product_id: product.id }));
+    setActiveTab('families');
   };
 
   const startNewRecipe = (recipeType) => {
@@ -1236,7 +1262,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const subRecipes = data.recipes.filter((recipe) => recipe.recipe_type === 'subrecipe');
   const currentRecipeList = recipeEditorType === 'subrecipe' ? subRecipes : productRecipes;
   const menuOverridesForStock = data.menuSettings?.overrides || {};
-  const stockMenuProducts = CATALOG_PRODUCTS.map((product) => ({
+  const stockCatalogProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, data.menuSettings?.extraProducts || []);
+  const stockMenuProducts = stockCatalogProducts.map((product) => ({
     ...product,
     ...(menuOverridesForStock[product.id] || {}),
     soldOut: Boolean(menuOverridesForStock[product.id]?.soldOut),
@@ -1260,6 +1287,17 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const soldOutProducts = stockMenuProducts.filter((product) => product.soldOut);
   const suggestedSoldOutProducts = productStockSuggestions.filter((item) => item.shouldSuggestSoldOut && !item.product.soldOut);
   const veryLowItems = data.items.filter((item) => Number(item.current_stock || 0) > 0 && Number(item.min_stock || 0) > 0 && Number(item.current_stock || 0) <= Number(item.min_stock || 0) * 0.5);
+  const selectedProductSetup = stockMenuProducts.find((product) => product.id === selectedProductSetupId) || stockMenuProducts[0] || null;
+  const selectedProductRecipe = selectedProductSetup ? productRecipes.find((recipe) => recipe.recipe_key === `product:${selectedProductSetup.id}`) : null;
+  const selectedProductFamilyRules = selectedProductSetup ? (data.optionFamilies || []).flatMap((family) => (
+    (family.productRules || [])
+      .filter((rule) => rule.product_id === selectedProductSetup.id)
+      .map((rule) => ({ ...rule, family }))
+  )) : [];
+  const selectedProductRecipeLines = (selectedProductRecipe?.lines || []).map((line) => ({
+    ...line,
+    item: itemById.get(Number(line.item_id)),
+  }));
 
   const setProductSoldOut = async (productId, soldOut) => {
     await postStockAction({ action: 'setProductSoldOut', productId, soldOut }, soldOut ? 'Producto marcado como agotado.' : 'Producto disponible de nuevo.');
@@ -1342,6 +1380,90 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         </div>
 
         {status && <p className="admin-status">{status}</p>}
+
+        {activeTab === 'productSetup' && (
+          <div className="stock-dashboard-grid recipes-layout">
+            <section className="stock-card-block">
+              <div className="stock-section-head">
+                <div>
+                  <h2>Productos</h2>
+                  <p>Elige un producto y configura desde aquí su receta, modificadores, sub-recetas e ingredientes.</p>
+                </div>
+                {selectedProductSetup && <button type="button" className="primary" onClick={() => editProductRecipe(selectedProductSetup)}>Editar receta</button>}
+              </div>
+              <label className="field full">
+                <span>Producto</span>
+                <select value={selectedProductSetup?.id || ''} onChange={(e) => setSelectedProductSetupId(e.target.value)}>
+                  {stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} · {product.name}</option>)}
+                </select>
+              </label>
+
+              {selectedProductSetup ? (
+                <div className="stock-alert">
+                  <b>{selectedProductSetup.name}</b>
+                  <span>{categoryMeta(selectedProductSetup.category).label} · ${selectedProductSetup.price || 0}</span>
+                  <small>{selectedProductSetup.description || 'Sin descripción'}</small>
+                </div>
+              ) : <p>No hay productos configurados todavía.</p>}
+
+              <div className="inline-actions">
+                {selectedProductSetup && <button type="button" className="ghost" onClick={() => editProductRecipe(selectedProductSetup)}>{selectedProductRecipe ? 'Editar receta del producto' : 'Crear receta del producto'}</button>}
+                {selectedProductSetup && <button type="button" className="ghost" onClick={() => startProductFamilyAssignment(selectedProductSetup)}>Asignar familia/modificador</button>}
+                <button type="button" className="ghost" onClick={() => { setRecipeEditorType('subrecipe'); startNewRecipe('subrecipe'); }}>Crear sub-receta</button>
+              </div>
+            </section>
+
+            <section className="stock-card-block">
+              <h2>Receta del producto</h2>
+              {!selectedProductRecipe ? <p>Este producto todavía no tiene receta. Crea una para descontar stock cuando el pedido pase a Listo.</p> : null}
+              {selectedProductRecipe ? (
+                <div className="stock-table-wrap">
+                  <table className="stock-table">
+                    <thead><tr><th>Ingrediente</th><th>Cantidad</th><th>Rol</th><th>Stock</th></tr></thead>
+                    <tbody>
+                      {selectedProductRecipeLines.map((line, index) => (
+                        <tr key={`${line.item_id}-${index}`}>
+                          <td><b>{line.item?.name || line.item_name || 'Ingrediente'}</b><span>{line.item?.item_type || ''}</span></td>
+                          <td>{formatStockQuantity(line.quantity, line.item?.unit_code || line.unit_code)}</td>
+                          <td>{cleanRecipeLineRole(line.line_role)}</td>
+                          <td><span className={`stock-pill ${line.item ? stockLevelClass(line.item) : 'warning'}`}>{line.item ? formatStockQuantity(line.item.current_stock, line.item.unit_code) : 'Sin stock'}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="stock-card-block">
+              <h2>Familias y modificadores</h2>
+              {selectedProductFamilyRules.length === 0 ? <p>Este producto no tiene familias asignadas todavía.</p> : null}
+              {selectedProductFamilyRules.map((rule) => (
+                <div className="recipe-card-mini" key={`${rule.family.family_key}-${rule.product_id}`}>
+                  <div>
+                    <b>{rule.label || rule.family.name}</b>
+                    <span>{rule.family.name} · {rule.family.family_key}</span>
+                    <small>{rule.min_select || 0} mínimo · {rule.max_included || 0} incluido(s) · máximo {rule.max_total || 1} · extra ${rule.extra_price || 0}</small>
+                  </div>
+                  <button type="button" className="ghost" onClick={() => editOptionFamily(rule.family)}>Editar familia</button>
+                </div>
+              ))}
+            </section>
+
+            <section className="stock-card-block">
+              <h2>Sub-recetas disponibles</h2>
+              {subRecipes.length === 0 ? <p>No hay sub-recetas todavía. Úsalas para preparados internos como aderezos, masas, salsas o bases.</p> : null}
+              <div className="recipe-list">
+                {subRecipes.slice(0, 8).map((recipe) => (
+                  <div className="recipe-card-mini" key={recipe.id}>
+                    <div><b>{recipeLabel(recipe)}</b><span>{recipe.output_item_name || 'Sin ingrediente producido'}</span><small>{(recipe.lines || []).length} ingrediente(s)</small></div>
+                    <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
         {activeTab === 'dashboard' && (
           <div className="stock-dashboard">
@@ -1799,7 +1921,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="recipe-line-builder">
                     <h3>Productos que usan esta familia</h3>
                     <div className="stock-form-grid compact-grid">
-                      <label className="field"><span>Producto</span><select value={productFamilyRuleDraft.product_id} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, product_id: e.target.value }))}><option value="">Selecciona</option>{CATALOG_PRODUCTS.map((product) => <option key={product.id} value={product.id}>{productText(product, 'es').name}</option>)}</select></label>
+                      <label className="field"><span>Producto</span><select value={productFamilyRuleDraft.product_id} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, product_id: e.target.value }))}><option value="">Selecciona</option>{stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{productText(product, 'es').name}</option>)}</select></label>
                       <label className="field"><span>Etiqueta</span><input value={productFamilyRuleDraft.label} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, label: e.target.value }))} placeholder={optionFamilyDraft.name || 'Nombre de familia'} /></label>
                       <label className="field"><span>Default en este producto</span><input value={productFamilyRuleDraft.default_option_name || ''} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, default_option_name: e.target.value }))} placeholder="Ej. Leche entera" /></label>
                       <label className="field"><span>Mínimo</span><input type="number" min="0" value={productFamilyRuleDraft.min_select} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, min_select: e.target.value }))} /></label>
@@ -1815,7 +1937,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     <div className="stock-table-wrap">
                       <table className="stock-table"><thead><tr><th>Producto</th><th>Regla</th><th>Default</th><th></th></tr></thead><tbody>
                         {optionFamilyDraft.productRules.map((rule, index) => {
-                          const product = CATALOG_PRODUCTS.find((item) => item.id === rule.product_id);
+                          const product = stockMenuProducts.find((item) => item.id === rule.product_id);
                           return <tr key={`${rule.product_id}-${index}`}><td><b>{product ? productText(product, 'es').name : rule.product_id}</b></td><td>{rule.min_select || 0} mínimo · {rule.max_included || 0} incluido(s) · máximo {rule.max_total || 1} · extra ${rule.extra_price || 0}</td><td>{rule.default_option_name || 'Sin default'}</td><td><button type="button" className="ghost danger-text" onClick={() => removeProductFamilyRule(index)}>Quitar</button></td></tr>;
                         })}
                       </tbody></table>

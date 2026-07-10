@@ -1214,6 +1214,109 @@ function nullableText(value) {
   return text || null;
 }
 
+function normalizeImportKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+const ITEM_IMPORT_ALIASES = {
+  ingrediente: 'name',
+  insumo: 'name',
+  producto: 'name',
+  nombre: 'name',
+  name: 'name',
+  marca: 'brand',
+  brand: 'brand',
+  tipo: 'item_type',
+  item_type: 'item_type',
+  unidad: 'unit_code',
+  unidad_base: 'unit_code',
+  unit: 'unit_code',
+  unit_code: 'unit_code',
+  stock: 'current_stock',
+  stock_actual: 'current_stock',
+  cantidad: 'current_stock',
+  current_stock: 'current_stock',
+  minimo: 'min_stock',
+  min: 'min_stock',
+  min_stock: 'min_stock',
+  maximo: 'max_stock',
+  max: 'max_stock',
+  max_stock: 'max_stock',
+  precision: 'accuracy_target',
+  accuracy: 'accuracy_target',
+  accuracy_target: 'accuracy_target',
+  proveedor: 'primary_supplier',
+  proveedor_principal: 'primary_supplier',
+  primary_supplier: 'primary_supplier',
+  proveedor_alt: 'alt_supplier',
+  proveedor_alterno: 'alt_supplier',
+  alt_supplier: 'alt_supplier',
+  categoria_compra: 'purchase_category',
+  purchase_category: 'purchase_category',
+  presentacion: 'purchase_unit_label',
+  purchase_unit_label: 'purchase_unit_label',
+  cantidad_presentacion: 'purchase_unit_quantity',
+  purchase_unit_quantity: 'purchase_unit_quantity',
+  precio: 'purchase_price',
+  costo: 'purchase_price',
+  purchase_price: 'purchase_price',
+  caducidad: 'expiry_date',
+  expiry_date: 'expiry_date',
+};
+
+function normalizeItemImportRow(row = {}) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(row || {})) {
+    const normalizedKey = normalizeImportKey(key);
+    normalized[ITEM_IMPORT_ALIASES[normalizedKey] || normalizedKey] = value;
+  }
+  return normalized;
+}
+
+function normalizeUnitCode(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const ascii = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const compact = ascii.replace(/\s+/g, '');
+  const aliases = {
+    gramos: 'g',
+    gramo: 'g',
+    gr: 'g',
+    g: 'g',
+    kilos: 'kg',
+    kilo: 'kg',
+    kilogramo: 'kg',
+    kilogramos: 'kg',
+    kg: 'kg',
+    mililitros: 'ml',
+    mililitro: 'ml',
+    ml: 'ml',
+    litros: 'l',
+    litro: 'l',
+    l: 'l',
+    piezas: 'pieza',
+    pieza: 'pieza',
+    pza: 'pieza',
+    pzas: 'pieza',
+    unidades: 'pieza',
+    unidad: 'pieza',
+    bolsa: 'bolsa',
+    bolsas: 'bolsa',
+    paquete: 'paquete',
+    paquetes: 'paquete',
+    caja: 'caja',
+    cajas: 'caja',
+    porcion: 'porcion',
+    porciones: 'porcion',
+  };
+  return aliases[compact] || compact || 'pieza';
+}
+
 function cleanRecipeLineRole(role) {
   const value = String(role || 'ingrediente').trim();
   if (value === 'extra' || value === 'opcion_cliente' || value === 'porcion_estandar') return 'ingrediente';
@@ -1252,7 +1355,7 @@ async function getOrCreateLookup(env, table, column, value, extraColumns = '', e
 }
 
 async function getOrCreateUnit(env, code) {
-  const text = nullableText(code);
+  const text = nullableText(normalizeUnitCode(code));
   if (!text) return null;
   const row = await env.DB.prepare(`SELECT id FROM stock_units WHERE lower(code) = lower(?)`).bind(text).first();
   if (row?.id) return row.id;
@@ -1420,8 +1523,14 @@ async function importItems(env, rows, mode, user, branchId) {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  const normalizedRows = (rows || []).map(normalizeItemImportRow);
+  if (normalizedRows.length > 0 && !normalizedRows.some((row) => nullableText(row.name))) {
+    const error = new Error('El CSV de ingredientes no trae columna de nombre reconocible.');
+    error.validationErrors = [{ line: 1, field: 'name', message: 'Usa una columna name, nombre, ingrediente o insumo.' }];
+    throw error;
+  }
 
-  for (const row of rows || []) {
+  for (const row of normalizedRows) {
     const name = nullableText(row.name);
     if (!name) {
       skipped += 1;

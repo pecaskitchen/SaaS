@@ -248,6 +248,69 @@ const STOCK_CSV_COLUMNS = [
   'expiry_date',
 ];
 
+const STOCK_CSV_HEADER_ALIASES = {
+  ingrediente: 'name',
+  insumo: 'name',
+  producto: 'name',
+  nombre: 'name',
+  name: 'name',
+  marca: 'brand',
+  brand: 'brand',
+  tipo: 'item_type',
+  item_type: 'item_type',
+  categoria_tipo: 'item_type',
+  unidad: 'unit_code',
+  unidad_base: 'unit_code',
+  unit: 'unit_code',
+  unit_code: 'unit_code',
+  stock: 'current_stock',
+  stock_actual: 'current_stock',
+  cantidad: 'current_stock',
+  current_stock: 'current_stock',
+  minimo: 'min_stock',
+  mínimo: 'min_stock',
+  min: 'min_stock',
+  min_stock: 'min_stock',
+  maximo: 'max_stock',
+  máximo: 'max_stock',
+  max: 'max_stock',
+  max_stock: 'max_stock',
+  precision: 'accuracy_target',
+  accuracy: 'accuracy_target',
+  accuracy_target: 'accuracy_target',
+  proveedor: 'primary_supplier',
+  proveedor_principal: 'primary_supplier',
+  primary_supplier: 'primary_supplier',
+  proveedor_alt: 'alt_supplier',
+  proveedor_alterno: 'alt_supplier',
+  alt_supplier: 'alt_supplier',
+  categoria_compra: 'purchase_category',
+  categoría_compra: 'purchase_category',
+  purchase_category: 'purchase_category',
+  presentacion: 'purchase_unit_label',
+  presentación: 'purchase_unit_label',
+  purchase_unit_label: 'purchase_unit_label',
+  cantidad_presentacion: 'purchase_unit_quantity',
+  cantidad_presentación: 'purchase_unit_quantity',
+  purchase_unit_quantity: 'purchase_unit_quantity',
+  precio: 'purchase_price',
+  costo: 'purchase_price',
+  purchase_price: 'purchase_price',
+  caducidad: 'expiry_date',
+  expiry_date: 'expiry_date',
+};
+
+function normalizeStockCsvHeader(header) {
+  const key = String(header || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+  return STOCK_CSV_HEADER_ALIASES[key] || key;
+}
+
 function parseStockCsv(text) {
   const lines = String(text || '')
     .replace(/^\uFEFF/, '')
@@ -257,11 +320,11 @@ function parseStockCsv(text) {
 
   if (lines.length < 2) return [];
 
-  const headers = parseCsvLine(lines[0]).map((header) => header.trim());
+  const headers = parseCsvLine(lines[0]).map(normalizeStockCsvHeader);
   return lines.slice(1).map((line) => {
     const values = parseCsvLine(line);
     return headers.reduce((row, header, index) => {
-      row[header] = values[index] ?? '';
+      if (header) row[header] = values[index] ?? '';
       return row;
     }, {});
   }).filter((row) => String(row.name || '').trim());
@@ -1049,8 +1112,12 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       setStatus(`El CSV tiene cantidades negativas en ${invalid.name}.`);
       return;
     }
-    const ok = await postStockAction({ action: 'importItems', mode: csvMode, rows: csvRows }, 'CSV importado.');
-    if (ok) setCsvText('');
+    const result = await postStockAction({ action: 'importItems', mode: csvMode, rows: csvRows }, '', { returnData: true });
+    if (result?.ok) {
+      setStatus(`Ingredientes importados: ${result.created || 0} creados, ${result.updated || 0} actualizados, ${result.skipped || 0} omitidos.`);
+      setCsvText('');
+      await loadStock();
+    }
   };
 
   const handleCsvFile = async (file) => {
@@ -1085,7 +1152,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   };
 
 
-  const allImportRows = useMemo(() => parseGenericCsv(recipeCsvText || csvText || familyCsvText), [recipeCsvText, csvText, familyCsvText]);
+  const allImportRows = useMemo(() => parseGenericCsv(csvText || recipeCsvText || familyCsvText), [csvText, recipeCsvText, familyCsvText]);
   const allImportItemRows = useMemo(() => allImportRows.filter((row) => String(row.record_type || '').toLowerCase() === 'ingredient' || (row.name && !row.recipe_key && !row.family_key)), [allImportRows]);
   const allImportRecipeRows = useMemo(() => allImportRows.filter((row) => ['recipe', 'subrecipe'].includes(String(row.record_type || '').toLowerCase()) || row.recipe_key), [allImportRows]);
   const allImportFamilyRows = useMemo(() => allImportRows.filter((row) => ['family', 'family_option', 'family_component', 'family_product_rule'].includes(String(row.record_type || '').toLowerCase()) || row.family_key), [allImportRows]);
@@ -1196,6 +1263,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const text = await file.text();
     if (importKind === 'items') setCsvText(text);
     else if (importKind === 'families') setFamilyCsvText(text);
+    else if (importKind === 'all') setCsvText(text);
     else setRecipeCsvText(text);
   };
 
@@ -1815,7 +1883,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <label className="field"><span>Qué quieres importar</span><select value={importKind} onChange={(e) => setImportKind(e.target.value)} disabled={role !== 'admin'}><option value="items">Ingredientes</option><option value="recipes">Recetas</option><option value="subrecipes">Sub-recetas</option><option value="families">Familias</option><option value="all">Todo</option></select></label>
               <label className="field"><span>Modo</span><select value={importKind === 'items' ? csvMode : (importKind === 'families' ? familyCsvMode : recipeCsvMode)} onChange={(e) => importKind === 'items' ? setCsvMode(e.target.value) : (importKind === 'families' ? setFamilyCsvMode(e.target.value) : setRecipeCsvMode(e.target.value))} disabled={role !== 'admin'}><option value="upsert">Agregar nuevos y actualizar existentes</option><option value="updateOnly">Solo actualizar existentes</option></select></label>
               <label className="field full"><span>Subir archivo CSV</span><input type="file" accept=".csv,text/csv" onChange={(e) => handleUnifiedCsvFile(e.target.files?.[0])} disabled={role !== 'admin'} /></label>
-              <label className="field full"><span>CSV</span><textarea rows="10" value={importKind === 'items' ? csvText : (importKind === 'families' ? familyCsvText : recipeCsvText)} onChange={(e) => importKind === 'items' ? setCsvText(e.target.value) : (importKind === 'families' ? setFamilyCsvText(e.target.value) : setRecipeCsvText(e.target.value))} disabled={role !== 'admin'} placeholder={importKind === 'items' ? csvTemplateText() : (importKind === 'families' ? familyCsvTemplateText() : (importKind === 'all' ? 'Descarga datos actuales para trabajar sobre todo el sistema o pega aquí un CSV con record_type.' : recipeCsvTemplateText()))} /></label>
+              <label className="field full"><span>CSV</span><textarea rows="10" value={importKind === 'items' || importKind === 'all' ? csvText : (importKind === 'families' ? familyCsvText : recipeCsvText)} onChange={(e) => importKind === 'items' || importKind === 'all' ? setCsvText(e.target.value) : (importKind === 'families' ? setFamilyCsvText(e.target.value) : setRecipeCsvText(e.target.value))} disabled={role !== 'admin'} placeholder={importKind === 'items' ? csvTemplateText() : (importKind === 'families' ? familyCsvTemplateText() : (importKind === 'all' ? 'Descarga datos actuales para trabajar sobre todo el sistema o pega aquí un CSV con record_type.' : recipeCsvTemplateText()))} /></label>
             </div>
             <div className="stock-section-head import-preview-head">
               <div>

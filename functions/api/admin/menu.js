@@ -19,6 +19,18 @@ const DEFAULT_BRANCH_SETTINGS = {
   ],
 };
 
+async function ensureAppSettings(env) {
+  if (!env.DB) return false;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+  return true;
+}
+
 function normalizeBranchId(value, fallback = 'dominio') {
   return String(value || fallback).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || fallback;
 }
@@ -63,31 +75,37 @@ function normalizeSavedMenu(raw) {
   }
 }
 
+function menuPayload(saved, warning = '') {
+  return {
+    ok: true,
+    overrides: saved.overrides,
+    categoryOrder: saved.categoryOrder,
+    productOrder: saved.productOrder,
+    categoryHidden: saved.categoryHidden,
+    promotion: saved.promotion || null,
+    branchPromotions: saved.branchPromotions || {},
+    businessHours: saved.businessHours || null,
+    branchSettings: normalizeBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS),
+    ...(warning ? { warning } : {}),
+  };
+}
+
 export async function onRequestGet({ request, env }) {
   try {
     if (!isAuthorized(request, env)) {
       return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
     }
 
+    const hasDb = await ensureAppSettings(env);
+    if (!hasDb) return jsonResponse(menuPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
+
     const row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
     ).bind('menu_overrides').first();
 
-    const saved = normalizeSavedMenu(row?.value_json || '');
-
-    return jsonResponse({
-      ok: true,
-      overrides: saved.overrides,
-      categoryOrder: saved.categoryOrder,
-      productOrder: saved.productOrder,
-      categoryHidden: saved.categoryHidden,
-      promotion: saved.promotion || null,
-      branchPromotions: saved.branchPromotions || {},
-      businessHours: saved.businessHours || null,
-      branchSettings: normalizeBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS),
-    });
+    return jsonResponse(menuPayload(normalizeSavedMenu(row?.value_json || '')));
   } catch (error) {
-    return jsonResponse({ ok: false, error: 'No se pudo leer el menú.', detail: error.message }, 500);
+    return jsonResponse(menuPayload(normalizeSavedMenu(''), error.message));
   }
 }
 
@@ -96,6 +114,8 @@ export async function onRequestPost({ request, env }) {
     if (!isAuthorized(request, env)) {
       return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
     }
+    const hasDb = await ensureAppSettings(env);
+    if (!hasDb) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
 
     const body = await request.json();
     const currentRow = await env.DB.prepare(
@@ -138,6 +158,6 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({ ok: true });
   } catch (error) {
-    return jsonResponse({ ok: false, error: 'No se pudo guardar el menú.', detail: error.message }, 500);
+    return jsonResponse({ ok: false, error: 'No se pudo guardar el menu.', detail: error.message }, 500);
   }
 }

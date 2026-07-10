@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at_utc TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_saas_tenants_slug ON saas_tenants(slug);
 CREATE INDEX IF NOT EXISTS idx_saas_tenants_status ON saas_tenants(status);
 CREATE INDEX IF NOT EXISTS idx_saas_users_tenant_role ON saas_users(tenant_id, role);

@@ -43,6 +43,23 @@ function normalizeSavedMenu(raw) {
   }
 }
 
+async function readSavedMenu(env) {
+  if (!env.DB) return normalizeSavedMenu('');
+  try {
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `).run();
+    const row = await env.DB.prepare('SELECT value_json FROM app_settings WHERE key = ?').bind('menu_overrides').first();
+    return normalizeSavedMenu(row?.value_json || '');
+  } catch {
+    return normalizeSavedMenu('');
+  }
+}
+
 function branchPayload(branch) {
   if (!branch) return null;
   return { id: branch.id, name: branch.name, active: branch.active };
@@ -73,8 +90,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: true, role: 'super', redirect: '#super', accessScope: 'super' });
     }
 
-    const row = env.DB ? await env.DB.prepare('SELECT value_json FROM app_settings WHERE key = ?').bind('menu_overrides').first() : null;
-    const saved = normalizeSavedMenu(row?.value_json || '');
+    const saved = await readSavedMenu(env);
     const branchSettings = normalizeBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS);
     const activeBranches = (branchSettings.branches || []).filter((branch) => branch.active !== false);
 

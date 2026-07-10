@@ -1,4 +1,4 @@
-function jsonResponse(data, status = 200) {
+﻿function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -28,7 +28,7 @@ const DEFAULT_BRANCH_SETTINGS = {
 function normalizeBranchSettings(settings = {}) {
   const branches = Array.isArray(settings.branches) && settings.branches.length
     ? settings.branches.map((branch, index) => ({
-        id: String(branch.id || branch.name || `sucursal-${index + 1}`).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `sucursal-${index + 1}`,
+        id: String(branch.id || branch.name || `sucursal-${index + 1}`).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `sucursal-${index + 1}`,
         name: String(branch.name || branch.id || `Sucursal ${index + 1}`).trim() || `Sucursal ${index + 1}`,
         active: branch.active !== false,
         ordersPassword: String(branch.ordersPassword || branch.orders_password || '').trim(),
@@ -408,7 +408,7 @@ async function deductOrderStock(env, orderId, orderNumber) {
       String(orderId),
       'Orders',
       'system',
-      'Operación',
+      'OperaciÃ³n',
       null,
       order.branch_id || 'dominio',
       order.branch_name || 'Dominio',
@@ -488,7 +488,7 @@ export async function onRequestPatch(context) {
     const body = await request.json();
     const { orderId, status, note = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus inválido.' }, 400);
+    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invÃ¡lido.' }, 400);
 
     const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE id = ?`).bind(orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
@@ -512,7 +512,7 @@ export async function onRequestPatch(context) {
     ).bind(status, timestamps.utc, timestamps.monterrey, orderId).run();
 
     const eventNote = stockResult
-      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automáticamente.`
+      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automÃ¡ticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(

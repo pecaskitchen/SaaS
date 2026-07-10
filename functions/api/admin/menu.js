@@ -1,3 +1,5 @@
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -28,6 +30,7 @@ async function ensureAppSettings(env) {
       updated_at TEXT NOT NULL
     )
   `).run();
+  await ensureTenantColumns(env, ['app_settings']);
   return true;
 }
 
@@ -102,10 +105,15 @@ export async function onRequestGet({ request, env }) {
 
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse(menuPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
+    const tenantId = await resolveTenantId(request, env);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
-    const row = await env.DB.prepare(
+    let row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
-    ).bind('menu_overrides').first();
+    ).bind(settingKey).first();
+    if (!row && settingKey !== 'menu_overrides') {
+      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    }
 
     return jsonResponse(menuPayload(normalizeSavedMenu(row?.value_json || '')));
   } catch (error) {
@@ -120,11 +128,16 @@ export async function onRequestPost({ request, env }) {
     }
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    const tenantId = await resolveTenantId(request, env);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
     const body = await request.json();
-    const currentRow = await env.DB.prepare(
+    let currentRow = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
-    ).bind('menu_overrides').first();
+    ).bind(settingKey).first();
+    if (!currentRow && settingKey !== 'menu_overrides') {
+      currentRow = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    }
     const current = normalizeSavedMenu(currentRow?.value_json || '');
     const hasOverrides = Object.prototype.hasOwnProperty.call(body, 'overrides');
     const incomingOverrides = hasOverrides ? (body.overrides || {}) : (current.overrides || {});
@@ -155,12 +168,13 @@ export async function onRequestPost({ request, env }) {
     const now = new Date().toISOString();
 
     await env.DB.prepare(
-      `INSERT INTO app_settings (key, value_json, updated_at)
-       VALUES (?, ?, ?)
+      `INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+       VALUES (?, ?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET
-         value_json = excluded.value_json,
-         updated_at = excluded.updated_at`
-    ).bind('menu_overrides', valueJson, now).run();
+          tenant_id = excluded.tenant_id,
+          value_json = excluded.value_json,
+          updated_at = excluded.updated_at`
+    ).bind(settingKey, tenantId, valueJson, now).run();
 
     return jsonResponse({ ok: true });
   } catch (error) {

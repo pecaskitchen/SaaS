@@ -1,4 +1,6 @@
-﻿function jsonResponse(data, status = 200) {
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+
+function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -9,11 +11,11 @@ function getPassword(request) {
   return request.headers.get('x-orders-password') || '';
 }
 
-async function resolveOrdersAccess(request, env) {
+async function resolveOrdersAccess(request, env, tenantId) {
   const password = getPassword(request);
   if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
   if (env.ORDERS_PASSWORD && password === env.ORDERS_PASSWORD) return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
-  const branchSettings = await readBranchSettings(env);
+  const branchSettings = await readBranchSettings(env, tenantId);
   const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
   if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
   return { ok: false, error: 'No autorizado.' };
@@ -62,9 +64,14 @@ function normalizeSavedMenu(raw) {
   }
 }
 
-async function readBranchSettings(env) {
+async function readBranchSettings(env, tenantId) {
   try {
-    const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    await ensureTenantColumns(env, ['app_settings']);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
+    let row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
+    if (!row && settingKey !== 'menu_overrides') {
+      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    }
     return normalizeSavedMenu(row?.value_json || '').branchSettings;
   } catch {
     return normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS);
@@ -119,12 +126,14 @@ function getBusinessWindowMonterrey() {
 async function ensureStockBranchColumns(env) {
   try {
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS inventory_branch_stock (
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       item_id INTEGER NOT NULL,
       branch_id TEXT NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
       updated_at_utc TEXT NOT NULL,
-      PRIMARY KEY (item_id, branch_id)
+      PRIMARY KEY (tenant_id, item_id, branch_id)
     )`).run();
+    await ensureTenantColumns(env, ['inventory_branch_stock', 'stock_movements']);
     const info = await env.DB.prepare(`PRAGMA table_info(stock_movements)`).all();
     const columns = new Set((info.results || []).map((row) => row.name));
     if (!columns.has('branch_id')) await env.DB.prepare(`ALTER TABLE stock_movements ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'dominio'`).run();
@@ -138,6 +147,7 @@ async function ensureOrderStockColumns(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_number TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'pending',
       branch_id TEXT NOT NULL DEFAULT 'dominio',
@@ -170,6 +180,7 @@ async function ensureOrderStockColumns(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_id INTEGER NOT NULL,
       product_id TEXT,
       product_name TEXT NOT NULL,
@@ -188,6 +199,7 @@ async function ensureOrderStockColumns(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_id INTEGER NOT NULL,
       event_type TEXT NOT NULL,
       event_note TEXT,
@@ -201,6 +213,10 @@ async function ensureOrderStockColumns(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_created_at_monterrey ON orders(created_at_monterrey)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_tenant_status ON orders(tenant_id, status, created_at_monterrey)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_tenant_order ON order_items(tenant_id, order_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_events_tenant_order ON order_events(tenant_id, order_id)`).run();
+  await ensureTenantColumns(env, ['orders', 'order_items', 'order_events']);
 
   const info = await env.DB.prepare(`PRAGMA table_info(orders)`).all();
   const columns = new Set((info.results || []).map((row) => row.name));
@@ -306,19 +322,19 @@ function shouldUseRecipeLine(line, options = {}) {
   return true;
 }
 
-async function getRecipeLinesForProduct(env, productId, productName = '') {
+async function getRecipeLinesForProduct(env, productId, productName = '', tenantId) {
   const candidates = recipeKeyCandidates(productId, productName);
   let recipe = null;
   for (const recipeKey of candidates) {
     recipe = await env.DB.prepare(
-      `SELECT id FROM stock_recipes WHERE lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
-    ).bind(recipeKey).first();
+      `SELECT id FROM stock_recipes WHERE tenant_id = ? AND lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
+    ).bind(tenantId, recipeKey).first();
     if (recipe?.id) break;
   }
   if (!recipe?.id && productName) {
     recipe = await env.DB.prepare(
-      `SELECT id FROM stock_recipes WHERE lower(name) = lower(?) AND recipe_type = 'product' AND is_active = 1 ORDER BY updated_at_utc DESC, id DESC LIMIT 1`
-    ).bind(String(productName || '').trim()).first();
+      `SELECT id FROM stock_recipes WHERE tenant_id = ? AND lower(name) = lower(?) AND recipe_type = 'product' AND is_active = 1 ORDER BY updated_at_utc DESC, id DESC LIMIT 1`
+    ).bind(tenantId, String(productName || '').trim()).first();
   }
   if (!recipe?.id) return [];
 
@@ -327,13 +343,13 @@ async function getRecipeLinesForProduct(env, productId, productName = '') {
      FROM stock_recipe_lines l
      JOIN inventory_items i ON i.id = l.item_id
      LEFT JOIN stock_units u ON u.id = i.unit_id
-     WHERE l.recipe_id = ?
+     WHERE l.tenant_id = ? AND i.tenant_id = ? AND l.recipe_id = ?
      ORDER BY l.sort_order ASC, l.id ASC`
-  ).bind(recipe.id).all();
+  ).bind(tenantId, tenantId, recipe.id).all();
   return result.results || [];
 }
 
-async function getSelectedFamilyComponents(env, productId, options = {}) {
+async function getSelectedFamilyComponents(env, productId, options = {}, tenantId) {
   const selections = options.optionGroups && typeof options.optionGroups === 'object' ? options.optionGroups : {};
   const selectedPairs = [];
   for (const [familyKey, raw] of Object.entries(selections)) {
@@ -354,7 +370,7 @@ async function getSelectedFamilyComponents(env, productId, options = {}) {
          JOIN stock_option_family_items oi ON oi.family_id = f.id
          JOIN inventory_items i ON i.id = oi.item_id
          LEFT JOIN stock_units u ON u.id = i.unit_id
-         WHERE pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
+         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND i.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
         UNION ALL
         SELECT c.item_id, c.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
          FROM stock_product_option_groups pg
@@ -363,18 +379,21 @@ async function getSelectedFamilyComponents(env, productId, options = {}) {
          JOIN stock_option_family_item_components c ON c.option_item_id = oi.id
          JOIN inventory_items i ON i.id = c.item_id
          LEFT JOIN stock_units u ON u.id = i.unit_id
-         WHERE pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
-      ).bind(productId, pair.familyKey, pair.optionName, productId, pair.familyKey, pair.optionName).all();
+         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND c.tenant_id = ? AND i.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
+      ).bind(
+        tenantId, tenantId, tenantId, tenantId, productId, pair.familyKey, pair.optionName,
+        tenantId, tenantId, tenantId, tenantId, tenantId, productId, pair.familyKey, pair.optionName
+      ).all();
       rows.push(...(result.results || []));
     } catch { /* components table may not exist before first stock load */ }
   }
   return rows;
 }
 
-async function aggregateOrderConsumption(env, orderId) {
+async function aggregateOrderConsumption(env, orderId, tenantId) {
   const itemsResult = await env.DB.prepare(
-    `SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC`
-  ).bind(orderId).all();
+    `SELECT * FROM order_items WHERE tenant_id = ? AND order_id = ? ORDER BY id ASC`
+  ).bind(tenantId, orderId).all();
 
   const orderItems = itemsResult.results || [];
   const consumption = new Map();
@@ -415,7 +434,7 @@ async function aggregateOrderConsumption(env, orderId) {
       for (const promoItem of options.promoItems) {
         const productId = promoItem.productId;
         const multiplier = Number(promoItem.quantity || 1) * Number(orderItem.quantity || 1);
-        const lines = await getRecipeLinesForProduct(env, productId, promoItem.productName);
+        const lines = await getRecipeLinesForProduct(env, productId, promoItem.productName, tenantId);
         if (lines.length === 0) missingRecipes.push(promoItem.productName || productId);
         stats.recipeLineCount += lines.length;
         const promoOptions = options.extrasByProductId?.[productId] || {};
@@ -427,7 +446,7 @@ async function aggregateOrderConsumption(env, orderId) {
             stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
           }
         }
-        const familyComponents = await getSelectedFamilyComponents(env, productId, promoOptions);
+        const familyComponents = await getSelectedFamilyComponents(env, productId, promoOptions, tenantId);
         stats.recipeLineCount += familyComponents.length;
         for (const component of familyComponents) addLine(component, multiplier);
       }
@@ -435,7 +454,7 @@ async function aggregateOrderConsumption(env, orderId) {
     }
 
     const productId = orderItem.product_id || orderItem.productId || orderItem.id;
-    const lines = await getRecipeLinesForProduct(env, productId, orderItem.product_name);
+    const lines = await getRecipeLinesForProduct(env, productId, orderItem.product_name, tenantId);
     if (lines.length === 0) missingRecipes.push(orderItem.product_name || productId);
     stats.recipeLineCount += lines.length;
     const multiplier = Number(orderItem.quantity || 1);
@@ -447,7 +466,7 @@ async function aggregateOrderConsumption(env, orderId) {
         stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
       }
     }
-    const familyComponents = await getSelectedFamilyComponents(env, productId, options);
+    const familyComponents = await getSelectedFamilyComponents(env, productId, options, tenantId);
     stats.recipeLineCount += familyComponents.length;
     for (const component of familyComponents) addLine(component, multiplier);
   }
@@ -456,50 +475,56 @@ async function aggregateOrderConsumption(env, orderId) {
 }
 
 
-async function ensureBranchStock(env, branchId) {
+async function ensureBranchStock(env, branchId, tenantId) {
   const ts = getTimestamps();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS inventory_branch_stock (
+    tenant_id TEXT NOT NULL DEFAULT 'default',
     item_id INTEGER NOT NULL,
     branch_id TEXT NOT NULL,
     current_stock REAL NOT NULL DEFAULT 0,
     updated_at_utc TEXT NOT NULL,
-    PRIMARY KEY (item_id, branch_id)
+    PRIMARY KEY (tenant_id, item_id, branch_id)
   )`).run();
-  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE branch_id = ?`).bind(branchId).first();
+  await ensureTenantColumns(env, ['inventory_branch_stock']);
+  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branchId).first();
   const count = Number(countRow?.count || 0);
-  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items`).all()).results || [];
+  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ?`).bind(tenantId).all()).results || [];
   for (const item of items) {
-    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE item_id = ? AND branch_id = ?`).bind(item.id, branchId).first();
+    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, item.id, branchId).first();
     if (existing) continue;
     const initialStock = count === 0 ? Number(item.current_stock || 0) : 0;
-    await env.DB.prepare(`INSERT OR IGNORE INTO inventory_branch_stock (item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?)`).bind(item.id, branchId, initialStock, ts.utc).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?, ?)`).bind(tenantId, item.id, branchId, initialStock, ts.utc).run();
   }
 }
 
-async function getBranchStock(env, itemId, branchId) {
-  await ensureBranchStock(env, branchId);
-  const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE item_id = ? AND branch_id = ?`).bind(itemId, branchId).first();
+async function getBranchStock(env, itemId, branchId, tenantId) {
+  await ensureBranchStock(env, branchId, tenantId);
+  const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, itemId, branchId).first();
   if (row) return Number(row.current_stock || 0);
-  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE id = ?`).bind(itemId).first();
+  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   return Number(item?.current_stock || 0);
 }
 
-async function setBranchStock(env, itemId, branchId, nextStock) {
+async function setBranchStock(env, itemId, branchId, nextStock, tenantId) {
   const ts = getTimestamps();
-  await env.DB.prepare(`INSERT INTO inventory_branch_stock (item_id, branch_id, current_stock, updated_at_utc)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(item_id, branch_id) DO UPDATE SET current_stock = excluded.current_stock, updated_at_utc = excluded.updated_at_utc`)
-    .bind(itemId, branchId, Number(nextStock || 0), ts.utc).run();
+  const update = await env.DB.prepare(
+    `UPDATE inventory_branch_stock SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`
+  ).bind(Number(nextStock || 0), ts.utc, tenantId, itemId, branchId).run();
+  if (Number(update.meta?.changes || 0) === 0) {
+    await env.DB.prepare(`INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
+      VALUES (?, ?, ?, ?, ?)`)
+      .bind(tenantId, itemId, branchId, Number(nextStock || 0), ts.utc).run();
+  }
 }
 
-async function deductOrderStock(env, orderId, orderNumber) {
+async function deductOrderStock(env, orderId, orderNumber, tenantId) {
   await ensureOrderStockColumns(env);
   await ensureStockBranchColumns(env);
-  const order = await env.DB.prepare(`SELECT id, order_number, stock_deducted, branch_id, branch_name FROM orders WHERE id = ?`).bind(orderId).first();
+  const order = await env.DB.prepare(`SELECT id, order_number, stock_deducted, branch_id, branch_name FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
   if (!order) throw new Error('Pedido no encontrado.');
   if (Number(order.stock_deducted || 0) === 1) return { skipped: true, reason: 'El stock ya estaba descontado.' };
 
-  const { consumption, missingRecipes, stats } = await aggregateOrderConsumption(env, orderId);
+  const { consumption, missingRecipes, stats } = await aggregateOrderConsumption(env, orderId, tenantId);
   if (consumption.length === 0) {
     if (!stats.orderItemCount) throw new Error('El pedido no tiene productos guardados en order_items. Crea un pedido nuevo para probar descuento.');
     if (missingRecipes.length) throw new Error(`No hay recetas configuradas para: ${missingRecipes.join(', ')}`);
@@ -512,7 +537,7 @@ async function deductOrderStock(env, orderId, orderNumber) {
 
   const shortages = [];
   for (const line of consumption) {
-    const current = await getBranchStock(env, line.item_id, order.branch_id || 'dominio');
+    const current = await getBranchStock(env, line.item_id, order.branch_id || 'dominio', tenantId);
     if (current < Number(line.quantity || 0)) {
       shortages.push(`${line.item_name}: tienes ${current} ${line.unit_code || ''}, se necesitan ${line.quantity} ${line.unit_code || ''}`.trim());
     }
@@ -523,21 +548,22 @@ async function deductOrderStock(env, orderId, orderNumber) {
 
   const ts = getTimestamps();
   for (const line of consumption) {
-    const before = await getBranchStock(env, line.item_id, order.branch_id || 'dominio');
+    const before = await getBranchStock(env, line.item_id, order.branch_id || 'dominio', tenantId);
     const qty = -Math.abs(Number(line.quantity || 0));
     const after = before + qty;
-    await setBranchStock(env, line.item_id, order.branch_id || 'dominio', after);
+    await setBranchStock(env, line.item_id, order.branch_id || 'dominio', after, tenantId);
     if ((order.branch_id || 'dominio') === 'dominio') {
-      await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE id = ?`).bind(after, ts.utc, line.item_id).run();
+      await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(after, ts.utc, tenantId, line.item_id).run();
     } else {
-      await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE id = ?`).bind(ts.utc, line.item_id).run();
+      await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, line.item_id).run();
     }
     await env.DB.prepare(
       `INSERT INTO stock_movements (
-        item_id, movement_type, quantity, stock_before, stock_after, reason, source_type, source_id,
+        tenant_id, item_id, movement_type, quantity, stock_before, stock_after, reason, source_type, source_id,
         reported_by, reported_role, reported_shift, approved_by, branch_id, branch_name, created_at_utc, created_at_monterrey
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
+      tenantId,
       line.item_id,
       'salida_pedido_listo',
       qty,
@@ -558,13 +584,13 @@ async function deductOrderStock(env, orderId, orderNumber) {
   }
 
   await env.DB.prepare(
-    `UPDATE orders SET stock_deducted = 1, stock_deducted_at_utc = ?, stock_deducted_at_monterrey = ?, stock_deduction_error = NULL WHERE id = ?`
-  ).bind(ts.utc, ts.monterrey, orderId).run();
+    `UPDATE orders SET stock_deducted = 1, stock_deducted_at_utc = ?, stock_deducted_at_monterrey = ?, stock_deduction_error = NULL WHERE tenant_id = ? AND id = ?`
+  ).bind(ts.utc, ts.monterrey, tenantId, orderId).run();
 
   return { skipped: false, deducted: consumption.length, missingRecipes };
 }
 
-async function loadFullOrders(env, status, limit, branchFilter = 'all') {
+async function loadFullOrders(env, status, limit, branchFilter = 'all', tenantId) {
   const businessWindow = getBusinessWindowMonterrey();
   let ordersQuery = `
     SELECT id, order_number, status, customer_name, customer_phone, customer_address, customer_notes,
@@ -572,8 +598,8 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all') {
       updated_at_utc, updated_at_monterrey, branch_id, branch_name, order_source, cashier_name, cashier_shift, payment_method, payment_status,
       stock_deducted, stock_deducted_at_monterrey, stock_deduction_error
     FROM orders
-    WHERE created_at_monterrey >= ? AND created_at_monterrey < ?`;
-  const binds = [businessWindow.start, businessWindow.end];
+    WHERE tenant_id = ? AND created_at_monterrey >= ? AND created_at_monterrey < ?`;
+  const binds = [tenantId, businessWindow.start, businessWindow.end];
   if (status !== 'all') { ordersQuery += ` AND status = ?`; binds.push(status); }
   if (branchFilter && branchFilter !== 'all') { ordersQuery += ` AND COALESCE(branch_id, 'dominio') = ?`; binds.push(branchFilter); }
   ordersQuery += ` ORDER BY created_at_monterrey DESC LIMIT ?`;
@@ -586,12 +612,12 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all') {
   for (const order of orders) {
     const itemsResult = await env.DB.prepare(
       `SELECT id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes
-       FROM order_items WHERE order_id = ? ORDER BY id ASC`
-    ).bind(order.id).all();
+       FROM order_items WHERE tenant_id = ? AND order_id = ? ORDER BY id ASC`
+    ).bind(tenantId, order.id).all();
     const eventsResult = await env.DB.prepare(
       `SELECT id, event_type, event_note, created_at_utc, created_at_monterrey
-       FROM order_events WHERE order_id = ? ORDER BY id ASC`
-    ).bind(order.id).all();
+       FROM order_events WHERE tenant_id = ? AND order_id = ? ORDER BY id ASC`
+    ).bind(tenantId, order.id).all();
     fullOrders.push({ ...order, items: itemsResult.results || [], events: eventsResult.results || [] });
   }
   return { businessWindow, orders: fullOrders };
@@ -600,17 +626,18 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all') {
 export async function onRequestGet(context) {
   const { request, env } = context;
   try {
-    const access = await resolveOrdersAccess(request, env);
-    if (!access.ok) return jsonResponse({ ok: false, error: access.error || 'No autorizado.' }, 401);
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    const tenantId = await resolveTenantId(request, env);
+    const access = await resolveOrdersAccess(request, env, tenantId);
+    if (!access.ok) return jsonResponse({ ok: false, error: access.error || 'No autorizado.' }, 401);
     await ensureOrderStockColumns(env);
     const url = new URL(request.url);
     const status = url.searchParams.get('status') || 'all';
     const limit = Number(url.searchParams.get('limit') || 100);
     const requestedBranchFilter = url.searchParams.get('branch') || 'all';
-    const branchSettings = await readBranchSettings(env);
+    const branchSettings = await readBranchSettings(env, tenantId);
     const branchFilter = access.accessScope === 'branch' ? access.branchFilter : requestedBranchFilter;
-    const data = await loadFullOrders(env, status, limit, branchFilter);
+    const data = await loadFullOrders(env, status, limit, branchFilter, tenantId);
     return jsonResponse({ ok: true, role: access.role, accessScope: access.accessScope, lockedBranchId: access.accessScope === 'branch' ? access.branchFilter : null, branchSettings: access.role === 'admin' ? branchSettings : hideBranchPasswords(branchSettings), ...data });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudieron cargar los pedidos.', detail: error.message }, 500);
@@ -620,17 +647,17 @@ export async function onRequestGet(context) {
 export async function onRequestPatch(context) {
   const { request, env } = context;
   try {
-    const access = await resolveOrdersAccess(request, env);
-    if (!access.ok) return jsonResponse({ ok: false, error: access.error || 'No autorizado.' }, 401);
-
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    const tenantId = await resolveTenantId(request, env);
+    const access = await resolveOrdersAccess(request, env, tenantId);
+    if (!access.ok) return jsonResponse({ ok: false, error: access.error || 'No autorizado.' }, 401);
     await ensureOrderStockColumns(env);
     const body = await request.json();
     const { orderId, status, note = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
     if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invÃ¡lido.' }, 400);
 
-    const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE id = ?`).bind(orderId).first();
+    const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
     if (access.accessScope === 'branch' && (order.branch_id || 'dominio') !== access.branchFilter) {
       return jsonResponse({ ok: false, error: 'No puedes modificar pedidos de otra sucursal.' }, 403);
@@ -639,26 +666,26 @@ export async function onRequestPatch(context) {
     let stockResult = null;
     if (status === 'ready' && Number(order.stock_deducted || 0) !== 1) {
       try {
-        stockResult = await deductOrderStock(env, orderId, order.order_number);
+        stockResult = await deductOrderStock(env, orderId, order.order_number, tenantId);
       } catch (error) {
-        await env.DB.prepare(`UPDATE orders SET stock_deduction_error = ? WHERE id = ?`).bind(error.message, orderId).run();
+        await env.DB.prepare(`UPDATE orders SET stock_deduction_error = ? WHERE tenant_id = ? AND id = ?`).bind(error.message, tenantId, orderId).run();
         return jsonResponse({ ok: false, error: 'No se pudo descontar stock.', detail: error.message }, 400);
       }
     }
 
     const timestamps = getTimestamps();
     await env.DB.prepare(
-      `UPDATE orders SET status = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE id = ?`
-    ).bind(status, timestamps.utc, timestamps.monterrey, orderId).run();
+      `UPDATE orders SET status = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
+    ).bind(status, timestamps.utc, timestamps.monterrey, tenantId, orderId).run();
 
     const eventNote = stockResult
       ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automÃ¡ticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(
-      `INSERT INTO order_events (order_id, event_type, event_note, created_at_utc, created_at_monterrey)
-       VALUES (?, ?, ?, ?, ?)`
-    ).bind(orderId, status, eventNote, timestamps.utc, timestamps.monterrey).run();
+      `INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).bind(tenantId, orderId, status, eventNote, timestamps.utc, timestamps.monterrey).run();
 
     return jsonResponse({ ok: true, orderId, status, stockResult, updatedAtMonterrey: timestamps.monterrey });
   } catch (error) {

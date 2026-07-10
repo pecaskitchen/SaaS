@@ -1,3 +1,5 @@
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -68,15 +70,21 @@ function normalizeSavedMenu(raw) {
   }
 }
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) {
       return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS) });
     }
 
-    const row = await env.DB.prepare(
+    await ensureTenantColumns(env, ['app_settings']);
+    const tenantId = await resolveTenantId(request, env);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
+    let row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
-    ).bind('menu_overrides').first();
+    ).bind(settingKey).first();
+    if (!row && settingKey !== 'menu_overrides') {
+      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    }
 
     const saved = normalizeSavedMenu(row?.value_json || '');
 

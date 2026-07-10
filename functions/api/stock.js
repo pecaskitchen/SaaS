@@ -1,3 +1,5 @@
+import { defaultTenantId, ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -127,6 +129,7 @@ async function ensureSchema(env) {
   const statements = [
     `CREATE TABLE IF NOT EXISTS stock_units (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       code TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       kind TEXT NOT NULL DEFAULT 'general',
@@ -134,16 +137,19 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_purchase_categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL UNIQUE,
       sort_order INTEGER NOT NULL DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS stock_suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL UNIQUE,
       notes TEXT
     )`,
     `CREATE TABLE IF NOT EXISTS stock_branches (
       id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
       is_default INTEGER NOT NULL DEFAULT 0,
@@ -152,6 +158,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL UNIQUE,
       brand TEXT,
       item_type TEXT NOT NULL DEFAULT 'Ingrediente comprado',
@@ -181,6 +188,7 @@ async function ensureSchema(env) {
       FOREIGN KEY (unit_id) REFERENCES stock_units(id)
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_branch_stock (
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       item_id INTEGER NOT NULL,
       branch_id TEXT NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
@@ -190,6 +198,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_movements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       item_id INTEGER NOT NULL,
       movement_type TEXT NOT NULL,
       quantity REAL NOT NULL,
@@ -210,6 +219,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS waste_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       item_id INTEGER NOT NULL,
       quantity REAL NOT NULL,
       reason TEXT NOT NULL,
@@ -228,6 +238,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_count_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       item_id INTEGER NOT NULL,
       requested_stock REAL NOT NULL,
       current_stock_snapshot REAL NOT NULL DEFAULT 0,
@@ -248,6 +259,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       recipe_key TEXT NOT NULL UNIQUE,
       recipe_type TEXT NOT NULL DEFAULT 'product',
       name TEXT NOT NULL,
@@ -261,6 +273,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_recipe_lines (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       recipe_id INTEGER NOT NULL,
       item_id INTEGER NOT NULL,
       quantity REAL NOT NULL DEFAULT 0,
@@ -278,6 +291,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_option_families (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       family_key TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       description TEXT,
@@ -288,6 +302,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_option_family_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       family_id INTEGER NOT NULL,
       item_id INTEGER NOT NULL,
       option_name TEXT NOT NULL,
@@ -304,6 +319,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_option_family_item_components (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       option_item_id INTEGER NOT NULL,
       item_id INTEGER NOT NULL,
       quantity REAL NOT NULL DEFAULT 0,
@@ -316,6 +332,7 @@ async function ensureSchema(env) {
     )`,
     `CREATE TABLE IF NOT EXISTS stock_product_option_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       product_id TEXT NOT NULL,
       family_id INTEGER NOT NULL,
       label TEXT,
@@ -333,6 +350,7 @@ async function ensureSchema(env) {
       FOREIGN KEY (family_id) REFERENCES stock_option_families(id)
     )`,
     `CREATE INDEX IF NOT EXISTS idx_stock_recipes_type ON stock_recipes(recipe_type, is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_stock_recipes_tenant_type ON stock_recipes(tenant_id, recipe_type, is_active)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_recipe_lines_recipe ON stock_recipe_lines(recipe_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_families_key ON stock_option_families(family_key)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_family_items_family ON stock_option_family_items(family_id)`,
@@ -340,13 +358,17 @@ async function ensureSchema(env) {
     `CREATE INDEX IF NOT EXISTS idx_stock_product_option_groups_product ON stock_product_option_groups(product_id)`,
     `CREATE INDEX IF NOT EXISTS idx_inventory_items_name ON inventory_items(name)`,
     `CREATE INDEX IF NOT EXISTS idx_inventory_items_active ON inventory_items(is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_inventory_items_tenant_active ON inventory_items(tenant_id, is_active)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_movements_item ON stock_movements(item_id, created_at_utc)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id, created_at_utc)`,
+    `CREATE INDEX IF NOT EXISTS idx_stock_movements_tenant_branch ON stock_movements(tenant_id, branch_id, created_at_utc)`,
     `CREATE INDEX IF NOT EXISTS idx_inventory_branch_stock_branch ON inventory_branch_stock(branch_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_inventory_branch_stock_tenant_branch ON inventory_branch_stock(tenant_id, branch_id)`,
     `CREATE INDEX IF NOT EXISTS idx_waste_requests_status ON waste_requests(status, created_at_utc)`,
     `CREATE INDEX IF NOT EXISTS idx_inventory_count_requests_status ON inventory_count_requests(status, created_at_utc)`,
     `CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       value_json TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`
@@ -355,6 +377,25 @@ async function ensureSchema(env) {
   for (const sql of statements) {
     await env.DB.prepare(sql).run();
   }
+
+  await ensureTenantColumns(env, [
+    'app_settings',
+    'stock_units',
+    'stock_purchase_categories',
+    'stock_suppliers',
+    'stock_branches',
+    'inventory_items',
+    'inventory_branch_stock',
+    'stock_movements',
+    'waste_requests',
+    'inventory_count_requests',
+    'stock_recipes',
+    'stock_recipe_lines',
+    'stock_option_families',
+    'stock_option_family_items',
+    'stock_option_family_item_components',
+    'stock_product_option_groups',
+  ]);
 
   const migrations = [
     `ALTER TABLE stock_recipe_lines ADD COLUMN is_optional INTEGER NOT NULL DEFAULT 0`,
@@ -536,18 +577,27 @@ function normalizeSavedMenu(raw) {
   }
 }
 
-async function readMenuSettings(env) {
-  const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+function currentTenantId(env) {
+  return String(env.__tenantId || defaultTenantId(env)).trim() || defaultTenantId(env);
+}
+
+async function readMenuSettings(env, tenantId = currentTenantId(env)) {
+  const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
+  let row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
+  if (!row && settingKey !== 'menu_overrides') {
+    row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+  }
   return normalizeSavedMenu(row?.value_json || '');
 }
 
-async function writeMenuSettings(env, settings) {
+async function writeMenuSettings(env, settings, tenantId = currentTenantId(env)) {
   const now = new Date().toISOString();
+  const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
   await env.DB.prepare(
-    `INSERT INTO app_settings (key, value_json, updated_at)
-     VALUES (?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
-  ).bind('menu_overrides', JSON.stringify(settings), now).run();
+    `INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET tenant_id = excluded.tenant_id, value_json = excluded.value_json, updated_at = excluded.updated_at`
+  ).bind(settingKey, tenantId, JSON.stringify(settings), now).run();
 }
 
 function slugifyCatalogId(value) {
@@ -2063,6 +2113,7 @@ export async function onRequestPost({ request, env }) {
     const user = body.auth ? await authFromValues(body.auth, env) : await auth(request, env);
     if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    env.__tenantId = await resolveTenantId(request, env);
     await ensureSchema(env);
     await ensureLookupDefaults(env);
     const requestedBranchId = user.lockedBranchId || body.branchId || body.branch_id || body.selectedBranchId;

@@ -1,3 +1,5 @@
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -49,9 +51,14 @@ function normalizeSavedMenu(raw) {
   }
 }
 
-async function readBranchSettings(env) {
+async function readBranchSettings(env, tenantId) {
   try {
-    const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    await ensureTenantColumns(env, ['app_settings']);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
+    let row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
+    if (!row && settingKey !== 'menu_overrides') {
+      row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind('menu_overrides').first();
+    }
     return normalizeSavedMenu(row?.value_json || '').branchSettings;
   } catch {
     return normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS);
@@ -82,6 +89,7 @@ async function ensureSchema(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_number TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL DEFAULT 'pending',
       branch_id TEXT NOT NULL DEFAULT 'dominio',
@@ -114,6 +122,7 @@ async function ensureSchema(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_id INTEGER NOT NULL,
       product_id TEXT,
       product_name TEXT NOT NULL,
@@ -132,6 +141,7 @@ async function ensureSchema(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS order_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
       order_id INTEGER NOT NULL,
       event_type TEXT NOT NULL,
       event_note TEXT,
@@ -145,6 +155,10 @@ async function ensureSchema(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_created_at_monterrey ON orders(created_at_monterrey)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_tenant_status ON orders(tenant_id, status, created_at_monterrey)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_tenant_order ON order_items(tenant_id, order_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_events_tenant_order ON order_events(tenant_id, order_id)`).run();
+  await ensureTenantColumns(env, ['orders', 'order_items', 'order_events']);
 
   const info = await env.DB.prepare(`PRAGMA table_info(orders)`).all();
   const columns = new Set((info.results || []).map((row) => row.name));
@@ -163,9 +177,9 @@ async function ensureSchema(env) {
   for (const sql of alters) await env.DB.prepare(sql).run();
 }
 
-async function nextOrderNumber(env, branch) {
+async function nextOrderNumber(env, branch, tenantId) {
   const prefix = String(branch?.id || 'pecas').slice(0, 3).toUpperCase();
-  const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM orders WHERE branch_id = ?`).bind(branch.id).first();
+  const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM orders WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branch.id).first();
   return `${prefix}-${String(Number(row?.count || 0) + 1).padStart(4, '0')}`;
 }
 
@@ -184,6 +198,7 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
+    const tenantId = await resolveTenantId(request, env);
 
     const body = await request.json();
     const source = body.source === 'cashier' ? 'cashier' : 'online';
@@ -192,7 +207,7 @@ export async function onRequestPost({ request, env }) {
     const items = Array.isArray(body.items) ? body.items : [];
     if (!items.length) return jsonResponse({ ok: false, error: 'El pedido está vacío.' }, 400);
 
-    const settings = await readBranchSettings(env);
+    const settings = await readBranchSettings(env, tenantId);
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
     let cashier = { name: '', shift: '' };
     if (source === 'cashier') {
@@ -206,17 +221,18 @@ export async function onRequestPost({ request, env }) {
       if (!cashier.name) return jsonResponse({ ok: false, error: 'Ingresa nombre del cajero.' }, 400);
     }
     const timestamps = getTimestamps();
-    let orderNumber = await nextOrderNumber(env, branch);
+    let orderNumber = await nextOrderNumber(env, branch, tenantId);
 
     let createdOrder = null;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         const result = await env.DB.prepare(`
           INSERT INTO orders (
-            order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_notes, payment_method, payment_status,
+            tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_notes, payment_method, payment_status,
             subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
         `).bind(
+          tenantId,
           orderNumber,
           source === 'cashier' ? 'confirmed' : 'pending',
           branch.id,
@@ -252,9 +268,10 @@ export async function onRequestPost({ request, env }) {
     for (const item of items) {
       await env.DB.prepare(`
         INSERT INTO order_items (
-          order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
+        tenantId,
         createdOrder.id,
         String(item.id || item.productId || ''),
         String(item.name || 'Producto'),
@@ -270,9 +287,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     await env.DB.prepare(`
-      INSERT INTO order_events (order_id, event_type, event_note, created_at_utc, created_at_monterrey)
-      VALUES (?, 'created', ?, ?, ?)
-    `).bind(createdOrder.id, source === 'cashier' ? `Pedido de caja creado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
+      INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
+      VALUES (?, ?, 'created', ?, ?, ?)
+    `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido de caja creado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
 
     return jsonResponse({ ok: true, orderId: createdOrder.id, orderNumber, branch });
   } catch (error) {

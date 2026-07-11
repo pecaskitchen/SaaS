@@ -1771,15 +1771,18 @@ export default function PublicApp() {
         const useBaseCatalog = false;
         const baseCategories = useBaseCatalog ? categories : [];
         const baseProducts = useBaseCatalog ? CATALOG_PRODUCTS : [];
-        setBaseCatalogEnabled(useBaseCatalog);
+        const safeExtraCategories = Array.isArray(result.extraCategories) ? result.extraCategories : [];
+        const safeExtraProducts = Array.isArray(result.extraProducts) ? result.extraProducts : [];
+        const nextCategories = mergeCategoriesWithExtras(baseCategories, safeExtraCategories);
+        const nextProducts = mergeProductsWithExtras(baseProducts, safeExtraProducts);
+
         setPublicBrand(normalizePublicBrand(result.tenant));
+        setBaseCatalogEnabled(useBaseCatalog);
         setMenuOverrides(result.overrides || {});
-        const nextCategories = mergeCategoriesWithExtras(baseCategories, result.extraCategories || []);
-        const nextProducts = mergeProductsWithExtras(baseProducts, result.extraProducts || []);
-        setExtraCategories(result.extraCategories || []);
-        setExtraProducts(result.extraProducts || []);
-        setCategoryOrder(result.categoryOrder?.length ? result.categoryOrder : nextCategories.map((category) => category.id));
-        setProductOrder(result.productOrder?.length ? result.productOrder : nextProducts.map((product) => product.id));
+        setExtraCategories(safeExtraCategories);
+        setExtraProducts(safeExtraProducts);
+        setCategoryOrder(Array.isArray(result.categoryOrder) && result.categoryOrder.length ? result.categoryOrder : nextCategories.map((category) => category.id));
+        setProductOrder(Array.isArray(result.productOrder) && result.productOrder.length ? result.productOrder : nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
         setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
         setBranchPromotions(result.branchPromotions || {});
@@ -1799,7 +1802,7 @@ export default function PublicApp() {
       setCategoryHidden({});
       setPromotion(null);
       setBaseCatalogEnabled(false);
-      setPublicBrand(normalizePublicBrand(null));
+      if (!window.__saasLastMenuPayload?.tenant) setPublicBrand(normalizePublicBrand(null));
       setBranchPromotions({});
       setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
       setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));

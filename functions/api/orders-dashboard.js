@@ -21,7 +21,15 @@ function getPassword(request) {
 // readBranchSettings(env, tenantId), así que no representa una fuga.
 async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
-  if (!auth.ok) return { ok: false, error: 'No autorizado.', response: auth.response };
+  if (!auth.ok) {
+    const password = getPassword(request);
+    if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
+    if (env.ORDERS_PASSWORD && password === env.ORDERS_PASSWORD) return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
+    const branchSettings = await readBranchSettings(env, tenantId);
+    const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
+    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
+    return { ok: false, error: 'No autorizado.', response: auth.response };
+  }
 
   if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
     return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };

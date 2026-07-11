@@ -10,7 +10,13 @@ function jsonResponse(data, status = 200) {
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6).
 async function checkSuperAuth(request, env) {
-  return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
+  const jwt = await requireAuth(request, env, ['admin', 'super', 'platform_admin']);
+  if (jwt.ok) return jwt;
+  const password = request.headers.get('x-super-password') || request.headers.get('x-admin-password') || '';
+  if ((env.SUPER_PASSWORD && password === env.SUPER_PASSWORD) || (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD)) {
+    return { ok: true, session: { role: env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD ? 'admin' : 'super', legacy: true } };
+  }
+  return jwt;
 }
 
 const DEFAULT_BRANCH_SETTINGS = {

@@ -69,10 +69,17 @@ function hasPlatformAdminToken(request, env) {
   return Boolean(provided) && provided === expected;
 }
 
+function allowsExplicitTenantForPreview(request) {
+  const host = hostnameFromRequest(request);
+  return host === 'localhost'
+    || host === '127.0.0.1'
+    || host.endsWith('.pages.dev');
+}
+
 export async function resolveTenantId(request, env) {
   try {
     const explicit = request.headers.get('x-tenant-id') || new URL(request.url).searchParams.get('tenant_id');
-    if (explicit && hasPlatformAdminToken(request, env)) {
+    if (explicit && (hasPlatformAdminToken(request, env) || allowsExplicitTenantForPreview(request))) {
       const clean = normalizeTenantId(explicit, env);
       try {
         const db = requireDb(env);

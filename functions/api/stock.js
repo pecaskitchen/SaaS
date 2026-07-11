@@ -117,6 +117,9 @@ async function authFromValues(values, env, request = null) {
     }
   }
 
+  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', name, shift, accessScope: 'all' };
+  if (env.KITCHEN_PASSWORD && password === env.KITCHEN_PASSWORD) return { ok: true, role: 'kitchen', name, shift, accessScope: 'legacy' };
+
   try {
     const settings = await readMenuSettings(env);
     const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);

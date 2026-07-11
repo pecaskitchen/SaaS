@@ -101,10 +101,12 @@ export function normalizePromotion(promotion, products = CATALOG_PRODUCTS) {
   };
 }
 
-export function promotionItems(promotion, products) {
-  return (promotion.items || [])
+export function promotionItems(promotion, products = []) {
+  if (!promotion || !Array.isArray(promotion.items)) return [];
+  const productList = Array.isArray(products) ? products : [];
+  return promotion.items
     .map((item) => {
-      const product = products.find((productItem) => productItem.id === item.productId);
+      const product = productList.find((productItem) => productItem.id === item.productId);
       if (!product) return null;
       return {
         ...item,
@@ -114,4 +116,5 @@ export function promotionItems(promotion, products) {
     })
     .filter(Boolean);
 }
+
 

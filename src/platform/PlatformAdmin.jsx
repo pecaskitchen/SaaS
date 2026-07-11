@@ -75,6 +75,16 @@ function StatusBadge({ status }) {
   return <span className={`platform-badge status-${status}`}>{status}</span>;
 }
 
+function tenantKey(business) {
+  return encodeURIComponent(business.slug || business.id || '');
+}
+
+function tenantHref(path, business) {
+  const cleanPath = path || '/';
+  const separator = cleanPath.includes('?') ? '&' : '?';
+  return `${cleanPath}${separator}tenant_id=${tenantKey(business)}`;
+}
+
 export default function PlatformAdmin() {
   const [businesses, setBusinesses] = useState([]);
   const [dashboard, setDashboard] = useState(null);
@@ -369,6 +379,10 @@ export default function PlatformAdmin() {
                     <span>{business.domain || `${business.subdomain || business.slug}.tuapp.mx`}</span>
                   </div>
                   <div className="inline-actions">
+                    <a className="ghost small" href={tenantHref('/', business)} target="_blank" rel="noreferrer">Tienda</a>
+                    <a className="ghost small" href={tenantHref('/admin', business)} target="_blank" rel="noreferrer">Admin</a>
+                    <a className="ghost small" href={tenantHref('/orders', business)} target="_blank" rel="noreferrer">Pedidos</a>
+                    <a className="ghost small" href={tenantHref('/stock', business)} target="_blank" rel="noreferrer">Stock</a>
                     <button type="button" className="ghost small" onClick={() => editBusiness(business)}>Editar</button>
                     <button type="button" className="ghost small" onClick={() => updateBusinessStatus(business, 'active')}>Activar</button>
                     <button type="button" className="ghost small" onClick={() => updateBusinessStatus(business, 'past_due')}>Pago pendiente</button>
@@ -394,5 +408,6 @@ export default function PlatformAdmin() {
     </main>
   );
 }
+
 
 

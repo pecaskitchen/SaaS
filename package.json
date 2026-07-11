@@ -1,19 +1,23 @@
 {
-  "name": "negocio-saas-starter",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
-  },
-  "devDependencies": {}
+    "name":  "negocio-saas-starter",
+    "private":  true,
+    "version":  "1.0.0",
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "vite --host 0.0.0.0",
+                    "build":  "vite build",
+                    "preview":  "vite preview --host 0.0.0.0",
+                    "check:functions":  "node scripts/check-functions.mjs",
+                    "validate":  "npm run check:functions \u0026\u0026 npm run build"
+                },
+    "dependencies":  {
+                         "@vitejs/plugin-react":  "latest",
+                         "vite":  "latest",
+                         "react":  "latest",
+                         "react-dom":  "latest",
+                         "lucide-react":  "latest"
+                     },
+    "devDependencies":  {
+
+                        }
 }

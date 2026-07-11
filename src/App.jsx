@@ -1,9 +1,12 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { installTenantFetchInterceptor } from './lib/apiClient.js';
 
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
+const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
+const OrdersPanel = lazy(() => import('./internal/OrdersPanel.jsx'));
+const StockPanel = lazy(() => import('./internal/StockPanel.jsx'));
 
 function currentRoute() {
   try {
@@ -21,8 +24,8 @@ function currentRoute() {
   }
 }
 
-function isInternalRoute(route) {
-  return ['#admin', '#super', '#orders', '#stock', '#cashier', '#platform'].includes(route);
+function isLegacyRoute(route) {
+  return ['#super', '#cashier'].includes(route);
 }
 
 export default function App() {
@@ -42,7 +45,12 @@ export default function App() {
 
   return (
     <Suspense fallback={<main className="app-loading" aria-label="Cargando" />}>
-      {route === '#platform' ? <PlatformAdmin /> : isInternalRoute(route) ? <LegacyApp /> : <PublicApp />}
+      {route === '#platform' ? <PlatformAdmin />
+        : route === '#admin' ? <AdminRoute />
+        : route === '#orders' ? <OrdersPanel />
+        : route === '#stock' ? <StockPanel />
+        : isLegacyRoute(route) ? <LegacyApp />
+        : <PublicApp />}
     </Suspense>
   );
 }

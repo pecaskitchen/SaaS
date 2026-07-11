@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Lock, Save } from 'lucide-react';
 import '../styles.css';
 import { categoryMeta, normalizePromotion, slugifyCatalogId, sortByOrder } from '../lib/catalog.js';
@@ -46,10 +46,10 @@ function Logo() {
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        <img src="/pecas-logo.svg" alt="Pecas" className="brand-logo" />
+        <div className="brand-logo brand-logo-placeholder">S</div>
         <div>
-          <div className="brand-name">Pecas</div>
-          <div className="brand-tagline">Cocina & Café</div>
+          <div className="brand-name">Sistema</div>
+          <div className="brand-tagline">Operacion</div>
         </div>
       </div>
     </div>
@@ -163,19 +163,19 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const addCategory = () => {
     const label = newCategoryDraft.label.trim();
     if (!label) {
-      setStatus('Escribe el nombre de la categoría.');
+      setStatus('Escribe el nombre de la categorÃ­a.');
       return;
     }
     const id = slugifyCatalogId(label, `categoria-${categoryItems.length + 1}`);
     if (categoryItems.some((category) => category.id === id)) {
-      setStatus('Ya existe una categoría con ese nombre.');
+      setStatus('Ya existe una categorÃ­a con ese nombre.');
       return;
     }
     const category = { id, label, emoji: newCategoryDraft.emoji.trim(), customCategory: true };
     setCategoryItems((current) => [...current, category]);
     setCategoryDraft((current) => [...current, id]);
     setNewCategoryDraft({ label: '', emoji: '' });
-    setStatus('Categoría agregada. Guarda cambios para publicarla.');
+    setStatus('CategorÃ­a agregada. Guarda cambios para publicarla.');
   };
 
   const addProduct = () => {
@@ -210,7 +210,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const importMenuCsv = () => {
     const parsed = parseMenuCsv(importText);
     if (!parsed.categories.length && !parsed.products.length) {
-      setStatus('No encontré productos en el CSV.');
+      setStatus('No encontrÃ© productos en el CSV.');
       return;
     }
     setCategoryItems((current) => {
@@ -232,7 +232,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const makeCurrentCatalogEditable = () => {
     setCategoryItems((current) => current.map((category) => ({ ...category, customCategory: true })));
     setDrafts((current) => current.map((product) => ({ ...product, customProduct: true })));
-    setStatus('Catálogo actual copiado a DB. Guarda cambios para que deje de depender del catálogo base.');
+    setStatus('CatÃ¡logo actual copiado a DB. Guarda cambios para que deje de depender del catÃ¡logo base.');
   };
 
   const updatePromotion = (key, value) => {
@@ -360,7 +360,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
       });
       const result = await response.json();
       if (!response.ok || !result.ok) {
-        setStatus(result.error || 'Contraseña incorrecta.');
+        setStatus(result.error || 'ContraseÃ±a incorrecta.');
         return;
       }
       try { window.sessionStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, password); } catch { /* ignore */ }
@@ -452,16 +452,16 @@ export default function AdminPanel({ products, categoriesList = categories, cate
         <div className="admin-hero">
           <div>
             <h1>Administrador</h1>
-            <p>Configura sucursales, menú, ingredientes, recetas, familias e importaciones. Para operación diaria usa Pedidos, Stock o Caja.</p>
+            <p>Configura sucursales, menÃº, ingredientes, recetas, familias e importaciones. Para operaciÃ³n diaria usa Pedidos, Stock o Caja.</p>
           </div>
-          <a className="ghost admin-home-link" href="#">Ver página cliente</a>
+          <a className="ghost admin-home-link" href="#">Ver pÃ¡gina cliente</a>
         </div>
 
         {!unlocked ? (
           <div className="admin-login">
             <label className="field full">
-              <span>Contraseña</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña admin" />
+              <span>ContraseÃ±a</span>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ContraseÃ±a admin" />
             </label>
             <button type="button" className="primary" onClick={unlock}><Lock size={16} /> Entrar</button>
             {status && <p className="admin-status">{status}</p>}
@@ -474,20 +474,20 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               {status && <p className="admin-status">{status}</p>}
             </div>
             <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('catalog')}>Catálogo operativo <span>{openAdminSections.catalog ? '−' : '+'}</span></button>
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('catalog')}>CatÃ¡logo operativo <span>{openAdminSections.catalog ? 'âˆ’' : '+'}</span></button>
               {openAdminSections.catalog && (
                 <div className="admin-embedded-stock-config">
-                  <AdminSectionIntro title="Catálogo operativo" description="Aquí vive lo técnico: ingredientes, recetas/sub-recetas, familias e importación." />
+                  <AdminSectionIntro title="CatÃ¡logo operativo" description="AquÃ­ vive lo tÃ©cnico: ingredientes, recetas/sub-recetas, familias e importaciÃ³n." />
                   <StockPanel mode="adminConfig" embeddedPassword={password} />
                 </div>
               )}
             </section>
 
             <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('branches')}>Sucursales <span>{openAdminSections.branches ? '−' : '+'}</span></button>
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('branches')}>Sucursales <span>{openAdminSections.branches ? 'âˆ’' : '+'}</span></button>
               {openAdminSections.branches && (
               <div className="admin-order-box">
-                <AdminSectionIntro title="Sucursales" description="Activa multi-sucursal solo cuando quieras que el cliente elija sucursal. Si está apagado, todo entra a la sucursal principal." />
+                <AdminSectionIntro title="Sucursales" description="Activa multi-sucursal solo cuando quieras que el cliente elija sucursal. Si estÃ¡ apagado, todo entra a la sucursal principal." />
                 <label className="check-row full">
                   <input type="checkbox" checked={Boolean(branchSettingsDraft.multiBranchEnabled)} onChange={(e) => updateBranchSettings('multiBranchEnabled', e.target.checked)} />
                   <span>Activar modo multi-sucursal</span>
@@ -513,24 +513,24 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                         <small>No lo cambies si ya hay pedidos de esta sucursal.</small>
                       </label>
                       <label className="field">
-                        <span>Contraseña Orders</span>
+                        <span>ContraseÃ±a Orders</span>
                         <input type="text" value={branch.ordersPassword || ''} onChange={(e) => updateBranch(index, 'ordersPassword', e.target.value)} placeholder="Ej. pedidos-dominio" />
-                        <small>Quien use esta contraseña solo verá pedidos de esta sucursal.</small>
+                        <small>Quien use esta contraseÃ±a solo verÃ¡ pedidos de esta sucursal.</small>
                       </label>
                       <label className="field">
-                        <span>Contraseña Stock</span>
+                        <span>ContraseÃ±a Stock</span>
                         <input type="text" value={branch.stockPassword || ''} onChange={(e) => updateBranch(index, 'stockPassword', e.target.value)} placeholder="Ej. stock-dominio" />
-                        <small>Quien use esta contraseña solo operará stock de esta sucursal.</small>
+                        <small>Quien use esta contraseÃ±a solo operarÃ¡ stock de esta sucursal.</small>
                       </label>
                       <label className="field">
-                        <span>Contraseña Caja</span>
+                        <span>ContraseÃ±a Caja</span>
                         <input type="text" value={branch.cashierPassword || ''} onChange={(e) => updateBranch(index, 'cashierPassword', e.target.value)} placeholder="Ej. caja-dominio" />
-                        <small>Quien use esta contraseña capturará pedidos de caja para esta sucursal.</small>
+                        <small>Quien use esta contraseÃ±a capturarÃ¡ pedidos de caja para esta sucursal.</small>
                       </label>
                       <label className="field">
                         <span>WhatsApp pedidos</span>
                         <input type="text" value={branch.whatsappNumber || ''} onChange={(e) => updateBranch(index, 'whatsappNumber', e.target.value)} placeholder="Ej. 528441234567" />
-                        <small>Los pedidos de esta sucursal se enviarán a este número. Si lo dejas vacío, usa el WhatsApp global.</small>
+                        <small>Los pedidos de esta sucursal se enviarÃ¡n a este nÃºmero. Si lo dejas vacÃ­o, usa el WhatsApp global.</small>
                       </label>
                       <label className="check-row full">
                         <input type="checkbox" checked={branch.active !== false} onChange={(e) => updateBranch(index, 'active', e.target.checked)} />
@@ -546,40 +546,40 @@ export default function AdminPanel({ products, categoriesList = categories, cate
             </section>
 
             <div className="admin-order-box admin-super-moved-note">
-              <h2>Horario y promoción</h2>
+              <h2>Horario y promociÃ³n</h2>
               <p>Estos controles se movieron al apartado de Super usuario: abre <b>#super</b>.</p>
             </div>
 
             <section className="admin-collapse">
-            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Secciones del menú <span>{openAdminSections.sections ? '−' : '+'}</span></button>
+            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Secciones del menÃº <span>{openAdminSections.sections ? 'âˆ’' : '+'}</span></button>
             {openAdminSections.sections && (
             <>
             <div className="admin-order-box">
-              <h2>Crear e importar menú</h2>
+              <h2>Crear e importar menÃº</h2>
               <div className="admin-promo-grid">
-                <label className="field"><span>Nueva categoría</span><input value={newCategoryDraft.label} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, label: e.target.value }))} placeholder="Ej. Tacos" /></label>
-                <label className="field"><span>Emoji/icono</span><input value={newCategoryDraft.emoji} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, emoji: e.target.value }))} placeholder="🌮" /></label>
-                <button type="button" className="ghost" onClick={addCategory}>Agregar categoría</button>
+                <label className="field"><span>Nueva categorÃ­a</span><input value={newCategoryDraft.label} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, label: e.target.value }))} placeholder="Ej. Tacos" /></label>
+                <label className="field"><span>Emoji/icono</span><input value={newCategoryDraft.emoji} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, emoji: e.target.value }))} placeholder="ðŸŒ®" /></label>
+                <button type="button" className="ghost" onClick={addCategory}>Agregar categorÃ­a</button>
                 <label className="field"><span>Nuevo producto</span><input value={newProductDraft.name} onChange={(e) => setNewProductDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ej. Taco de sirloin" /></label>
-                <label className="field"><span>Categoría</span><select value={newProductDraft.category} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
+                <label className="field"><span>CategorÃ­a</span><select value={newProductDraft.category} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
                 <label className="field"><span>Precio</span><input type="number" value={newProductDraft.price} onChange={(e) => setNewProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
                 <button type="button" className="ghost" onClick={addProduct}>Agregar producto</button>
-                <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,🌮,taco-sirloin,Taco de sirloin,85,Con tortilla de maíz,Sirloin y salsa,/products/taco.jpg" /></label>
+                <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,ðŸŒ®,taco-sirloin,Taco de sirloin,85,Con tortilla de maÃ­z,Sirloin y salsa,/products/taco.jpg" /></label>
                 <button type="button" className="ghost" onClick={importMenuCsv}>Importar productos</button>
-                <button type="button" className="ghost" onClick={makeCurrentCatalogEditable}>Convertir catálogo actual a editable</button>
+                <button type="button" className="ghost" onClick={makeCurrentCatalogEditable}>Convertir catÃ¡logo actual a editable</button>
               </div>
             </div>
 
             <div className="admin-order-box">
               <h2>Orden de secciones</h2>
-              <p>Mueve las secciones para elegir cuál aparece primero en el menú.</p>
+              <p>Mueve las secciones para elegir cuÃ¡l aparece primero en el menÃº.</p>
               <div className="admin-sort-list">
                 {orderedCategories.map((category) => (
                   <div className="admin-sort-row" key={category.id}>
                     <strong>{category.emoji} {category.label}</strong>
                     <label className="field">
                       <span>Icono</span>
-                      <input value={category.emoji || ''} onChange={(e) => updateCategory(category.id, 'emoji', e.target.value)} placeholder="Ej. ☕" />
+                      <input value={category.emoji || ''} onChange={(e) => updateCategory(category.id, 'emoji', e.target.value)} placeholder="Ej. â˜•" />
                     </label>
                     <label className="field">
                       <span>Nombre</span>
@@ -587,11 +587,11 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                     </label>
                     <label className="admin-inline-check">
                       <input type="checkbox" checked={!categoryHiddenDraft[category.id]} onChange={(e) => toggleCategoryHidden(category.id, e.target.checked)} />
-                      <span>Mostrar sección</span>
+                      <span>Mostrar secciÃ³n</span>
                     </label>
                     <div>
-                      <button type="button" className="ghost mini" onClick={() => moveCategory(category.id, -1)}>↑</button>
-                      <button type="button" className="ghost mini" onClick={() => moveCategory(category.id, 1)}>↓</button>
+                      <button type="button" className="ghost mini" onClick={() => moveCategory(category.id, -1)}>â†‘</button>
+                      <button type="button" className="ghost mini" onClick={() => moveCategory(category.id, 1)}>â†“</button>
                     </div>
                   </div>
                 ))}
@@ -606,11 +606,11 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                 <div className="admin-category-section" key={category.id}>
                   <button type="button" className="admin-category-summary" onClick={() => toggleAdminCategory(category.id)}>
                     <span>{category.emoji} {category.label}</span>
-                    <b>{productsInCategory.length} productos · {isCategoryOpen ? '−' : '+'}</b>
+                    <b>{productsInCategory.length} productos Â· {isCategoryOpen ? 'âˆ’' : '+'}</b>
                   </button>
                   {isCategoryOpen && (
                   <>
-                  <p>Usa ↑ / ↓ para mover productos dentro de esta sección.</p>
+                  <p>Usa â†‘ / â†“ para mover productos dentro de esta secciÃ³n.</p>
                   <div className="admin-products">
                     {productsInCategory.map((product) => (
                       <article className="admin-product" key={product.id}>
@@ -619,15 +619,15 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                           <span>{categoryLabel(product.category)}</span>
                         </div>
                         <div className="admin-product-move">
-                          <button type="button" className="ghost mini" onClick={() => moveProduct(product.id, -1)}>Mover arriba ↑</button>
-                          <button type="button" className="ghost mini" onClick={() => moveProduct(product.id, 1)}>Mover abajo ↓</button>
+                          <button type="button" className="ghost mini" onClick={() => moveProduct(product.id, -1)}>Mover arriba â†‘</button>
+                          <button type="button" className="ghost mini" onClick={() => moveProduct(product.id, 1)}>Mover abajo â†“</button>
                         </div>
                         <label className="check-row full admin-availability">
                           <input type="checkbox" checked={!product.unavailable} onChange={(e) => updateDraft(product.id, 'unavailable', !e.target.checked)} />
                           <span>Disponible para ordenar</span>
                         </label>
                         <label className="field">
-                          <span>Categoría</span>
+                          <span>CategorÃ­a</span>
                           <select value={product.category} onChange={(e) => updateDraft(product.id, 'category', e.target.value)}>
                             {categoryItems.map((categoryOption) => <option key={categoryOption.id} value={categoryOption.id}>{categoryLabel(categoryOption.id)}</option>)}
                           </select>
@@ -641,7 +641,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                           <input type="number" value={product.price} onChange={(e) => updateDraft(product.id, 'price', e.target.value)} />
                         </label>
                         <label className="field full">
-                          <span>Descripción</span>
+                          <span>DescripciÃ³n</span>
                           <textarea rows="2" value={product.description || ''} onChange={(e) => updateDraft(product.id, 'description', e.target.value)} />
                         </label>
                         <label className="field full">
@@ -670,3 +670,5 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     </main>
   );
 }
+
+

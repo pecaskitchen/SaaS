@@ -1,4 +1,4 @@
-import { nowIso, requireDb } from './http.js';
+﻿import { nowIso, requireDb } from './http.js';
 
 export const TENANT_STATUSES = ['trial', 'active', 'past_due', 'paused', 'cancelled'];
 export const PLANS = ['starter', 'growth', 'pro'];
@@ -143,10 +143,23 @@ export async function createTenant(env, input = {}) {
   const plan = PLANS.includes(input.plan) ? input.plan : 'starter';
   const tenantId = makeId('biz');
   const subscriptionId = makeId('sub');
+  const inputBrand = input.brand || {};
   const brand = {
-    logoUrl: String(input.logoUrl || '').trim(),
-    primaryColor: String(input.primaryColor || '#111827').trim(),
-    accentColor: String(input.accentColor || '#ef4444').trim(),
+    logoUrl: String(inputBrand.logoUrl ?? input.logoUrl ?? '').trim(),
+    displayName: String(inputBrand.displayName ?? input.displayName ?? name).trim(),
+    tagline: String(inputBrand.tagline ?? input.tagline ?? '').trim(),
+    heroEyebrow: String(inputBrand.heroEyebrow ?? input.heroEyebrow ?? '').trim(),
+    heroTitle: String(inputBrand.heroTitle ?? input.heroTitle ?? name).trim(),
+    heroText: String(inputBrand.heroText ?? input.heroText ?? '').trim(),
+    primaryActionLabel: String(inputBrand.primaryActionLabel ?? input.primaryActionLabel ?? 'Ordenar ahora').trim(),
+    secondaryActionLabel: String(inputBrand.secondaryActionLabel ?? input.secondaryActionLabel ?? 'Ver carrito').trim(),
+    orderMessageIntro: String(inputBrand.orderMessageIntro ?? input.orderMessageIntro ?? `Hola ${name}, quiero hacer un pedido:`).trim(),
+    menuEyebrow: String(inputBrand.menuEyebrow ?? input.menuEyebrow ?? 'Menu').trim(),
+    menuTitle: String(inputBrand.menuTitle ?? input.menuTitle ?? 'Elige una categoria').trim(),
+    emptyCatalogTitle: String(inputBrand.emptyCatalogTitle ?? input.emptyCatalogTitle ?? 'Catalogo en preparacion').trim(),
+    emptyCatalogText: String(inputBrand.emptyCatalogText ?? input.emptyCatalogText ?? 'Este negocio todavia no tiene productos publicados.').trim(),
+    primaryColor: String(inputBrand.primaryColor ?? input.primaryColor ?? '#111827').trim(),
+    accentColor: String(inputBrand.accentColor ?? input.accentColor ?? '#ef4444').trim(),
   };
   const settings = {
     timezone: input.timezone || 'America/Mexico_City',
@@ -217,10 +230,15 @@ export async function updateTenant(env, tenantId, input = {}) {
   const nextStatus = TENANT_STATUSES.includes(input.status) ? input.status : current.status;
   const nextPlan = PLANS.includes(input.plan) ? input.plan : current.plan;
   const nextSlug = slugify(input.slug ?? current.slug, current.slug);
+  const currentBrand = safeJson(current.brand_json, {});
+  const inputBrand = input.brand || {};
   const brand = {
-    ...safeJson(current.brand_json, {}),
-    ...(input.brand || {}),
+    ...currentBrand,
+    ...inputBrand,
   };
+  for (const key of ['logoUrl', 'displayName', 'tagline', 'heroEyebrow', 'heroTitle', 'heroText', 'primaryActionLabel', 'secondaryActionLabel', 'orderMessageIntro', 'menuEyebrow', 'menuTitle', 'emptyCatalogTitle', 'emptyCatalogText', 'primaryColor', 'accentColor']) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) brand[key] = String(input[key] || '').trim();
+  }
   const settings = {
     ...safeJson(current.settings_json, {}),
     ...(input.settings || {}),
@@ -261,3 +279,4 @@ export async function updateTenant(env, tenantId, input = {}) {
   const row = await db.prepare(`SELECT * FROM saas_tenants WHERE id = ?`).bind(tenantId).first();
   return sanitizeTenant(row);
 }
+

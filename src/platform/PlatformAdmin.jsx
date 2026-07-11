@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, RefreshCw, Save, Shield, WalletCards } from 'lucide-react';
 import '../styles.css';
 
@@ -15,6 +15,19 @@ const emptyBusiness = {
   domain: '',
   subdomain: '',
   whatsappNumber: '',
+  displayName: '',
+  tagline: '',
+  logoUrl: '',
+  heroEyebrow: '',
+  heroTitle: '',
+  heroText: '',
+  primaryActionLabel: '',
+  secondaryActionLabel: '',
+  orderMessageIntro: '',
+  menuEyebrow: '',
+  menuTitle: '',
+  emptyCatalogTitle: '',
+  emptyCatalogText: '',
   notes: '',
 };
 
@@ -114,7 +127,7 @@ export default function PlatformAdmin() {
   const loginPlatform = async () => {
     const cleanPassword = password.trim();
     if (!cleanPassword) {
-      setStatus('Ingresa la contraseña de plataforma.');
+      setStatus('Ingresa la contraseÃ±a de plataforma.');
       return;
     }
     setLoading(true);
@@ -127,7 +140,7 @@ export default function PlatformAdmin() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false || data.role !== 'platform_admin' || !data.sessionToken) {
-        throw new Error(data.error || 'Contraseña de plataforma inválida.');
+        throw new Error(data.error || 'ContraseÃ±a de plataforma invÃ¡lida.');
       }
       setPlatformToken(data.sessionToken);
       setPassword('');
@@ -169,6 +182,19 @@ export default function PlatformAdmin() {
       domain: business.domain || '',
       subdomain: business.subdomain || '',
       whatsappNumber: business.settings?.whatsappNumber || '',
+      displayName: business.brand?.displayName || business.name || '',
+      tagline: business.brand?.tagline || '',
+      logoUrl: business.brand?.logoUrl || '',
+      heroEyebrow: business.brand?.heroEyebrow || '',
+      heroTitle: business.brand?.heroTitle || business.name || '',
+      heroText: business.brand?.heroText || '',
+      primaryActionLabel: business.brand?.primaryActionLabel || '',
+      secondaryActionLabel: business.brand?.secondaryActionLabel || '',
+      orderMessageIntro: business.brand?.orderMessageIntro || '',
+      menuEyebrow: business.brand?.menuEyebrow || '',
+      menuTitle: business.brand?.menuTitle || '',
+      emptyCatalogTitle: business.brand?.emptyCatalogTitle || '',
+      emptyCatalogText: business.brand?.emptyCatalogText || '',
       notes: business.notes || '',
     });
     setStatus(`Editando ${business.name}`);
@@ -226,12 +252,12 @@ export default function PlatformAdmin() {
             <span className="eyebrow"><Shield size={14} /> Admin global</span>
             <h1>Acceso de plataforma</h1>
             <label className="field">
-              <span>Contraseña</span>
+              <span>ContraseÃ±a</span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Contraseña de plataforma"
+                placeholder="ContraseÃ±a de plataforma"
                 autoFocus
               />
             </label>
@@ -294,17 +320,30 @@ export default function PlatformAdmin() {
           <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); saveBusiness(); }}>
             <h2>{draft.id ? 'Editar negocio' : 'Nuevo negocio'}</h2>
             <div className="admin-promo-grid">
-              <label className="field"><span>Nombre</span><input value={draft.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="Cafetería Luna" /></label>
+              <label className="field"><span>Nombre</span><input value={draft.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="CafeterÃ­a Luna" /></label>
               <label className="field"><span>Slug</span><input value={draft.slug} onChange={(e) => updateDraft('slug', e.target.value)} placeholder="cafeteria-luna" /></label>
-              <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(e) => updateDraft('contactName', e.target.value)} placeholder="Nombre del dueño" /></label>
+              <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(e) => updateDraft('contactName', e.target.value)} placeholder="Nombre del dueÃ±o" /></label>
               <label className="field"><span>Email</span><input value={draft.contactEmail} onChange={(e) => updateDraft('contactEmail', e.target.value)} placeholder="correo@negocio.com" /></label>
-              <label className="field"><span>Teléfono</span><input value={draft.contactPhone} onChange={(e) => updateDraft('contactPhone', e.target.value)} placeholder="8112345678" /></label>
+              <label className="field"><span>TelÃ©fono</span><input value={draft.contactPhone} onChange={(e) => updateDraft('contactPhone', e.target.value)} placeholder="8112345678" /></label>
               <label className="field"><span>WhatsApp pedidos</span><input value={draft.whatsappNumber} onChange={(e) => updateDraft('whatsappNumber', e.target.value)} placeholder="5281..." /></label>
               <label className="field"><span>Plan</span><select value={draft.plan} onChange={(e) => updateDraft('plan', e.target.value)}><option value="starter">Starter</option><option value="growth">Growth</option><option value="pro">Pro</option></select></label>
               <label className="field"><span>Estado</span><select value={draft.status} onChange={(e) => updateDraft('status', e.target.value)}><option value="trial">Trial</option><option value="active">Activo</option><option value="past_due">Pago pendiente</option><option value="paused">Pausado</option></select></label>
               <label className="field"><span>Precio mensual</span><input type="number" value={draft.monthlyPriceCents / 100} onChange={(e) => updateDraft('monthlyPriceCents', Number(e.target.value || 0) * 100)} /></label>
               <label className="field"><span>Dominio</span><input value={draft.domain} onChange={(e) => updateDraft('domain', e.target.value)} placeholder="negocio.mx" /></label>
               <label className="field"><span>Subdominio</span><input value={draft.subdomain} onChange={(e) => updateDraft('subdomain', e.target.value)} placeholder="filians" /></label>
+              <label className="field"><span>Nombre visible</span><input value={draft.displayName} onChange={(e) => updateDraft('displayName', e.target.value)} placeholder="Floreria Lilians" /></label>
+              <label className="field"><span>Tagline</span><input value={draft.tagline} onChange={(e) => updateDraft('tagline', e.target.value)} placeholder="Flores y detalles" /></label>
+              <label className="field full"><span>Logo URL</span><input value={draft.logoUrl} onChange={(e) => updateDraft('logoUrl', e.target.value)} placeholder="https://.../logo.png" /></label>
+              <label className="field"><span>Eyebrow portada</span><input value={draft.heroEyebrow} onChange={(e) => updateDraft('heroEyebrow', e.target.value)} placeholder="Pedidos en linea" /></label>
+              <label className="field"><span>Titulo portada</span><input value={draft.heroTitle} onChange={(e) => updateDraft('heroTitle', e.target.value)} placeholder="Arreglos florales para hoy" /></label>
+              <label className="field full"><span>Texto portada</span><textarea value={draft.heroText} onChange={(e) => updateDraft('heroText', e.target.value)} placeholder="Elige tu producto y mandanos tu pedido por WhatsApp." /></label>
+              <label className="field"><span>Boton principal</span><input value={draft.primaryActionLabel} onChange={(e) => updateDraft('primaryActionLabel', e.target.value)} placeholder="Ver catalogo" /></label>
+              <label className="field"><span>Boton carrito</span><input value={draft.secondaryActionLabel} onChange={(e) => updateDraft('secondaryActionLabel', e.target.value)} placeholder="Ver carrito" /></label>
+              <label className="field full"><span>Mensaje WhatsApp</span><input value={draft.orderMessageIntro} onChange={(e) => updateDraft('orderMessageIntro', e.target.value)} placeholder="Hola, quiero hacer un pedido:" /></label>
+              <label className="field"><span>Etiqueta catalogo</span><input value={draft.menuEyebrow} onChange={(e) => updateDraft('menuEyebrow', e.target.value)} placeholder="Catalogo" /></label>
+              <label className="field"><span>Titulo catalogo</span><input value={draft.menuTitle} onChange={(e) => updateDraft('menuTitle', e.target.value)} placeholder="Elige una categoria" /></label>
+              <label className="field"><span>Titulo sin productos</span><input value={draft.emptyCatalogTitle} onChange={(e) => updateDraft('emptyCatalogTitle', e.target.value)} placeholder="Catalogo en preparacion" /></label>
+              <label className="field"><span>Texto sin productos</span><input value={draft.emptyCatalogText} onChange={(e) => updateDraft('emptyCatalogText', e.target.value)} placeholder="Pronto publicaremos productos." /></label>
               <label className="field full"><span>Notas internas</span><textarea value={draft.notes} onChange={(e) => updateDraft('notes', e.target.value)} placeholder="Pendientes, acuerdos, soporte..." /></label>
             </div>
             <div className="inline-actions">
@@ -318,12 +357,12 @@ export default function PlatformAdmin() {
             <h2>Clientes</h2>
             <div className="platform-business-list">
               {businesses.length === 0 ? (
-                <p className="empty-cart">Aún no hay negocios registrados.</p>
+                <p className="empty-cart">AÃºn no hay negocios registrados.</p>
               ) : businesses.map((business) => (
                 <article className="platform-business" key={business.id}>
                   <div>
                     <strong>{business.name}</strong>
-                    <span>{business.slug} · {business.plan} · {business.contactName || 'Sin contacto'}</span>
+                    <span>{business.slug} Â· {business.plan} Â· {business.contactName || 'Sin contacto'}</span>
                   </div>
                   <div className="platform-business-meta">
                     <StatusBadge status={business.status} />
@@ -346,7 +385,7 @@ export default function PlatformAdmin() {
             <h2>Actividad reciente</h2>
             <div className="audit-list">
               {dashboard.recentAudit.map((event) => (
-                <span key={event.id}>{event.created_at_utc} · {event.action} · {event.entity_id || event.tenant_id || 'plataforma'}</span>
+                <span key={event.id}>{event.created_at_utc} Â· {event.action} Â· {event.entity_id || event.tenant_id || 'plataforma'}</span>
               ))}
             </div>
           </section>
@@ -355,3 +394,5 @@ export default function PlatformAdmin() {
     </main>
   );
 }
+
+

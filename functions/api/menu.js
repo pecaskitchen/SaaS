@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -14,6 +14,49 @@ const DEFAULT_BRANCH_SETTINGS = {
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
 };
+
+const DEFAULT_PUBLIC_BRAND = {
+  displayName: 'Tu negocio',
+  tagline: '',
+  logoUrl: '',
+  heroEyebrow: 'Pedidos en linea',
+  heroTitle: 'Catalogo en preparacion',
+  heroText: 'Este negocio todavia no tiene productos publicados.',
+  primaryActionLabel: 'Ver catalogo',
+  secondaryActionLabel: 'Ver carrito',
+  orderMessageIntro: 'Hola, quiero hacer un pedido:',
+  menuEyebrow: 'Menu',
+  menuTitle: 'Elige una categoria',
+  emptyCatalogTitle: 'Catalogo en preparacion',
+  emptyCatalogText: 'Este negocio todavia no tiene productos publicados.',
+  primaryColor: '#111827',
+  accentColor: '#ef4444',
+};
+
+function safeJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function publicTenantConfig(row) {
+  const brand = { ...DEFAULT_PUBLIC_BRAND, ...(row ? safeJson(row.brand_json, {}) : {}) };
+  const displayName = String(brand.displayName || row?.name || DEFAULT_PUBLIC_BRAND.displayName).trim();
+  return {
+    id: row?.id || 'default',
+    slug: row?.slug || 'default',
+    name: row?.name || displayName,
+    brand: {
+      ...brand,
+      displayName,
+      heroTitle: String(brand.heroTitle || displayName || DEFAULT_PUBLIC_BRAND.heroTitle).trim(),
+      orderMessageIntro: String(brand.orderMessageIntro || `Hola ${displayName}, quiero hacer un pedido:`).trim(),
+    },
+    settings: row ? safeJson(row.settings_json, {}) : {},
+  };
+}
 
 function normalizeBranchSettings(settings = {}) {
   const branches = Array.isArray(settings.branches) && settings.branches.length
@@ -48,7 +91,7 @@ function publicBranchSettings(settings = DEFAULT_BRANCH_SETTINGS) {
 
 function normalizeSavedMenu(raw) {
   try {
-    if (!raw) return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    if (!raw) return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false };
     const parsed = JSON.parse(raw);
     if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.businessHours || parsed.branchSettings) {
       return {
@@ -62,18 +105,19 @@ function normalizeSavedMenu(raw) {
         branchPromotions: parsed.branchPromotions || {},
         businessHours: parsed.businessHours || null,
         branchSettings: normalizeBranchSettings(parsed.branchSettings || DEFAULT_BRANCH_SETTINGS),
+        baseCatalogEnabled: Boolean(parsed.baseCatalogEnabled),
       };
     }
-    return { overrides: parsed || {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    return { overrides: parsed || {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false };
   } catch {
-    return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS) };
+    return { overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false };
   }
 }
 
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) {
-      return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS) });
+      return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false, tenant: publicTenantConfig(null) });
     }
 
     await ensureTenantColumns(env, ['app_settings']);
@@ -84,6 +128,8 @@ export async function onRequestGet({ request, env }) {
     ).bind(settingKey).first();
 
     const saved = normalizeSavedMenu(row?.value_json || '');
+    const tenantRow = await env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ?`).bind(tenantId).first().catch(() => null);
+    const tenant = publicTenantConfig(tenantRow);
 
     const publicBranches = publicBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS);
     const cleanedOverrides = { ...(saved.overrides || {}) };
@@ -108,8 +154,11 @@ export async function onRequestGet({ request, env }) {
       branchPromotions: saved.branchPromotions || {},
       businessHours: saved.businessHours || null,
       branchSettings: publicBranches,
+      baseCatalogEnabled: Boolean(saved.baseCatalogEnabled),
+      tenant,
     });
   } catch (error) {
-    return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), warning: error.message });
+    return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false, tenant: publicTenantConfig(null), warning: error.message });
   }
 }
+

@@ -27,7 +27,34 @@ import {
 
 const currency = (amount) => `$${amount}`;
 
-const CUSTOMER_STORAGE_KEY = 'pecas_customer_profile';
+const DEFAULT_PUBLIC_BRAND = {
+  displayName: 'Tu negocio',
+  tagline: '',
+  logoUrl: '',
+  heroEyebrow: 'Pedidos en linea',
+  heroTitle: 'Catalogo en preparacion',
+  heroText: 'Este negocio todavia no tiene productos publicados.',
+  primaryActionLabel: 'Ver catalogo',
+  secondaryActionLabel: 'Ver carrito',
+  orderMessageIntro: 'Hola, quiero hacer un pedido:',
+  menuEyebrow: 'Menu',
+  menuTitle: 'Elige una categoria',
+  emptyCatalogTitle: 'Catalogo en preparacion',
+  emptyCatalogText: 'Este negocio todavia no tiene productos publicados.',
+};
+
+function normalizePublicBrand(tenant) {
+  const brand = { ...DEFAULT_PUBLIC_BRAND, ...(tenant?.brand || {}) };
+  const displayName = String(brand.displayName || tenant?.name || DEFAULT_PUBLIC_BRAND.displayName).trim();
+  return {
+    ...brand,
+    displayName,
+    heroTitle: String(brand.heroTitle || displayName || DEFAULT_PUBLIC_BRAND.heroTitle).trim(),
+    orderMessageIntro: String(brand.orderMessageIntro || `Hola ${displayName}, quiero hacer un pedido:`).trim(),
+  };
+}
+
+const CUSTOMER_STORAGE_KEY = 'saas_customer_profile';
 
 function modificationDetails(details = []) {
   return details.filter((detail) => {
@@ -36,19 +63,19 @@ function modificationDetails(details = []) {
   });
 }
 
-const LANGUAGE_STORAGE_KEY = 'pecas_language';
-const ORDERS_PASSWORD_STORAGE_KEY = 'pecas_orders_password';
-const ADMIN_PASSWORD_STORAGE_KEY = 'pecas_admin_password';
-const SUPER_PASSWORD_STORAGE_KEY = 'pecas_super_password';
-const CASHIER_SESSION_STORAGE_KEY = 'pecas_cashier_session';
-const STOCK_SESSION_STORAGE_KEY = 'pecas_stock_session';
-const STOCK_BRANCH_STORAGE_KEY = 'pecas_stock_branch';
-const EMPLOYEE_LOGIN_NAME_STORAGE_KEY = 'pecas_employee_login_name';
-const EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY = 'pecas_employee_login_shift';
+const LANGUAGE_STORAGE_KEY = 'saas_language';
+const ORDERS_PASSWORD_STORAGE_KEY = 'saas_orders_password';
+const ADMIN_PASSWORD_STORAGE_KEY = 'saas_admin_password';
+const SUPER_PASSWORD_STORAGE_KEY = 'saas_super_password';
+const CASHIER_SESSION_STORAGE_KEY = 'saas_cashier_session';
+const STOCK_SESSION_STORAGE_KEY = 'saas_stock_session';
+const STOCK_BRANCH_STORAGE_KEY = 'saas_stock_branch';
+const EMPLOYEE_LOGIN_NAME_STORAGE_KEY = 'saas_employee_login_name';
+const EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY = 'saas_employee_login_shift';
 
 const TEXT = {
   es: {
-    brandTagline: 'Cocina & Café',
+    brandTagline: 'Pedidos en linea',
     languageLabel: 'Idioma',
     selectOption: 'Selecciona una opción',
     notesLabel: 'Personalizar / nota',
@@ -113,7 +140,7 @@ const TEXT = {
     total: 'Total',
     each: 'c/u',
     sendWhatsApp: 'Enviar pedido por WhatsApp',
-    orderMessageIntro: 'Hola Pecas, quiero hacer un pedido:',
+    orderMessageIntro: 'Hola, quiero hacer un pedido:',
     orderData: 'Datos del pedido:',
     orderNumber: 'Número de pedido',
     nameLabel: 'Nombre',
@@ -123,8 +150,8 @@ const TEXT = {
     paymentLabel: 'Pago',
     generalNoteLabel: 'Nota general',
     heroEyebrow: 'Arma tu pedido en línea',
-    heroTitle: 'Comida, café y antojos en un solo pedido.',
-    heroText: 'Paninis, wraps, ensaladas, crepas y café. Personaliza tu pedido y envíalo directo a Pecas por WhatsApp.',
+    heroTitle: 'Catalogo en preparacion',
+    heroText: 'Este negocio todavia no tiene productos publicados.',
     orderNow: 'Ordenar ahora',
     viewCart: 'Ver carrito',
     heroFloatingTop: '',
@@ -142,7 +169,7 @@ const TEXT = {
     closedNow: 'Cerrado',
   },
   en: {
-    brandTagline: 'Kitchen & Coffee',
+    brandTagline: 'Online orders',
     languageLabel: 'Language',
     selectOption: 'Choose an option',
     notesLabel: 'Customize / note',
@@ -207,7 +234,7 @@ const TEXT = {
     total: 'Total',
     each: 'each',
     sendWhatsApp: 'Send order via WhatsApp',
-    orderMessageIntro: 'Hi Pecas, I would like to place an order:',
+    orderMessageIntro: 'Hi, I would like to place an order:',
     orderData: 'Order details:',
     orderNumber: 'Order number',
     nameLabel: 'Name',
@@ -217,8 +244,8 @@ const TEXT = {
     paymentLabel: 'Payment',
     generalNoteLabel: 'General note',
     heroEyebrow: 'Build your order online',
-    heroTitle: 'Food, coffee, and cravings in one order.',
-    heroText: 'Paninis, wraps, salads, crepes, and coffee. Customize your order and send it straight to Pecas on WhatsApp.',
+    heroTitle: 'Catalog in progress',
+    heroText: 'This business has not published products yet.',
     orderNow: 'Order now',
     viewCart: 'View cart',
     heroFloatingTop: '',
@@ -276,7 +303,6 @@ const PRODUCT_TRANSLATIONS = {
   'wrap-pollo-chipotle': { name: 'Chicken Chipotle Wrap', badge: 'Fresh', description: 'Chicken, lettuce, tomato, manchego cheese, and chipotle.' },
   'wrap-pollo-bbq': { name: 'Chicken BBQ Wrap', description: 'BBQ chicken, lettuce, manchego cheese, and red onion.' },
   'wrap-jamon-queso': { name: 'Ham & Cheese Wrap', description: 'Ham, lettuce, tomato, manchego cheese, and mayo.' },
-  'wrap-pecas': { name: 'Pecas Wrap', badge: 'New', description: 'Lettuce, chicken fajitas, house blue cheese, and mozzarella/manchego cheese blend.' },
   'ensalada-blue': { name: 'Blue Cheese Salad', description: 'Lettuce, grilled chicken, manchego cheese, and croutons.' },
   'ensalada-chipotle': { name: 'Chipotle Salad', description: 'Lettuce, grilled chicken, manchego cheese, and crispy tortilla strips.' },
   'ensalada-bbq': { name: 'BBQ Salad', description: 'Lettuce, BBQ chicken, manchego cheese, and red onion.' },
@@ -447,14 +473,15 @@ function selectedRecipeExtraPrice(product, customization, selectedExtras = []) {
   }, 0);
 }
 
-function Logo({ lang = 'es', setLang, onLoginClick }) {
+function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND }) {
+  const cleanBrand = normalizePublicBrand({ brand });
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        <img src="/pecas-logo.svg" alt="Pecas" className="brand-logo" />
+        {cleanBrand.logoUrl ? <img src={cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
         <div>
-          <div className="brand-name">Pecas</div>
-          <div className="brand-tagline">{t(lang, 'brandTagline')}</div>
+          <div className="brand-name">{cleanBrand.displayName}</div>
+          {cleanBrand.tagline ? <div className="brand-tagline">{cleanBrand.tagline}</div> : null}
         </div>
       </div>
       {(setLang || onLoginClick) && (
@@ -475,7 +502,7 @@ function Logo({ lang = 'es', setLang, onLoginClick }) {
 }
 
 
-function EmployeeLoginModal({ open, onClose }) {
+function EmployeeLoginModal({ open, onClose, brandName = 'este negocio' }) {
   const [password, setPassword] = useState('');
   const [employeeName, setEmployeeName] = useState(() => {
     try { return window.localStorage.getItem(EMPLOYEE_LOGIN_NAME_STORAGE_KEY) || ''; } catch { return ''; }
@@ -542,8 +569,8 @@ function EmployeeLoginModal({ open, onClose }) {
       <div className="employee-login-modal">
         <div className="employee-login-head">
           <div>
-            <h2>Ingresa a Pecas</h2>
-            <p>Acceso para equipo Pecas. Más adelante aquí podrán registrarse clientes.</p>
+            <h2>Ingresa a {brandName}</h2>
+            <p>Acceso para equipo interno.</p>
           </div>
           <button type="button" className="ghost mini" onClick={onClose}>Cerrar</button>
         </div>
@@ -580,7 +607,7 @@ function BackofficeNav({ current = 'admin', compact = false, showAdmin = true })
   const visibleLinks = showAdmin ? links : links.filter((link) => link.key !== 'admin');
 
   return (
-    <nav className={compact ? 'backoffice-nav compact' : 'backoffice-nav'} aria-label="Navegación interna Pecas">
+    <nav className={compact ? 'backoffice-nav compact' : 'backoffice-nav'} aria-label="Navegación interna">
       {visibleLinks.map((link) => (
         <a key={link.key} href={link.href} className={current === link.key ? 'active' : ''}>
           <strong>{link.label}</strong>
@@ -1457,7 +1484,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0] }) {
+function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
@@ -1486,7 +1513,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
 
   const buildMessage = () => {
     const lines = [
-      t(lang, 'orderMessageIntro'),
+      brand.orderMessageIntro || t(lang, 'orderMessageIntro'),
       branch?.name ? `Sucursal: ${branch.name}` : '',
       !openState.open ? `Aviso: ${openState.messageWhenClosed || 'Estamos cerrados.'}` : '',
       '',
@@ -1651,18 +1678,20 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
 
 
 export default function PublicApp() {
-  const [activeCategory, setActiveCategory] = useState(categories[0].id);
+  const [activeCategory, setActiveCategory] = useState('');
   const [cart, setCart] = useState([]);
   const [menuOverrides, setMenuOverrides] = useState({});
   const [extraCategories, setExtraCategories] = useState([]);
   const [extraProducts, setExtraProducts] = useState([]);
-  const [categoryOrder, setCategoryOrder] = useState(() => categories.map((category) => category.id));
-  const [productOrder, setProductOrder] = useState(() => CATALOG_PRODUCTS.map((product) => product.id));
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [productOrder, setProductOrder] = useState([]);
   const [categoryHidden, setCategoryHidden] = useState({});
-  const [promotion, setPromotion] = useState(() => makeDefaultPromotion(CATALOG_PRODUCTS));
+  const [promotion, setPromotion] = useState(null);
   const [branchPromotions, setBranchPromotions] = useState({});
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
+  const [baseCatalogEnabled, setBaseCatalogEnabled] = useState(false);
+  const [publicBrand, setPublicBrand] = useState(() => normalizePublicBrand(null));
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try { return window.localStorage.getItem(BRANCH_STORAGE_KEY) || DEFAULT_BRANCH_SETTINGS.defaultBranchId; } catch { return DEFAULT_BRANCH_SETTINGS.defaultBranchId; }
   });
@@ -1720,15 +1749,20 @@ export default function PublicApp() {
       const response = await fetch('/api/menu');
       const result = await response.json();
       if (response.ok && result.ok) {
+        const useBaseCatalog = Boolean(result.baseCatalogEnabled);
+        const baseCategories = useBaseCatalog ? categories : [];
+        const baseProducts = useBaseCatalog ? CATALOG_PRODUCTS : [];
+        setBaseCatalogEnabled(useBaseCatalog);
+        setPublicBrand(normalizePublicBrand(result.tenant));
         setMenuOverrides(result.overrides || {});
-        const nextCategories = mergeCategoriesWithExtras(categories, result.extraCategories || []);
-        const nextProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, result.extraProducts || []);
+        const nextCategories = mergeCategoriesWithExtras(baseCategories, result.extraCategories || []);
+        const nextProducts = mergeProductsWithExtras(baseProducts, result.extraProducts || []);
         setExtraCategories(result.extraCategories || []);
         setExtraProducts(result.extraProducts || []);
-        setCategoryOrder(result.categoryOrder || nextCategories.map((category) => category.id));
-        setProductOrder(result.productOrder || nextProducts.map((product) => product.id));
+        setCategoryOrder(result.categoryOrder?.length ? result.categoryOrder : nextCategories.map((category) => category.id));
+        setProductOrder(result.productOrder?.length ? result.productOrder : nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
-        setPromotion(normalizePromotion(result.promotion, nextProducts));
+        setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
@@ -1738,7 +1772,9 @@ export default function PublicApp() {
       setExtraCategories([]);
       setExtraProducts([]);
       setCategoryHidden({});
-      setPromotion(makeDefaultPromotion(CATALOG_PRODUCTS));
+      setPromotion(null);
+      setBaseCatalogEnabled(false);
+      setPublicBrand(normalizePublicBrand(null));
       setBranchPromotions({});
       setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
       setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -1753,8 +1789,8 @@ export default function PublicApp() {
     loadProductCustomizations();
   }, []);
 
-  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(categories, extraCategories), [extraCategories]);
-  const catalogProducts = useMemo(() => mergeProductsWithExtras(CATALOG_PRODUCTS, extraProducts), [extraProducts]);
+  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(baseCatalogEnabled ? categories : [], extraCategories), [baseCatalogEnabled, extraCategories]);
+  const catalogProducts = useMemo(() => mergeProductsWithExtras(baseCatalogEnabled ? CATALOG_PRODUCTS : [], extraProducts), [baseCatalogEnabled, extraProducts]);
   const currentCategories = useMemo(() => sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id]), [catalogCategories, categoryOrder, categoryHidden]);
   const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
@@ -1780,7 +1816,7 @@ export default function PublicApp() {
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
   const selectedBranchPromotion = branchSettings.multiBranchEnabled && selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
-  const activePromotion = useMemo(() => normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch), [selectedBranchPromotion, promotion, currentProductsForBranch]);
+  const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -1797,10 +1833,10 @@ export default function PublicApp() {
 
   return (
     <main>
-      <EmployeeLoginModal open={employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} />
+      <EmployeeLoginModal open={employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} brandName={publicBrand.displayName} />
       <section className="hero">
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => setEmployeeLoginOpen(true)} />
+          <Logo lang={lang} setLang={setLang} onLoginClick={() => setEmployeeLoginOpen(true)} brand={publicBrand} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>
@@ -1809,7 +1845,7 @@ export default function PublicApp() {
         <div className="hero-grid">
           <div className="hero-copy">
             <span className="eyebrow">
-              <Sparkles size={14} /> {t(lang, 'heroEyebrow')}
+              <Sparkles size={14} /> {publicBrand.heroEyebrow || t(lang, 'heroEyebrow')}
             </span>
 
             {customer.profileLoaded && customer.name && (
@@ -1829,25 +1865,25 @@ export default function PublicApp() {
               </label>
             )}
 
-            <h1>{t(lang, 'heroTitle')}</h1>
+            <h1>{publicBrand.heroTitle || t(lang, 'heroTitle')}</h1>
 
             <p>
-              {t(lang, 'heroText')}
+              {publicBrand.heroText || t(lang, 'heroText')}
             </p>
 
             <div className="hero-actions">
               <a className="primary" href="#menu">
-                <Utensils size={18} /> {t(lang, 'orderNow')}
+                <Utensils size={18} /> {publicBrand.primaryActionLabel || t(lang, 'orderNow')}
               </a>
 
               <a className="secondary" href="#cart">
-                <MessageCircle size={18} /> {t(lang, 'viewCart')}
+                <MessageCircle size={18} /> {publicBrand.secondaryActionLabel || t(lang, 'viewCart')}
               </a>
             </div>
           </div>
 
           <div className="hero-card">
-            <img src="/pecas-logo.svg" alt="Pecas Cocina & Café" />
+            {publicBrand.logoUrl ? <img src={publicBrand.logoUrl} alt={publicBrand.displayName} /> : <div className="hero-card-placeholder"><strong>{publicBrand.displayName}</strong><span>{publicBrand.tagline || publicBrand.heroEyebrow}</span></div>}
           </div>
         </div>
       </section>
@@ -1857,9 +1893,10 @@ export default function PublicApp() {
       <section className="menu-layout" id="menu">
         <div className="menu-main">
           <div className="section-heading">
-            <span className="eyebrow">{t(lang, 'menu')}</span>
-            <h2>{t(lang, 'chooseCategory')}</h2>
+            <span className="eyebrow">{publicBrand.menuEyebrow || t(lang, 'menu')}</span>
+            <h2>{publicBrand.menuTitle || t(lang, 'chooseCategory')}</h2>
           </div>
+          {currentCategories.length === 0 ? <div className="empty-catalog"><h3>{publicBrand.emptyCatalogTitle}</h3><p>{publicBrand.emptyCatalogText}</p></div> : null}
           <div className="tabs">
             {currentCategories.map((category) => (
               <button
@@ -1880,7 +1917,7 @@ export default function PublicApp() {
           </div>
         </div>
 
-        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} />
+        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} />
       </section>
 
       <a href="#cart" className="mobile-cart-bar">
@@ -1891,3 +1928,9 @@ export default function PublicApp() {
     </main>
   );
 }
+
+
+
+
+
+

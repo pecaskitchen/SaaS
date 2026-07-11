@@ -1,18 +1,6 @@
-import { categories, products as baseProducts } from '../data/menu.js';
+﻿import { categories, products as baseProducts } from '../data/menu.js';
 
-export const EXTRA_MENU_PRODUCTS = [
-  {
-    id: 'wrap-pecas',
-    name: 'Wrap Pecas',
-    category: 'wraps',
-    type: 'wrap',
-    price: 110,
-    badge: 'Nuevo',
-    description: 'Lechuga, fajitas de pollo, blue cheese de la casa y mezcla de queso mozzarella y manchego.',
-    ingredients: 'Lechuga, fajitas de pollo, blue cheese de la casa, queso mozzarella y queso manchego.',
-    defaultSideDressing: 'Blue Cheese',
-  },
-];
+export const EXTRA_MENU_PRODUCTS = [];
 
 export const CATALOG_PRODUCTS = [
   ...baseProducts,
@@ -66,7 +54,7 @@ export function mergeProductsWithExtras(base = CATALOG_PRODUCTS, extraProducts =
 }
 
 export function categoryMeta(categoryId) {
-  return categories.find((item) => item.id === categoryId) || { label: categoryId, emoji: '🍽️' };
+  return categories.find((item) => item.id === categoryId) || { label: categoryId, emoji: 'ðŸ½ï¸' };
 }
 
 export function sortByOrder(items, order, key = 'id') {
@@ -126,3 +114,4 @@ export function promotionItems(promotion, products) {
     })
     .filter(Boolean);
 }
+

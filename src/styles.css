@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --brown: #3b1f0f;
   --brown-2: #5b341c;
   --orange: #f15a24;
@@ -2553,7 +2553,7 @@ textarea { resize: vertical; min-height: 48px; }
 .admin-super-moved-note {
   background: rgba(249, 169, 31, 0.12);
 }
-/* Phase 27: mover configuración técnica de Stock a Admin */
+/* Phase 27: mover configuraciÃ³n tÃ©cnica de Stock a Admin */
 .admin-embedded-stock-config {
   margin-top: 14px;
 }
@@ -2831,7 +2831,7 @@ textarea { resize: vertical; min-height: 48px; }
   }
 
   .soldout-products-card .stock-table td:nth-child(2)::before {
-    content: 'Categoría: ';
+    content: 'CategorÃ­a: ';
     font-weight: 900;
     color: var(--brown);
   }
@@ -3418,7 +3418,7 @@ textarea { resize: vertical; min-height: 48px; }
   }
 }
 
-/* Pecas V2 foundation: option components + stable backoffice */
+/* SaaS foundation: option components + stable backoffice */
 .family-components-builder {
   margin: 14px 0;
   padding: 14px;
@@ -3562,3 +3562,63 @@ textarea { resize: vertical; min-height: 48px; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.brand-logo-placeholder {
+  display: inline-grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+  font-weight: 950;
+  font-size: 22px;
+  box-shadow: none;
+}
+
+.hero-card-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  width: min(86%, 520px);
+  min-height: 320px;
+  padding: 36px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  color: #111827;
+  text-align: center;
+  box-shadow: 0 26px 56px rgba(0,0,0,.12);
+}
+
+.hero-card-placeholder strong {
+  font-size: 32px;
+  line-height: 1.05;
+}
+
+.hero-card-placeholder span {
+  font-weight: 800;
+  color: rgba(17, 24, 39, 0.68);
+}
+
+.empty-catalog {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed rgba(17, 24, 39, 0.22);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.72);
+  color: #111827;
+}
+
+.empty-catalog h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.empty-catalog p {
+  margin: 0;
+  color: rgba(17, 24, 39, 0.68);
+  font-weight: 700;
+}
+

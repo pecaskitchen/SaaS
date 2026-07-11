@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Lock } from 'lucide-react';
 import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
@@ -18,10 +18,10 @@ function Logo() {
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        <img src="/pecas-logo.svg" alt="Pecas" className="brand-logo" />
+        <div className="brand-logo brand-logo-placeholder">S</div>
         <div>
-          <div className="brand-name">Pecas</div>
-          <div className="brand-tagline">Cocina & Café</div>
+          <div className="brand-name">Sistema</div>
+          <div className="brand-tagline">Operacion</div>
         </div>
       </div>
     </div>
@@ -60,7 +60,7 @@ const ACCURACY_PRESETS = [
   { label: 'Empaque 92%', value: 92 },
   { label: 'Pan 95%', value: 95 },
   { label: 'Bebidas 95%', value: 95 },
-  { label: 'Queso / jamón / pepperoni 85%', value: 85 },
+  { label: 'Queso / jamÃ³n / pepperoni 85%', value: 85 },
   { label: 'Pollo 80%', value: 80 },
   { label: 'Fresa / lechuga / verduras 75%', value: 75 },
   { label: 'Aderezos 80%', value: 80 },
@@ -180,7 +180,7 @@ const emptyProductFamilyRuleDraft = {
 };
 
 function recipeLabel(recipe) {
-  return `${recipe.name}${recipe.recipe_type === 'subrecipe' && recipe.output_quantity ? ` → ${formatStockQuantity(recipe.output_quantity, recipe.output_unit_code)}` : ''}`;
+  return `${recipe.name}${recipe.recipe_type === 'subrecipe' && recipe.output_quantity ? ` â†’ ${formatStockQuantity(recipe.output_quantity, recipe.output_unit_code)}` : ''}`;
 }
 
 function formatStockQuantity(value, unitCode) {
@@ -224,7 +224,7 @@ function purchaseSuggestion(item) {
   if (!needed) return null;
   if (packQty > 0) {
     const packs = Math.ceil(needed / packQty);
-    return `${packs} ${item.purchase_unit_label || 'presentación(es)'}`;
+    return `${packs} ${item.purchase_unit_label || 'presentaciÃ³n(es)'}`;
   }
   return formatStockQuantity(needed, item.unit_code);
 }
@@ -268,11 +268,11 @@ const STOCK_CSV_HEADER_ALIASES = {
   cantidad: 'current_stock',
   current_stock: 'current_stock',
   minimo: 'min_stock',
-  mínimo: 'min_stock',
+  'mÃ­nimo': 'min_stock',
   min: 'min_stock',
   min_stock: 'min_stock',
   maximo: 'max_stock',
-  máximo: 'max_stock',
+  'mÃ¡ximo': 'max_stock',
   max: 'max_stock',
   max_stock: 'max_stock',
   precision: 'accuracy_target',
@@ -285,13 +285,13 @@ const STOCK_CSV_HEADER_ALIASES = {
   proveedor_alterno: 'alt_supplier',
   alt_supplier: 'alt_supplier',
   categoria_compra: 'purchase_category',
-  categoría_compra: 'purchase_category',
+  'categorÃ­a_compra': 'purchase_category',
   purchase_category: 'purchase_category',
   presentacion: 'purchase_unit_label',
-  presentación: 'purchase_unit_label',
+  'presentaciÃ³n': 'purchase_unit_label',
   purchase_unit_label: 'purchase_unit_label',
   cantidad_presentacion: 'purchase_unit_quantity',
-  cantidad_presentación: 'purchase_unit_quantity',
+  'cantidad_presentaciÃ³n': 'purchase_unit_quantity',
   purchase_unit_quantity: 'purchase_unit_quantity',
   precio: 'purchase_price',
   costo: 'purchase_price',
@@ -335,7 +335,7 @@ function csvTemplateText() {
     STOCK_CSV_COLUMNS.join(','),
     'Pan chapata,,Ingrediente comprado,pieza,24,10,50,95,Costco,HEB,Pan,bolsa 12 piezas,12,0,',
     'Queso manchego,,Ingrediente comprado,g,1000,300,2000,85,Costco,HEB,Refrigerados,paquete 1 kg,1000,180,',
-    'Hielo en bolsa,,Hielo,bolsa,2,1,5,65,HEB,Costco,Café y bebidas,bolsa,1,35,',
+    'Hielo en bolsa,,Hielo,bolsa,2,1,5,65,HEB,Costco,CafÃ© y bebidas,bolsa,1,35,',
   ];
   return rows.join('\n');
 }
@@ -432,9 +432,9 @@ const FAMILY_CSV_COLUMNS = [
 function familyCsvTemplateText() {
   const rows = [
     FAMILY_CSV_COLUMNS.join(','),
-    'family_option,jarabes,Jarabes,Sabores para café,1,1,option,Vainilla francesa,Jarabe vainilla francesa,20,ml,10,0,1,1,,,,,,,,,,,',
-    'family_component,aderezos-acompanamiento,Aderezos de acompañamiento,Aderezo aparte,1,2,component,Chipotle,Contenedor aderezo,1,pieza,0,0,1,1,,,,,,,,,,,',
-    'family_product_rule,jarabes,Jarabes,Sabores para café,1,1,product_rule,,,,,,,,,latte,Jarabe,0,0,2,,10,0,1,1,Latte puede agregar jarabes con costo extra',
+    'family_option,jarabes,Jarabes,Sabores para cafÃ©,1,1,option,Vainilla francesa,Jarabe vainilla francesa,20,ml,10,0,1,1,,,,,,,,,,,',
+    'family_component,aderezos-acompanamiento,Aderezos de acompaÃ±amiento,Aderezo aparte,1,2,component,Chipotle,Contenedor aderezo,1,pieza,0,0,1,1,,,,,,,,,,,',
+    'family_product_rule,jarabes,Jarabes,Sabores para cafÃ©,1,1,product_rule,,,,,,,,,latte,Jarabe,0,0,2,,10,0,1,1,Latte puede agregar jarabes con costo extra',
   ];
   return rows.join('\n');
 }
@@ -622,7 +622,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [productFamilyRuleDraft, setProductFamilyRuleDraft] = useState(emptyProductFamilyRuleDraft);
   const [productionDraft, setProductionDraft] = useState({ recipeId: '', batchMultiplier: '1', note: '' });
   const [selectedProductSetupId, setSelectedProductSetupId] = useState('');
-  const [productDraft, setProductDraft] = useState({ name: '', category: '', price: '', description: '', emoji: '🍽️' });
+  const [productDraft, setProductDraft] = useState({ name: '', category: '', price: '', description: '', emoji: 'ðŸ½ï¸' });
 
   const [quickDrafts, setQuickDrafts] = useState([]);
   const [inventoryCounts, setInventoryCounts] = useState({});
@@ -647,7 +647,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const loadStock = async () => {
     if (!password || (!isAdminConfigMode && !operatorName.trim())) {
-      setStatus('Ingresa tu nombre y contraseña.');
+      setStatus('Ingresa tu nombre y contraseÃ±a.');
       return;
     }
 
@@ -735,7 +735,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       if (!response.ok || !result.ok) {
         if (options.returnData) return result;
         const firstValidation = Array.isArray(result.validationErrors) ? result.validationErrors[0] : null;
-        setStatus(firstValidation ? `Línea ${firstValidation.line}: ${firstValidation.message}` : (result.error || result.detail || 'No se pudo guardar.'));
+        setStatus(firstValidation ? `LÃ­nea ${firstValidation.line}: ${firstValidation.message}` : (result.error || result.detail || 'No se pudo guardar.'));
         return false;
       }
       setStatus(successMessage || 'Listo.');
@@ -778,7 +778,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const seedDefaults = async () => {
     if (role !== 'admin') return;
-    await postStockAction({ action: 'seedDefaults' }, 'Catálogo base creado.');
+    await postStockAction({ action: 'seedDefaults' }, 'CatÃ¡logo base creado.');
   };
 
   const receiveStock = async () => {
@@ -792,10 +792,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const reportWaste = async () => {
     if (!wasteDraft.itemId || !Number(wasteDraft.quantity) || !wasteDraft.reason.trim()) {
-      setStatus('La merma necesita ingrediente, cantidad y razón obligatoria.');
+      setStatus('La merma necesita ingrediente, cantidad y razÃ³n obligatoria.');
       return;
     }
-    const ok = await postStockAction({ action: 'reportWaste', ...wasteDraft }, role === 'admin' ? 'Merma aplicada.' : 'Merma enviada para aprobación.');
+    const ok = await postStockAction({ action: 'reportWaste', ...wasteDraft }, role === 'admin' ? 'Merma aplicada.' : 'Merma enviada para aprobaciÃ³n.');
     if (ok) setWasteDraft({ itemId: '', quantity: '', reason: '' });
   };
 
@@ -810,7 +810,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const addRecipeLine = () => {
     if (!recipeLineDraft.item_id || !Number(recipeLineDraft.quantity)) {
-      setStatus('La línea necesita ingrediente y cantidad.');
+      setStatus('La lÃ­nea necesita ingrediente y cantidad.');
       return;
     }
     setRecipeDraft((current) => ({
@@ -906,12 +906,12 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       categoryLabel: productInput.categoryLabel || category,
       price: Number(productInput.price || 0),
       description: productInput.description || '',
-      emoji: productInput.emoji || '🍽️',
+      emoji: productInput.emoji || 'ðŸ½ï¸',
     };
-    const ok = await postStockAction({ action: 'saveCatalogProduct', product: payload }, options.successMessage || 'Producto guardado en menú.');
+    const ok = await postStockAction({ action: 'saveCatalogProduct', product: payload }, options.successMessage || 'Producto guardado en menÃº.');
     if (!ok) return null;
     setSelectedProductSetupId(id);
-    if (!options.keepDraft) setProductDraft({ name: '', category: category || '', price: '', description: '', emoji: '🍽️' });
+    if (!options.keepDraft) setProductDraft({ name: '', category: category || '', price: '', description: '', emoji: 'ðŸ½ï¸' });
     return payload;
   };
 
@@ -937,8 +937,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       category: productDraft.category || stockMenuProducts[0]?.category || 'sin-categoria',
       price: productDraft.price || 0,
       description: recipe.notes || '',
-      emoji: productDraft.emoji || '🍽️',
-    }, { keepDraft: true, successMessage: 'Receta publicada como producto del menú.' });
+      emoji: productDraft.emoji || 'ðŸ½ï¸',
+    }, { keepDraft: true, successMessage: 'Receta publicada como producto del menÃº.' });
     if (product) setSelectedProductSetupId(product.id);
   };
 
@@ -997,7 +997,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const addFamilyOption = () => {
     if (!familyOptionDraft.item_id || !familyOptionDraft.option_name.trim() || !Number(familyOptionDraft.quantity)) {
-      setStatus('La opción necesita ingrediente, nombre visible y cantidad por uso.');
+      setStatus('La opciÃ³n necesita ingrediente, nombre visible y cantidad por uso.');
       return;
     }
     setOptionFamilyDraft((current) => ({ ...current, options: [...(current.options || []), { ...familyOptionDraft }] }));
@@ -1009,7 +1009,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const addProductFamilyRule = () => {
     if (!productFamilyRuleDraft.product_id) {
-      setStatus('Selecciona el producto donde se usará esta familia.');
+      setStatus('Selecciona el producto donde se usarÃ¡ esta familia.');
       return;
     }
     setOptionFamilyDraft((current) => ({ ...current, productRules: [...(current.productRules || []), { ...productFamilyRuleDraft, label: productFamilyRuleDraft.label || current.name }] }));
@@ -1052,7 +1052,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       setStatus('Selecciona sub-receta y cantidad producida.');
       return;
     }
-    const ok = await postStockAction({ action: 'produceSubRecipe', recipeId: productionDraft.recipeId, outputQuantity, batchMultiplier: multiplier, note: productionDraft.note }, 'Producción registrada.');
+    const ok = await postStockAction({ action: 'produceSubRecipe', recipeId: productionDraft.recipeId, outputQuantity, batchMultiplier: multiplier, note: productionDraft.note }, 'ProducciÃ³n registrada.');
     if (ok) setProductionDraft({ recipeId: '', batchMultiplier: '1', note: '' });
   };
 
@@ -1071,7 +1071,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       setStatus(`No se permiten cantidades negativas en ${invalid.name}.`);
       return;
     }
-    await postStockAction({ action: 'bulkUpdateItems', items: quickDrafts }, 'Cambios rápidos guardados.');
+    await postStockAction({ action: 'bulkUpdateItems', items: quickDrafts }, 'Cambios rÃ¡pidos guardados.');
   };
 
   const updateInventoryCount = (itemId, value) => {
@@ -1084,14 +1084,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       .map(([itemId, value]) => ({ itemId: Number(itemId), current_stock: Number(value) }));
     const invalid = rows.find((row) => !row.itemId || !Number.isFinite(row.current_stock) || row.current_stock < 0);
     if (invalid) {
-      setStatus('Revisa inventario: no se permiten cantidades vacías, inválidas o negativas.');
+      setStatus('Revisa inventario: no se permiten cantidades vacÃ­as, invÃ¡lidas o negativas.');
       return;
     }
     if (rows.length === 0) {
       setStatus('No hay cantidades nuevas para guardar.');
       return;
     }
-    const ok = await postStockAction({ action: 'submitInventoryCounts', items: rows, reason: inventoryReason }, role === 'admin' ? 'Inventario actualizado.' : 'Conteo enviado para aprobación.');
+    const ok = await postStockAction({ action: 'submitInventoryCounts', items: rows, reason: inventoryReason }, role === 'admin' ? 'Inventario actualizado.' : 'Conteo enviado para aprobaciÃ³n.');
     if (ok) setInventoryCounts({});
   };
 
@@ -1104,7 +1104,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const importCsvRows = async () => {
     if (role !== 'admin') return;
     if (csvRows.length === 0) {
-      setStatus('Pega un CSV válido con encabezados y al menos un ingrediente.');
+      setStatus('Pega un CSV vÃ¡lido con encabezados y al menos un ingrediente.');
       return;
     }
     const invalid = csvRows.find((row) => Number(row.current_stock || 0) < 0 || Number(row.min_stock || 0) < 0 || Number(row.max_stock || 0) < 0);
@@ -1132,13 +1132,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const importRecipeCsvRows = async () => {
     if (role !== 'admin') return;
     if (recipeCsvRows.length === 0) {
-      setStatus('Pega un CSV válido con encabezados y al menos una línea de receta.');
+      setStatus('Pega un CSV vÃ¡lido con encabezados y al menos una lÃ­nea de receta.');
       return;
     }
     const invalidIndex = invalidRecipeRowIndex(recipeCsvRows);
     if (invalidIndex >= 0) {
       const invalid = recipeCsvRows[invalidIndex];
-      setStatus(`Línea ${invalidIndex + 2}: receta inválida (${invalid.recipe_key || 'sin clave'}). Revisa recipe_key, recipe_name y que quantity exista cuando haya ingrediente.`);
+      setStatus(`LÃ­nea ${invalidIndex + 2}: receta invÃ¡lida (${invalid.recipe_key || 'sin clave'}). Revisa recipe_key, recipe_name y que quantity exista cuando haya ingrediente.`);
       return;
     }
     const ok = await postStockAction({ action: 'importRecipes', mode: recipeCsvMode, rows: recipeCsvRows }, 'Recetas importadas.');
@@ -1276,19 +1276,19 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     if (importKind === 'families') {
       const rows = visibleFamilyCsvRows;
       if (rows.length === 0) {
-        setStatus('Pega un CSV válido con familias de opciones.');
+        setStatus('Pega un CSV vÃ¡lido con familias de opciones.');
         return;
       }
       const invalidIndex = invalidFamilyRowIndex(rows);
       if (invalidIndex >= 0) {
         const invalid = rows[invalidIndex];
-        setStatus(`Línea ${invalidIndex + 2}: familia inválida (${invalid.family_key || 'sin familia'}). Revisa family_key, row_type, option_name/product_id.`);
+        setStatus(`LÃ­nea ${invalidIndex + 2}: familia invÃ¡lida (${invalid.family_key || 'sin familia'}). Revisa family_key, row_type, option_name/product_id.`);
         return;
       }
       const validation = await postStockAction({ action: 'validateOptionFamilies', rows }, '', { returnData: true });
       if (!validation?.ok) {
         const first = validation?.errors?.[0];
-        setStatus(first ? `Línea ${first.line}: ${first.message}` : 'El CSV de familias tiene errores.');
+        setStatus(first ? `LÃ­nea ${first.line}: ${first.message}` : 'El CSV de familias tiene errores.');
         return;
       }
       const ok = await postStockAction({ action: 'importOptionFamilies', mode: familyCsvMode, rows }, 'Familias importadas.');
@@ -1298,13 +1298,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     if (importKind === 'recipes' || importKind === 'subrecipes') {
       const rows = visibleRecipeCsvRows;
       if (rows.length === 0) {
-        setStatus('Pega un CSV válido con al menos una línea para el tipo seleccionado.');
+        setStatus('Pega un CSV vÃ¡lido con al menos una lÃ­nea para el tipo seleccionado.');
         return;
       }
       const invalidIndex = invalidRecipeRowIndex(rows);
       if (invalidIndex >= 0) {
         const invalid = rows[invalidIndex];
-        setStatus(`Línea ${invalidIndex + 2}: receta inválida (${invalid.recipe_key || 'sin clave'}). Revisa recipe_key, recipe_name y que quantity exista cuando haya ingrediente.`);
+        setStatus(`LÃ­nea ${invalidIndex + 2}: receta invÃ¡lida (${invalid.recipe_key || 'sin clave'}). Revisa recipe_key, recipe_name y que quantity exista cuando haya ingrediente.`);
         return;
       }
       const ok = await postStockAction({ action: 'importRecipes', mode: recipeCsvMode, rows }, 'Recetas importadas.');
@@ -1316,13 +1316,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const recipeRows = visibleRecipeCsvRows;
     const familyRows = visibleFamilyCsvRows;
     if (itemRows.length === 0 && recipeRows.length === 0 && familyRows.length === 0) {
-      setStatus('Pega un CSV válido de datos actuales o plantilla todo.');
+      setStatus('Pega un CSV vÃ¡lido de datos actuales o plantilla todo.');
       return;
     }
     if (itemRows.length > 0) {
       const invalidItem = itemRows.find((row) => Number(row.current_stock || 0) < 0 || Number(row.min_stock || 0) < 0 || Number(row.max_stock || 0) < 0);
       if (invalidItem) {
-        setStatus(`Ingredientes: hay cantidades negativas en ${invalidItem.name || 'una línea del CSV'}.`);
+        setStatus(`Ingredientes: hay cantidades negativas en ${invalidItem.name || 'una lÃ­nea del CSV'}.`);
         return;
       }
       const okItems = await postStockAction({ action: 'importItems', mode: csvMode, rows: itemRows }, 'Ingredientes importados.');
@@ -1332,7 +1332,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       const invalidRecipeIndex = invalidRecipeRowIndex(recipeRows);
       if (invalidRecipeIndex >= 0) {
         const invalidRecipe = recipeRows[invalidRecipeIndex];
-        setStatus(`Recetas: línea ${invalidRecipeIndex + 2} inválida (${invalidRecipe.recipe_key || 'sin clave'}).`);
+        setStatus(`Recetas: lÃ­nea ${invalidRecipeIndex + 2} invÃ¡lida (${invalidRecipe.recipe_key || 'sin clave'}).`);
         return;
       }
       const okRecipes = await postStockAction({ action: 'importRecipes', mode: recipeCsvMode, rows: recipeRows }, 'Recetas importadas.');
@@ -1342,7 +1342,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       const invalidFamilyIndex = invalidFamilyRowIndex(familyRows);
       if (invalidFamilyIndex >= 0) {
         const invalidFamily = familyRows[invalidFamilyIndex];
-        setStatus(`Familias: línea ${invalidFamilyIndex + 2} inválida (${invalidFamily.family_key || 'sin familia'}).`);
+        setStatus(`Familias: lÃ­nea ${invalidFamilyIndex + 2} invÃ¡lida (${invalidFamily.family_key || 'sin familia'}).`);
         return;
       }
       const okFamilies = await postStockAction({ action: 'importOptionFamilies', mode: familyCsvMode, rows: familyRows }, 'Todo importado.');
@@ -1453,14 +1453,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           <div className="stock-login-grid">
             <label className="field full">
               <span>Nombre de quien entra</span>
-              <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="Ej. César" />
+              <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="Ej. CÃ©sar" />
             </label>
             <label className="field">
               <span>Turno</span>
               <input value={shift} onChange={(e) => setShift(e.target.value)} placeholder="Ej. Noche" />
             </label>
             <label className="field">
-              <span>Contraseña</span>
+              <span>ContraseÃ±a</span>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin o cocina" />
             </label>
           </div>
@@ -1477,11 +1477,11 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         <div className="stock-header">
           <div>
             <Logo />
-            <h1>{isAdminConfigMode ? 'Catálogo operativo' : 'Stock'}</h1>
-            <p>{isAdminConfigMode ? 'Ingredientes, recetas, sub-recetas, familias e importación.' : `${operatorName} · ${shift} · ${role === 'admin' ? 'Admin' : 'Cocina'}`}</p>
+            <h1>{isAdminConfigMode ? 'CatÃ¡logo operativo' : 'Stock'}</h1>
+            <p>{isAdminConfigMode ? 'Ingredientes, recetas, sub-recetas, familias e importaciÃ³n.' : `${operatorName} Â· ${shift} Â· ${role === 'admin' ? 'Admin' : 'Cocina'}`}</p>
           </div>
           <div className="stock-header-actions">
-            {role === 'admin' && <button type="button" className="ghost" onClick={seedDefaults}>Crear catálogo base</button>}
+            {role === 'admin' && <button type="button" className="ghost" onClick={seedDefaults}>Crear catÃ¡logo base</button>}
             <button type="button" className="ghost" onClick={loadStock} disabled={loading}>{loading ? 'Cargando...' : 'Actualizar'}</button>
             {!isAdminConfigMode && <button type="button" className="ghost danger-text" onClick={logout}>Salir</button>}
           </div>
@@ -1518,14 +1518,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <div className="stock-section-head">
                 <div>
                   <h2>Productos</h2>
-                  <p>Elige un producto y configura desde aquí su receta, modificadores, sub-recetas e ingredientes.</p>
+                  <p>Elige un producto y configura desde aquÃ­ su receta, modificadores, sub-recetas e ingredientes.</p>
                 </div>
                 {selectedProductSetup && <button type="button" className="primary" onClick={() => editProductRecipe(selectedProductSetup)}>Editar receta</button>}
               </div>
               <label className="field full">
                 <span>Producto</span>
                 <select value={selectedProductSetup?.id || ''} onChange={(e) => setSelectedProductSetupId(e.target.value)}>
-                  {stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} · {product.name}</option>)}
+                  {stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} Â· {product.name}</option>)}
                 </select>
               </label>
 
@@ -1546,10 +1546,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               {selectedProductSetup ? (
                 <div className="stock-alert">
                   <b>{selectedProductSetup.name}</b>
-                  <span>{categoryMeta(selectedProductSetup.category).label} · ${selectedProductSetup.price || 0}</span>
-                  <small>{selectedProductSetup.description || 'Sin descripción'}</small>
+                  <span>{categoryMeta(selectedProductSetup.category).label} Â· ${selectedProductSetup.price || 0}</span>
+                  <small>{selectedProductSetup.description || 'Sin descripciÃ³n'}</small>
                 </div>
-              ) : <p>No hay productos configurados todavía.</p>}
+              ) : <p>No hay productos configurados todavÃ­a.</p>}
 
               <div className="inline-actions">
                 {selectedProductSetup && <button type="button" className="ghost" onClick={() => editProductRecipe(selectedProductSetup)}>{selectedProductRecipe ? 'Editar receta del producto' : 'Crear receta del producto'}</button>}
@@ -1561,7 +1561,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block">
               <h2>Receta del producto</h2>
-              {!selectedProductRecipe ? <p>Este producto todavía no tiene receta. Crea una para descontar stock cuando el pedido pase a Listo.</p> : null}
+              {!selectedProductRecipe ? <p>Este producto todavÃ­a no tiene receta. Crea una para descontar stock cuando el pedido pase a Listo.</p> : null}
               {selectedProductRecipe ? (
                 <div className="stock-table-wrap">
                   <table className="stock-table">
@@ -1583,13 +1583,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block">
               <h2>Familias y modificadores</h2>
-              {selectedProductFamilyRules.length === 0 ? <p>Este producto no tiene familias asignadas todavía.</p> : null}
+              {selectedProductFamilyRules.length === 0 ? <p>Este producto no tiene familias asignadas todavÃ­a.</p> : null}
               {selectedProductFamilyRules.map((rule) => (
                 <div className="recipe-card-mini" key={`${rule.family.family_key}-${rule.product_id}`}>
                   <div>
                     <b>{rule.label || rule.family.name}</b>
-                    <span>{rule.family.name} · {rule.family.family_key}</span>
-                    <small>{rule.min_select || 0} mínimo · {rule.max_included || 0} incluido(s) · máximo {rule.max_total || 1} · extra ${rule.extra_price || 0}</small>
+                    <span>{rule.family.name} Â· {rule.family.family_key}</span>
+                    <small>{rule.min_select || 0} mÃ­nimo Â· {rule.max_included || 0} incluido(s) Â· mÃ¡ximo {rule.max_total || 1} Â· extra ${rule.extra_price || 0}</small>
                   </div>
                   <button type="button" className="ghost" onClick={() => editOptionFamily(rule.family)}>Editar familia</button>
                 </div>
@@ -1598,7 +1598,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block">
               <h2>Sub-recetas disponibles</h2>
-              {subRecipes.length === 0 ? <p>No hay sub-recetas todavía. Úsalas para preparados internos como aderezos, masas, salsas o bases.</p> : null}
+              {subRecipes.length === 0 ? <p>No hay sub-recetas todavÃ­a. Ãšsalas para preparados internos como aderezos, masas, salsas o bases.</p> : null}
               <div className="recipe-list">
                 {subRecipes.slice(0, 8).map((recipe) => (
                   <div className="recipe-card-mini" key={recipe.id}>
@@ -1646,7 +1646,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 {stockLow.map((item) => (
                   <div className="stock-alert" key={`low-${item.id}`}>
                     <b>{item.name}</b>
-                    <span>{formatStockQuantity(item.current_stock, item.unit_code)} · mínimo {formatStockQuantity(item.min_stock, item.unit_code)}</span>
+                    <span>{formatStockQuantity(item.current_stock, item.unit_code)} Â· mÃ­nimo {formatStockQuantity(item.min_stock, item.unit_code)}</span>
                   </div>
                 ))}
                 {expiredSoon.map((item) => {
@@ -1654,7 +1654,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   return (
                     <div className="stock-alert warning" key={`exp-${item.id}`}>
                       <b>{item.name}</b>
-                      <span>{days < 0 ? 'Caducado' : `Caduca en ${days} día(s)`} · {item.expiry_date}</span>
+                      <span>{days < 0 ? 'Caducado' : `Caduca en ${days} dÃ­a(s)`} Â· {item.expiry_date}</span>
                     </div>
                   );
                 })}
@@ -1682,7 +1682,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <div className="purchase-line" key={item.id}>
                         <div>
                           <b>{item.name}</b>
-                          <span>{item.purchase_category_name || 'Sin categoría'}</span>
+                          <span>{item.purchase_category_name || 'Sin categorÃ­a'}</span>
                         </div>
                         <strong>{purchaseSuggestion(item)}</strong>
                       </div>
@@ -1698,8 +1698,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="waste-request" key={request.id}>
                     <div>
                       <b>{request.item_name}</b>
-                      <span>{formatStockQuantity(request.quantity, request.unit_code)} · {request.reason}</span>
-                      <small>Reportó {request.reported_by} · {request.reported_shift}</small>
+                      <span>{formatStockQuantity(request.quantity, request.unit_code)} Â· {request.reason}</span>
+                      <small>ReportÃ³ {request.reported_by} Â· {request.reported_shift}</small>
                     </div>
                     {role === 'admin' && (
                       <div className="inline-actions">
@@ -1725,16 +1725,16 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <label className="field"><span>Tipo</span><select value={itemDraft.item_type} onChange={(e) => setItemDraft((c) => ({ ...c, item_type: e.target.value }))}>{ITEM_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
                   <label className="field"><span>Unidad base</span><select value={itemDraft.unit_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, unit_id: e.target.value }))}><option value="">Selecciona</option>{data.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>)}</select></label>
                   <label className="field"><span>Stock actual</span><input type="number" step="0.01" value={itemDraft.current_stock} onChange={(e) => setItemDraft((c) => ({ ...c, current_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Mínimo</span><input type="number" step="0.01" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Máximo</span><input type="number" step="0.01" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Precisión esperada</span><select value={itemDraft.accuracy_target} onChange={(e) => setItemDraft((c) => ({ ...c, accuracy_target: e.target.value }))}>{ACCURACY_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}</select></label>
+                  <label className="field"><span>MÃ­nimo</span><input type="number" step="0.01" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
+                  <label className="field"><span>MÃ¡ximo</span><input type="number" step="0.01" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
+                  <label className="field"><span>PrecisiÃ³n esperada</span><select value={itemDraft.accuracy_target} onChange={(e) => setItemDraft((c) => ({ ...c, accuracy_target: e.target.value }))}>{ACCURACY_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}</select></label>
                   <label className="field"><span>Proveedor principal</span><select value={itemDraft.primary_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, primary_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
                   <label className="field"><span>Proveedor alternativo</span><select value={itemDraft.alt_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, alt_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
-                  <label className="field"><span>Categoría compra</span><select value={itemDraft.purchase_category_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_category_id: e.target.value }))}><option value="">Sin categoría</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-                  <label className="field"><span>Presentación</span><input value={itemDraft.purchase_unit_label || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_label: e.target.value }))} placeholder="Ej. paquete 1 kg" /></label>
-                  <label className="field"><span>Cantidad por presentación</span><input type="number" step="0.01" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /></label>
+                  <label className="field"><span>CategorÃ­a compra</span><select value={itemDraft.purchase_category_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_category_id: e.target.value }))}><option value="">Sin categorÃ­a</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+                  <label className="field"><span>PresentaciÃ³n</span><input value={itemDraft.purchase_unit_label || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_label: e.target.value }))} placeholder="Ej. paquete 1 kg" /></label>
+                  <label className="field"><span>Cantidad por presentaciÃ³n</span><input type="number" step="0.01" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /></label>
                   <label className="field"><span>Precio aprox.</span><input type="number" step="0.01" value={itemDraft.purchase_price || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_price: e.target.value }))} /></label>
-                  <label className="field"><span>Caducidad próxima</span><input type="date" value={itemDraft.expiry_date || ''} onChange={(e) => setItemDraft((c) => ({ ...c, expiry_date: e.target.value }))} /></label>
+                  <label className="field"><span>Caducidad prÃ³xima</span><input type="date" value={itemDraft.expiry_date || ''} onChange={(e) => setItemDraft((c) => ({ ...c, expiry_date: e.target.value }))} /></label>
                 </div>
                 <div className="stock-flags-grid inventory-master-flags">
                   <label className="check-row">
@@ -1754,11 +1754,11 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <h2>Ingredientes</h2>
               <div className="stock-table-wrap">
                 <table className="stock-table">
-                  <thead><tr><th>Ingrediente</th><th>Stock</th><th>Mín/Máx</th><th>Proveedor</th><th>Estado</th><th></th></tr></thead>
+                  <thead><tr><th>Ingrediente</th><th>Stock</th><th>MÃ­n/MÃ¡x</th><th>Proveedor</th><th>Estado</th><th></th></tr></thead>
                   <tbody>
                     {data.items.map((item) => (
                       <tr key={item.id}>
-                        <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} · {item.item_type}</span></td>
+                        <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} Â· {item.item_type}</span></td>
                         <td>{formatStockQuantity(item.current_stock, item.unit_code)}</td>
                         <td>{formatStockQuantity(item.min_stock, item.unit_code)} / {formatStockQuantity(item.max_stock, item.unit_code)}</td>
                         <td>{item.supplier_name || 'Sin proveedor'}</td>
@@ -1779,9 +1779,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <div className="stock-section-head">
               <div>
                 <h2>Inventario</h2>
-                <p>Captura solo las cantidades que sí contaste. Si dejas un campo vacío, no se hace ningún cambio.</p>
+                <p>Captura solo las cantidades que sÃ­ contaste. Si dejas un campo vacÃ­o, no se hace ningÃºn cambio.</p>
               </div>
-              <button type="button" className="primary" onClick={submitInventoryCounts}>{role === 'admin' ? 'Aplicar conteo' : 'Enviar para aprobación'}</button>
+              <button type="button" className="primary" onClick={submitInventoryCounts}>{role === 'admin' ? 'Aplicar conteo' : 'Enviar para aprobaciÃ³n'}</button>
             </div>
             {role === 'admin' && pendingInventoryCounts.length > 0 && (
               <div className="stock-alert warning">
@@ -1792,11 +1792,11 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <label className="field full"><span>Motivo / nota</span><input value={inventoryReason} onChange={(e) => setInventoryReason(e.target.value)} placeholder="Ej. conteo de cierre, conteo semanal" /></label>
             <div className="stock-table-wrap quick-stock-wrap">
               <table className="stock-table quick-stock-table inventory-count-table">
-                <thead><tr><th>Ingrediente</th><th>Stock actual</th><th>Nuevo conteo</th><th>Mín/Máx</th><th>Proveedor</th></tr></thead>
+                <thead><tr><th>Ingrediente</th><th>Stock actual</th><th>Nuevo conteo</th><th>MÃ­n/MÃ¡x</th><th>Proveedor</th></tr></thead>
                 <tbody>
                   {data.items.map((item) => (
                     <tr key={item.id}>
-                      <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} · {item.unit_code}</span></td>
+                      <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} Â· {item.unit_code}</span></td>
                       <td>{formatStockQuantity(item.current_stock, item.unit_code)}</td>
                       <td><input type="number" step="0.01" min="0" value={inventoryCounts[item.id] ?? ''} onChange={(e) => updateInventoryCount(item.id, e.target.value)} placeholder="Sin cambio" /></td>
                       <td>{formatStockQuantity(item.min_stock, item.unit_code)} / {formatStockQuantity(item.max_stock, item.unit_code)}</td>
@@ -1818,8 +1818,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <div className="waste-request" key={request.id}>
                 <div>
                   <b>{request.item_name}</b>
-                  <span>Actual al reportar: {formatStockQuantity(request.current_stock_snapshot, request.unit_code)} · Conteo: {formatStockQuantity(request.requested_stock, request.unit_code)} · Diferencia: {formatStockQuantity(request.difference, request.unit_code)}</span>
-                  <small>{request.reason || 'Conteo de inventario'} · Reportó {request.reported_by} · {request.reported_shift}</small>
+                  <span>Actual al reportar: {formatStockQuantity(request.current_stock_snapshot, request.unit_code)} Â· Conteo: {formatStockQuantity(request.requested_stock, request.unit_code)} Â· Diferencia: {formatStockQuantity(request.difference, request.unit_code)}</span>
+                  <small>{request.reason || 'Conteo de inventario'} Â· ReportÃ³ {request.reported_by} Â· {request.reported_shift}</small>
                 </div>
                 {role === 'admin' && <div className="inline-actions"><button type="button" className="primary small" onClick={() => approveInventoryCount(request.id, true)}>Aprobar</button><button type="button" className="ghost danger-text" onClick={() => approveInventoryCount(request.id, false)}>Rechazar</button></div>}
               </div>
@@ -1831,20 +1831,20 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           <section className="stock-card-block">
             <div className="stock-section-head">
               <div>
-                <h2>Edición rápida de inventario</h2>
-                <p>Úsalo para cargar conteos iniciales o corregir mínimos, máximos, precio y caducidad sin abrir ingrediente por ingrediente.</p>
+                <h2>EdiciÃ³n rÃ¡pida de inventario</h2>
+                <p>Ãšsalo para cargar conteos iniciales o corregir mÃ­nimos, mÃ¡ximos, precio y caducidad sin abrir ingrediente por ingrediente.</p>
               </div>
-              {role === 'admin' && <button type="button" className="primary" onClick={saveQuickEdits}>Guardar cambios rápidos</button>}
+              {role === 'admin' && <button type="button" className="primary" onClick={saveQuickEdits}>Guardar cambios rÃ¡pidos</button>}
             </div>
-            {role !== 'admin' ? <p>Solo admin puede editar inventario rápido.</p> : null}
+            {role !== 'admin' ? <p>Solo admin puede editar inventario rÃ¡pido.</p> : null}
             <div className="stock-table-wrap quick-stock-wrap">
               <table className="stock-table quick-stock-table">
                 <thead>
                   <tr>
                     <th>Ingrediente</th>
                     <th>Stock</th>
-                    <th>Mínimo</th>
-                    <th>Máximo</th>
+                    <th>MÃ­nimo</th>
+                    <th>MÃ¡ximo</th>
                     <th>Precio aprox.</th>
                     <th>Caducidad</th>
                   </tr>
@@ -1852,7 +1852,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 <tbody>
                   {quickDrafts.map((item) => (
                     <tr key={item.id}>
-                      <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} · {item.unit_code}</span></td>
+                      <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} Â· {item.unit_code}</span></td>
                       <td><input type="number" step="0.01" min="0" value={item.current_stock} onChange={(e) => updateQuickDraft(item.id, 'current_stock', e.target.value)} disabled={role !== 'admin'} /></td>
                       <td><input type="number" step="0.01" min="0" value={item.min_stock} onChange={(e) => updateQuickDraft(item.id, 'min_stock', e.target.value)} disabled={role !== 'admin'} /></td>
                       <td><input type="number" step="0.01" min="0" value={item.max_stock} onChange={(e) => updateQuickDraft(item.id, 'max_stock', e.target.value)} disabled={role !== 'admin'} /></td>
@@ -1874,32 +1874,32 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 <p>Importa ingredientes, recetas o sub-recetas desde un solo lugar.</p>
               </div>
               <div className="inline-actions">
-                <button type="button" className="ghost" onClick={downloadEmptyTemplate}>Descargar plantilla vacía</button>
+                <button type="button" className="ghost" onClick={downloadEmptyTemplate}>Descargar plantilla vacÃ­a</button>
                 <button type="button" className="ghost" onClick={downloadCurrentData}>Descargar datos actuales</button>
               </div>
             </div>
             {role !== 'admin' ? <p>Solo admin puede importar CSV.</p> : null}
             <div className="stock-form-grid">
-              <label className="field"><span>Qué quieres importar</span><select value={importKind} onChange={(e) => setImportKind(e.target.value)} disabled={role !== 'admin'}><option value="items">Ingredientes</option><option value="recipes">Recetas</option><option value="subrecipes">Sub-recetas</option><option value="families">Familias</option><option value="all">Todo</option></select></label>
+              <label className="field"><span>QuÃ© quieres importar</span><select value={importKind} onChange={(e) => setImportKind(e.target.value)} disabled={role !== 'admin'}><option value="items">Ingredientes</option><option value="recipes">Recetas</option><option value="subrecipes">Sub-recetas</option><option value="families">Familias</option><option value="all">Todo</option></select></label>
               <label className="field"><span>Modo</span><select value={importKind === 'items' ? csvMode : (importKind === 'families' ? familyCsvMode : recipeCsvMode)} onChange={(e) => importKind === 'items' ? setCsvMode(e.target.value) : (importKind === 'families' ? setFamilyCsvMode(e.target.value) : setRecipeCsvMode(e.target.value))} disabled={role !== 'admin'}><option value="upsert">Agregar nuevos y actualizar existentes</option><option value="updateOnly">Solo actualizar existentes</option></select></label>
               <label className="field full"><span>Subir archivo CSV</span><input type="file" accept=".csv,text/csv" onChange={(e) => handleUnifiedCsvFile(e.target.files?.[0])} disabled={role !== 'admin'} /></label>
-              <label className="field full"><span>CSV</span><textarea rows="10" value={importKind === 'items' || importKind === 'all' ? csvText : (importKind === 'families' ? familyCsvText : recipeCsvText)} onChange={(e) => importKind === 'items' || importKind === 'all' ? setCsvText(e.target.value) : (importKind === 'families' ? setFamilyCsvText(e.target.value) : setRecipeCsvText(e.target.value))} disabled={role !== 'admin'} placeholder={importKind === 'items' ? csvTemplateText() : (importKind === 'families' ? familyCsvTemplateText() : (importKind === 'all' ? 'Descarga datos actuales para trabajar sobre todo el sistema o pega aquí un CSV con record_type.' : recipeCsvTemplateText()))} /></label>
+              <label className="field full"><span>CSV</span><textarea rows="10" value={importKind === 'items' || importKind === 'all' ? csvText : (importKind === 'families' ? familyCsvText : recipeCsvText)} onChange={(e) => importKind === 'items' || importKind === 'all' ? setCsvText(e.target.value) : (importKind === 'families' ? setFamilyCsvText(e.target.value) : setRecipeCsvText(e.target.value))} disabled={role !== 'admin'} placeholder={importKind === 'items' ? csvTemplateText() : (importKind === 'families' ? familyCsvTemplateText() : (importKind === 'all' ? 'Descarga datos actuales para trabajar sobre todo el sistema o pega aquÃ­ un CSV con record_type.' : recipeCsvTemplateText()))} /></label>
             </div>
             <div className="stock-section-head import-preview-head">
               <div>
                 <h3>Vista previa</h3>
-                <p>{importKind === 'items' ? `${visibleCsvRows.length} ingrediente(s) detectados.` : importKind === 'families' ? `${visibleFamilyCsvRows.length} línea(s) de familia detectadas.` : importKind === 'all' ? `${visibleCsvRows.length} ingrediente(s), ${visibleRecipeCsvRows.length} línea(s) de receta y ${visibleFamilyCsvRows.length} línea(s) de familia detectadas.` : `${visibleRecipeCsvRows.length} línea(s) de receta detectadas.`}</p>
+                <p>{importKind === 'items' ? `${visibleCsvRows.length} ingrediente(s) detectados.` : importKind === 'families' ? `${visibleFamilyCsvRows.length} lÃ­nea(s) de familia detectadas.` : importKind === 'all' ? `${visibleCsvRows.length} ingrediente(s), ${visibleRecipeCsvRows.length} lÃ­nea(s) de receta y ${visibleFamilyCsvRows.length} lÃ­nea(s) de familia detectadas.` : `${visibleRecipeCsvRows.length} lÃ­nea(s) de receta detectadas.`}</p>
               </div>
               {role === 'admin' && <button type="button" className="primary" onClick={importVisibleRows} disabled={visibleCsvRows.length === 0 && visibleRecipeCsvRows.length === 0 && visibleFamilyCsvRows.length === 0}>Importar</button>}
             </div>
             {visibleCsvRows.length > 0 && (
-              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>Acción</th><th>Ingrediente</th><th>Unidad</th><th>Stock</th><th>Mín/Máx</th><th>Proveedor</th><th>Categoría</th></tr></thead><tbody>{itemImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.name}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.name}</b><span>{row.brand || 'Sin marca'} · {row.item_type || 'Ingrediente comprado'}</span></td><td>{row.unit_code}</td><td>{row.current_stock || 0}</td><td>{row.min_stock || 0} / {row.max_stock || 0}</td><td>{row.primary_supplier || 'Sin proveedor'}</td><td>{row.purchase_category || 'Sin categoría'}</td></tr>))}</tbody></table></div>
+              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>AcciÃ³n</th><th>Ingrediente</th><th>Unidad</th><th>Stock</th><th>MÃ­n/MÃ¡x</th><th>Proveedor</th><th>CategorÃ­a</th></tr></thead><tbody>{itemImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.name}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.name}</b><span>{row.brand || 'Sin marca'} Â· {row.item_type || 'Ingrediente comprado'}</span></td><td>{row.unit_code}</td><td>{row.current_stock || 0}</td><td>{row.min_stock || 0} / {row.max_stock || 0}</td><td>{row.primary_supplier || 'Sin proveedor'}</td><td>{row.purchase_category || 'Sin categorÃ­a'}</td></tr>))}</tbody></table></div>
             )}
             {visibleRecipeCsvRows.length > 0 && (
-              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>Acción</th><th>Receta</th><th>Tipo</th><th>Líneas</th><th>Ejemplo de ingrediente</th></tr></thead><tbody>{recipeImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.recipe_key}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.recipe_name}</b><span>{row.recipe_key}</span></td><td>{row.recipe_type}</td><td>{row.line_count}</td><td>{row.ingredient_name}</td></tr>))}</tbody></table></div>
+              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>AcciÃ³n</th><th>Receta</th><th>Tipo</th><th>LÃ­neas</th><th>Ejemplo de ingrediente</th></tr></thead><tbody>{recipeImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.recipe_key}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.recipe_name}</b><span>{row.recipe_key}</span></td><td>{row.recipe_type}</td><td>{row.line_count}</td><td>{row.ingredient_name}</td></tr>))}</tbody></table></div>
             )}
             {visibleFamilyCsvRows.length > 0 && (
-              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>Acción</th><th>Familia</th><th>Opciones</th><th>Productos</th><th>Descripción</th></tr></thead><tbody>{familyImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.family_key}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.family_name || row.family_key}</b><span>{row.family_key}</span></td><td>{row.option_count}</td><td>{row.rule_count}</td><td>{row.family_description || row.notes || ''}</td></tr>))}</tbody></table></div>
+              <div className="stock-table-wrap"><table className="stock-table"><thead><tr><th>AcciÃ³n</th><th>Familia</th><th>Opciones</th><th>Productos</th><th>DescripciÃ³n</th></tr></thead><tbody>{familyImportPreview.slice(0, 20).map((row, index) => (<tr key={`${row.family_key}-${index}`}><td><span className="stock-pill ok">{row.import_action}</span></td><td><b>{row.family_name || row.family_key}</b><span>{row.family_key}</span></td><td>{row.option_count}</td><td>{row.rule_count}</td><td>{row.family_description || row.notes || ''}</td></tr>))}</tbody></table></div>
             )}
           </section>
         )}
@@ -1910,7 +1910,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <div className="stock-section-head">
                 <div>
                   <h2>Recetas/Sub</h2>
-                  <p>{recipeEditorType === 'subrecipe' ? 'Define cómo preparar aderezos u otros preparados internos.' : 'Define cantidades por uso por producto. Esto se usará para descontar stock cuando un pedido pase a Listo.'}</p>
+                  <p>{recipeEditorType === 'subrecipe' ? 'Define cÃ³mo preparar aderezos u otros preparados internos.' : 'Define cantidades por uso por producto. Esto se usarÃ¡ para descontar stock cuando un pedido pase a Listo.'}</p>
                 </div>
                 <label className="field recipe-type-switch"><span>Tipo</span><select value={recipeEditorType} onChange={(e) => { setRecipeEditorType(e.target.value); startNewRecipe(e.target.value); }}><option value="product">Receta de producto</option><option value="subrecipe">Sub-receta</option></select></label>
                 {role === 'admin' && (
@@ -1939,7 +1939,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="recipe-line-builder">
                     <h3>Ingredientes / empaques de la receta</h3>
                     <div className="stock-form-grid compact-grid">
-                      <label className="field"><span>Ingrediente</span><select value={recipeLineDraft.item_id} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
+                      <label className="field"><span>Ingrediente</span><select value={recipeLineDraft.item_id} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {item.unit_code}</option>)}</select></label>
                       <label className="field"><span>Cantidad por uso</span><input type="number" step="0.01" value={recipeLineDraft.quantity} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
                       <label className="field"><span>Rol</span><select value={cleanRecipeLineRole(recipeLineDraft.line_role)} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, line_role: e.target.value }))}>{LINE_ROLES.map((roleName) => <option key={roleName} value={roleName}>{roleName}</option>)}</select></label>
                     </div>
@@ -1949,7 +1949,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                         ['client_removable', 'Se puede quitar'],
                         ['client_changeable', 'Se puede cambiar'],
                         ['is_default', 'Default / incluido'],
-                        ['is_optional', 'Opcional / selección cliente'],
+                        ['is_optional', 'Opcional / selecciÃ³n cliente'],
                         ['is_extra_billable', 'Extra cobrable'],
                       ].map(([key, label]) => (
                         <label className="check-row" key={key}>
@@ -1977,7 +1977,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       ))}
                     </div>
                     <label className="field compact-extra-price"><span>Precio si es extra</span><input type="number" step="1" value={recipeLineDraft.extra_price || 0} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
-                    <button type="button" className="ghost" onClick={addRecipeLine}>+ Agregar línea</button>
+                    <button type="button" className="ghost" onClick={addRecipeLine}>+ Agregar lÃ­nea</button>
                   </div>
 
                   {(recipeDraft.lines || []).length > 0 && (
@@ -1992,7 +1992,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                                 <td><b>{item?.name || line.item_name || 'Ingrediente'}</b><span>{item?.brand || line.item_brand || ''}</span></td>
                                 <td>{formatStockQuantity(line.quantity, item?.unit_code || line.unit_code)}</td>
                                 <td>{line.line_role}</td>
-                                <td>{line.client_visible ? 'Visible' : 'Interno'} {line.client_removable ? '· Quitable' : ''} {line.client_changeable ? '· Cambiable' : ''} {line.is_optional ? '· Opcional' : ''} {line.is_extra_billable ? `· Extra $${line.extra_price || 10}` : ''}</td>
+                                <td>{line.client_visible ? 'Visible' : 'Interno'} {line.client_removable ? 'Â· Quitable' : ''} {line.client_changeable ? 'Â· Cambiable' : ''} {line.is_optional ? 'Â· Opcional' : ''} {line.is_extra_billable ? `Â· Extra $${line.extra_price || 10}` : ''}</td>
                                 <td><button type="button" className="ghost danger-text" onClick={() => removeRecipeLine(index)}>Quitar</button></td>
                               </tr>
                             );
@@ -2013,14 +2013,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block">
               <h2>{recipeEditorType === 'subrecipe' ? 'Sub-recetas guardadas' : 'Recetas guardadas'}</h2>
-              {currentRecipeList.length === 0 ? <p>No hay recetas guardadas todavía.</p> : null}
+              {currentRecipeList.length === 0 ? <p>No hay recetas guardadas todavÃ­a.</p> : null}
               <div className="recipe-list">
                 {currentRecipeList.map((recipe) => (
                   <div className="recipe-card-mini" key={recipe.id}>
                     <div>
                       <b>{recipeLabel(recipe)}</b>
                       <span>{recipe.recipe_key}</span>
-                      <small>{(recipe.lines || []).length} línea(s) · {recipe.is_active ? 'Activa' : 'Archivada'}</small>
+                      <small>{(recipe.lines || []).length} lÃ­nea(s) Â· {recipe.is_active ? 'Activa' : 'Archivada'}</small>
                     </div>
                     <div className="inline-actions">
                       <button type="button" className="ghost" onClick={() => editRecipe(recipe)}>Editar</button>
@@ -2040,7 +2040,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <div className="stock-section-head">
                 <div>
                   <h2>Familias de opciones</h2>
-                  <p>Agrupa opciones reutilizables como jarabes, leches, aderezos, toppings, proteínas y quesos. Luego asigna la familia a productos.</p>
+                  <p>Agrupa opciones reutilizables como jarabes, leches, aderezos, toppings, proteÃ­nas y quesos. Luego asigna la familia a productos.</p>
                 </div>
                 {role === 'admin' && <button type="button" className="ghost" onClick={seedOptionFamilies}>Crear familias base</button>}
               </div>
@@ -2050,7 +2050,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <div className="stock-form-grid">
                     <label className="field"><span>Clave interna</span><input value={optionFamilyDraft.family_key} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, family_key: e.target.value.trim().toLowerCase().replace(/\s+/g, '-') }))} placeholder="jarabes" /></label>
                     <label className="field"><span>Nombre visible</span><input value={optionFamilyDraft.name} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Jarabes" /></label>
-                    <label className="field full"><span>Descripción</span><input value={optionFamilyDraft.description || ''} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Opciones que se pueden usar en varios productos" /></label>
+                    <label className="field full"><span>DescripciÃ³n</span><input value={optionFamilyDraft.description || ''} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Opciones que se pueden usar en varios productos" /></label>
                     <label className="check-row full"><input type="checkbox" checked={Boolean(optionFamilyDraft.is_active)} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, is_active: e.target.checked }))} /><span>Familia activa</span></label>
                   </div>
 
@@ -2060,7 +2060,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <label className="field"><span>Ingrediente/sub-receta</span><select value={familyOptionDraft.item_id} onChange={(e) => {
                         const selected = data.items.find((item) => Number(item.id) === Number(e.target.value));
                         setFamilyOptionDraft((c) => ({ ...c, item_id: e.target.value, option_name: c.option_name || selected?.name || '' }));
-                      }}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
+                      }}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {item.unit_code}</option>)}</select></label>
                       <label className="field"><span>Nombre para cliente</span><input value={familyOptionDraft.option_name} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, option_name: e.target.value }))} placeholder="Vainilla francesa" /></label>
                       <label className="field"><span>Cantidad por uso</span><input type="number" step="0.01" value={familyOptionDraft.quantity} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
                       <label className="field"><span>Precio extra default</span><input type="number" step="1" value={familyOptionDraft.extra_price || 0} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
@@ -2068,24 +2068,24 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_active)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_active: e.target.checked }))} /><span>Activa</span></label>
                     </div>
                     <div className="family-components-builder">
-                      <h4>Componentes adicionales de esta opción</h4>
-                      <p className="privacy-note">Úsalos para empaques ligados a la opción: por ejemplo, Chipotle + contenedor de aderezo, o café frío + tapa.</p>
+                      <h4>Componentes adicionales de esta opciÃ³n</h4>
+                      <p className="privacy-note">Ãšsalos para empaques ligados a la opciÃ³n: por ejemplo, Chipotle + contenedor de aderezo, o cafÃ© frÃ­o + tapa.</p>
                       <div className="stock-form-grid compact-grid">
-                        <label className="field"><span>Componente</span><select value={familyComponentDraft.item_id} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
+                        <label className="field"><span>Componente</span><select value={familyComponentDraft.item_id} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {item.unit_code}</option>)}</select></label>
                         <label className="field"><span>Cantidad</span><input type="number" step="0.01" value={familyComponentDraft.quantity} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
-                        <button type="button" className="ghost" onClick={addFamilyComponent}>+ Añadir componente</button>
+                        <button type="button" className="ghost" onClick={addFamilyComponent}>+ AÃ±adir componente</button>
                       </div>
-                      {(familyOptionDraft.components || []).map((component, index) => { const item = data.items.find((entry) => Number(entry.id) === Number(component.item_id)); return <div className="component-chip" key={`${component.item_id}-${index}`}><span>{item?.name || component.item_name} · {component.quantity} {item?.unit_code || ''}</span><button type="button" onClick={() => removeFamilyComponent(index)}>×</button></div>; })}
+                      {(familyOptionDraft.components || []).map((component, index) => { const item = data.items.find((entry) => Number(entry.id) === Number(component.item_id)); return <div className="component-chip" key={`${component.item_id}-${index}`}><span>{item?.name || component.item_name} Â· {component.quantity} {item?.unit_code || ''}</span><button type="button" onClick={() => removeFamilyComponent(index)}>Ã—</button></div>; })}
                     </div>
-                    <button type="button" className="ghost" onClick={addFamilyOption}>+ Agregar opción</button>
+                    <button type="button" className="ghost" onClick={addFamilyOption}>+ Agregar opciÃ³n</button>
                   </div>
 
                   {(optionFamilyDraft.options || []).length > 0 && (
                     <div className="stock-table-wrap">
-                      <table className="stock-table"><thead><tr><th>Opción</th><th>Ingrediente</th><th>Cantidad</th><th>Extra</th><th></th></tr></thead><tbody>
+                      <table className="stock-table"><thead><tr><th>OpciÃ³n</th><th>Ingrediente</th><th>Cantidad</th><th>Extra</th><th></th></tr></thead><tbody>
                         {optionFamilyDraft.options.map((option, index) => {
                           const item = data.items.find((stockItem) => Number(stockItem.id) === Number(option.item_id));
-                          return <tr key={`${option.option_name}-${index}`}><td><b>{option.option_name}</b><span>{option.is_default ? 'Default' : 'Opción'}</span></td><td>{item?.name || option.item_name || 'Ingrediente'}{(option.components || []).length > 0 && <small className="family-component-summary">+ {(option.components || []).map((component) => component.item_name || data.items.find((entry) => Number(entry.id) === Number(component.item_id))?.name).filter(Boolean).join(', ')}</small>}</td><td>{formatStockQuantity(option.quantity, item?.unit_code || option.unit_code)}</td><td>${option.extra_price || 0}</td><td><button type="button" className="ghost danger-text" onClick={() => removeFamilyOption(index)}>Quitar</button></td></tr>;
+                          return <tr key={`${option.option_name}-${index}`}><td><b>{option.option_name}</b><span>{option.is_default ? 'Default' : 'OpciÃ³n'}</span></td><td>{item?.name || option.item_name || 'Ingrediente'}{(option.components || []).length > 0 && <small className="family-component-summary">+ {(option.components || []).map((component) => component.item_name || data.items.find((entry) => Number(entry.id) === Number(component.item_id))?.name).filter(Boolean).join(', ')}</small>}</td><td>{formatStockQuantity(option.quantity, item?.unit_code || option.unit_code)}</td><td>${option.extra_price || 0}</td><td><button type="button" className="ghost danger-text" onClick={() => removeFamilyOption(index)}>Quitar</button></td></tr>;
                         })}
                       </tbody></table>
                     </div>
@@ -2097,9 +2097,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <label className="field"><span>Producto</span><select value={productFamilyRuleDraft.product_id} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, product_id: e.target.value }))}><option value="">Selecciona</option>{stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{productText(product, 'es').name}</option>)}</select></label>
                       <label className="field"><span>Etiqueta</span><input value={productFamilyRuleDraft.label} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, label: e.target.value }))} placeholder={optionFamilyDraft.name || 'Nombre de familia'} /></label>
                       <label className="field"><span>Default en este producto</span><input value={productFamilyRuleDraft.default_option_name || ''} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, default_option_name: e.target.value }))} placeholder="Ej. Leche entera" /></label>
-                      <label className="field"><span>Mínimo</span><input type="number" min="0" value={productFamilyRuleDraft.min_select} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, min_select: e.target.value }))} /></label>
+                      <label className="field"><span>MÃ­nimo</span><input type="number" min="0" value={productFamilyRuleDraft.min_select} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, min_select: e.target.value }))} /></label>
                       <label className="field"><span>Incluidos</span><input type="number" min="0" value={productFamilyRuleDraft.max_included} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, max_included: e.target.value }))} /></label>
-                      <label className="field"><span>Máximo total</span><input type="number" min="1" value={productFamilyRuleDraft.max_total} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, max_total: e.target.value }))} /></label>
+                      <label className="field"><span>MÃ¡ximo total</span><input type="number" min="1" value={productFamilyRuleDraft.max_total} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, max_total: e.target.value }))} /></label>
                       <label className="field"><span>Precio extra producto</span><input type="number" step="1" value={productFamilyRuleDraft.extra_price || 0} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
                       <label className="check-row"><input type="checkbox" checked={Boolean(productFamilyRuleDraft.is_required)} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, is_required: e.target.checked }))} /><span>Requerida</span></label>
                     </div>
@@ -2111,7 +2111,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <table className="stock-table"><thead><tr><th>Producto</th><th>Regla</th><th>Default</th><th></th></tr></thead><tbody>
                         {optionFamilyDraft.productRules.map((rule, index) => {
                           const product = stockMenuProducts.find((item) => item.id === rule.product_id);
-                          return <tr key={`${rule.product_id}-${index}`}><td><b>{product ? productText(product, 'es').name : rule.product_id}</b></td><td>{rule.min_select || 0} mínimo · {rule.max_included || 0} incluido(s) · máximo {rule.max_total || 1} · extra ${rule.extra_price || 0}</td><td>{rule.default_option_name || 'Sin default'}</td><td><button type="button" className="ghost danger-text" onClick={() => removeProductFamilyRule(index)}>Quitar</button></td></tr>;
+                          return <tr key={`${rule.product_id}-${index}`}><td><b>{product ? productText(product, 'es').name : rule.product_id}</b></td><td>{rule.min_select || 0} mÃ­nimo Â· {rule.max_included || 0} incluido(s) Â· mÃ¡ximo {rule.max_total || 1} Â· extra ${rule.extra_price || 0}</td><td>{rule.default_option_name || 'Sin default'}</td><td><button type="button" className="ghost danger-text" onClick={() => removeProductFamilyRule(index)}>Quitar</button></td></tr>;
                         })}
                       </tbody></table>
                     </div>
@@ -2127,11 +2127,11 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block">
               <h2>Familias guardadas</h2>
-              {(data.optionFamilies || []).length === 0 ? <p>No hay familias todavía.</p> : null}
+              {(data.optionFamilies || []).length === 0 ? <p>No hay familias todavÃ­a.</p> : null}
               <div className="recipe-list">
                 {(data.optionFamilies || []).map((family) => (
                   <div className="recipe-card-mini" key={family.id}>
-                    <div><b>{family.name}</b><span>{family.family_key}</span><small>{(family.options || []).length} opción(es) · {(family.productRules || []).length} producto(s)</small></div>
+                    <div><b>{family.name}</b><span>{family.family_key}</span><small>{(family.options || []).length} opciÃ³n(es) Â· {(family.productRules || []).length} producto(s)</small></div>
                     {role === 'admin' && <button type="button" className="ghost" onClick={() => editOptionFamily(family)}>Editar</button>}
                   </div>
                 ))}
@@ -2146,14 +2146,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <div className="stock-section-head">
               <div>
                 <h2>Importar recetas desde CSV</h2>
-                <p>Sirve para carga inicial o cambios masivos de recetas y sub-recetas. Una fila = una línea de ingrediente de receta.</p>
+                <p>Sirve para carga inicial o cambios masivos de recetas y sub-recetas. Una fila = una lÃ­nea de ingrediente de receta.</p>
               </div>
               <button type="button" className="ghost" onClick={downloadRecipeCsvTemplate}>Descargar plantilla recetas</button>
             </div>
             {role !== 'admin' ? <p>Solo admin puede importar recetas.</p> : null}
             <div className="stock-import-grid">
               <label className="field full">
-                <span>Modo de importación</span>
+                <span>Modo de importaciÃ³n</span>
                 <select value={recipeCsvMode} onChange={(e) => setRecipeCsvMode(e.target.value)} disabled={role !== 'admin'}>
                   <option value="upsert">Agregar nuevas y actualizar existentes por clave</option>
                   <option value="updateOnly">Solo actualizar recetas existentes</option>
@@ -2172,7 +2172,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <div className="stock-section-head import-preview-head">
               <div>
                 <h3>Vista previa</h3>
-                <p>{recipeCsvRows.length} línea(s) detectadas.</p>
+                <p>{recipeCsvRows.length} lÃ­nea(s) detectadas.</p>
               </div>
               {role === 'admin' && <button type="button" className="primary" onClick={importRecipeCsvRows} disabled={recipeCsvRows.length === 0}>Importar recetas</button>}
             </div>
@@ -2202,23 +2202,23 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         {activeTab === 'production' && (
           <div className="stock-dashboard-grid">
             <section className="stock-card-block narrow-stock-form">
-              <h2>Producción de preparados</h2>
+              <h2>ProducciÃ³n de preparados</h2>
               <p>Usa esto cuando prepares aderezo chipotle, blue cheese u otro preparado. Se descuentan ingredientes base y se suma el preparado.</p>
               <label className="field full"><span>Sub-receta</span><select value={productionDraft.recipeId} onChange={(e) => setProductionDraft((c) => ({ ...c, recipeId: e.target.value }))}><option value="">Selecciona</option>{subRecipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipeLabel(recipe)}</option>)}</select></label>
-              <label className="field full"><span>Cantidad producida</span><select value={productionDraft.batchMultiplier} onChange={(e) => setProductionDraft((c) => ({ ...c, batchMultiplier: e.target.value }))}>{PRODUCTION_BATCH_OPTIONS.map((value) => <option key={value} value={value}>{value} tanda{value === 1 ? '' : 's'}</option>)}</select><small>{(() => { const selectedRecipe = subRecipes.find((recipe) => Number(recipe.id) === Number(productionDraft.recipeId)); const total = Number(selectedRecipe?.output_quantity || 0) * Number(productionDraft.batchMultiplier || 1); return selectedRecipe ? `Se producirán ${formatStockQuantity(total, selectedRecipe.output_unit_code)}.` : 'Selecciona una sub-receta para calcular el total.'; })()}</small></label>
-              <label className="field full"><span>Nota</span><textarea rows="2" value={productionDraft.note} onChange={(e) => setProductionDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. preparado del día" /></label>
-              <button type="button" className="primary" onClick={produceSubRecipe}>Registrar producción</button>
+              <label className="field full"><span>Cantidad producida</span><select value={productionDraft.batchMultiplier} onChange={(e) => setProductionDraft((c) => ({ ...c, batchMultiplier: e.target.value }))}>{PRODUCTION_BATCH_OPTIONS.map((value) => <option key={value} value={value}>{value} tanda{value === 1 ? '' : 's'}</option>)}</select><small>{(() => { const selectedRecipe = subRecipes.find((recipe) => Number(recipe.id) === Number(productionDraft.recipeId)); const total = Number(selectedRecipe?.output_quantity || 0) * Number(productionDraft.batchMultiplier || 1); return selectedRecipe ? `Se producirÃ¡n ${formatStockQuantity(total, selectedRecipe.output_unit_code)}.` : 'Selecciona una sub-receta para calcular el total.'; })()}</small></label>
+              <label className="field full"><span>Nota</span><textarea rows="2" value={productionDraft.note} onChange={(e) => setProductionDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. preparado del dÃ­a" /></label>
+              <button type="button" className="primary" onClick={produceSubRecipe}>Registrar producciÃ³n</button>
             </section>
 
             <section className="stock-card-block">
               <h2>Sub-recetas disponibles</h2>
-              {subRecipes.length === 0 ? <p>No hay sub-recetas. Crea una en la pestaña Sub-recetas.</p> : null}
+              {subRecipes.length === 0 ? <p>No hay sub-recetas. Crea una en la pestaÃ±a Sub-recetas.</p> : null}
               {subRecipes.map((recipe) => (
                 <div className="recipe-card-mini" key={recipe.id}>
                   <div>
                     <b>{recipeLabel(recipe)}</b>
                     <span>{recipe.output_item_name || 'Sin ingrediente producido'}</span>
-                    <small>{(recipe.lines || []).map((line) => `${line.item_name} ${formatStockQuantity(line.quantity, line.unit_code)}`).join(' · ')}</small>
+                    <small>{(recipe.lines || []).map((line) => `${line.item_name} ${formatStockQuantity(line.quantity, line.unit_code)}`).join(' Â· ')}</small>
                   </div>
                 </div>
               ))}
@@ -2230,7 +2230,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           <div className="stock-dashboard-grid">
             <section className="stock-card-block narrow-stock-form">
               <h2>Entrada de compra</h2>
-              <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
+              <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
               <label className="field full"><span>Cantidad a sumar</span><input type="number" step="0.01" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
               <label className="field full"><span>Nota</span><textarea rows="2" value={receiveDraft.note} onChange={(e) => setReceiveDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. compra Costco" /></label>
               <button type="button" className="primary" onClick={receiveStock}>Registrar entrada</button>
@@ -2238,10 +2238,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
             <section className="stock-card-block narrow-stock-form">
               <h2>{role === 'admin' ? 'Merma directa' : 'Reportar merma'}</h2>
-              <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
+              <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
               <label className="field full"><span>Cantidad a descontar</span><input type="number" step="0.01" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
-              <label className="field full"><span>Razón obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemó pan, se cayó, caducó..." /></label>
-              <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobación'}</button>
+              <label className="field full"><span>RazÃ³n obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemÃ³ pan, se cayÃ³, caducÃ³..." /></label>
+              <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobaciÃ³n'}</button>
             </section>
 
             <section className="stock-card-block">
@@ -2249,7 +2249,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               {pendingWaste.length === 0 ? <p>No hay mermas pendientes.</p> : null}
               {pendingWaste.map((request) => (
                 <div className="waste-request" key={request.id}>
-                  <div><b>{request.item_name}</b><span>{formatStockQuantity(request.quantity, request.unit_code)} · {request.reason}</span><small>Reportó {request.reported_by} · {request.reported_shift}</small></div>
+                  <div><b>{request.item_name}</b><span>{formatStockQuantity(request.quantity, request.unit_code)} Â· {request.reason}</span><small>ReportÃ³ {request.reported_by} Â· {request.reported_shift}</small></div>
                   {role === 'admin' && <div className="inline-actions"><button type="button" className="primary small" onClick={() => approveWaste(request.id, true)}>Aprobar</button><button type="button" className="ghost danger-text" onClick={() => approveWaste(request.id, false)}>Rechazar</button></div>}
                 </div>
               ))}
@@ -2260,7 +2260,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         {activeTab === 'receive' && (
           <section className="stock-card-block narrow-stock-form">
             <h2>Entrada de compra</h2>
-            <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
+            <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
             <label className="field full"><span>Cantidad a sumar</span><input type="number" step="0.01" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
             <label className="field full"><span>Nota</span><textarea rows="2" value={receiveDraft.note} onChange={(e) => setReceiveDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. compra Costco" /></label>
             <button type="button" className="primary" onClick={receiveStock}>Registrar entrada</button>
@@ -2271,10 +2271,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           <div className="stock-dashboard-grid">
             <section className="stock-card-block narrow-stock-form">
               <h2>{role === 'admin' ? 'Merma directa' : 'Reportar merma'}</h2>
-              <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
+              <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} Â· {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
               <label className="field full"><span>Cantidad a descontar</span><input type="number" step="0.01" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
-              <label className="field full"><span>Razón obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemó pan, se cayó, caducó..." /></label>
-              <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobación'}</button>
+              <label className="field full"><span>RazÃ³n obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemÃ³ pan, se cayÃ³, caducÃ³..." /></label>
+              <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobaciÃ³n'}</button>
             </section>
 
             <section className="stock-card-block">
@@ -2284,8 +2284,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 <div className="waste-request" key={request.id}>
                   <div>
                     <b>{request.item_name}</b>
-                    <span>{formatStockQuantity(request.quantity, request.unit_code)} · {request.reason}</span>
-                    <small>Reportó {request.reported_by} · {request.reported_shift}</small>
+                    <span>{formatStockQuantity(request.quantity, request.unit_code)} Â· {request.reason}</span>
+                    <small>ReportÃ³ {request.reported_by} Â· {request.reported_shift}</small>
                   </div>
                   {role === 'admin' && (
                     <div className="inline-actions">
@@ -2334,7 +2334,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <h2>Todos los productos</h2>
               <div className="stock-table-wrap">
                 <table className="stock-table">
-                  <thead><tr><th>Producto</th><th>Categoría</th><th>Estado</th><th></th></tr></thead>
+                  <thead><tr><th>Producto</th><th>CategorÃ­a</th><th>Estado</th><th></th></tr></thead>
                   <tbody>
                     {stockMenuProducts.map((product) => (
                       <tr key={product.id}>
@@ -2356,7 +2356,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <h2>Movimientos</h2>
             <div className="stock-table-wrap">
               <table className="stock-table">
-                <thead><tr><th>Fecha</th><th>Ingrediente</th><th>Tipo</th><th>Cantidad</th><th>Razón</th><th>Usuario</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Ingrediente</th><th>Tipo</th><th>Cantidad</th><th>RazÃ³n</th><th>Usuario</th></tr></thead>
                 <tbody>
                   {data.movements.map((movement) => (
                     <tr key={movement.id}>
@@ -2377,3 +2377,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     </main>
   );
 }
+
+
+
+

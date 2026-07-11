@@ -478,6 +478,21 @@ function Logo({ lang = 'es', setLang, onLoginClick }) {
   );
 }
 
+function legacyRoute() {
+  try {
+    if (window.location.hash) return window.location.hash;
+    const path = window.location.pathname.replace(/\/+$/, '');
+    if (path === '/admin') return '#admin';
+    if (path === '/super') return '#super';
+    if (path === '/orders') return '#orders';
+    if (path === '/stock') return '#stock';
+    if (path === '/cashier') return '#cashier';
+    return '#';
+  } catch {
+    return '#';
+  }
+}
+
 
 function EmployeeLoginModal({ open, onClose }) {
   const [password, setPassword] = useState('');
@@ -2104,7 +2119,7 @@ export default function App() {
   });
   const [employeeLoginOpen, setEmployeeLoginOpen] = useState(false);
   const [route, setRoute] = useState(() => {
-    try { return window.location.hash || '#'; } catch { return '#'; }
+    return legacyRoute();
   });
   const isAdmin = route === '#admin';
   const isSuper = route === '#super';
@@ -2114,9 +2129,13 @@ export default function App() {
   const isStorefront = !isAdmin && !isSuper && !isOrders && !isStock && !isCashier;
 
   useEffect(() => {
-    const syncRoute = () => setRoute(window.location.hash || '#');
+    const syncRoute = () => setRoute(legacyRoute());
+    window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);
-    return () => window.removeEventListener('hashchange', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('hashchange', syncRoute);
+    };
   }, []);
 
   const setLang = (nextLang) => {

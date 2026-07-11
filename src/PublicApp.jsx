@@ -1749,7 +1749,7 @@ export default function PublicApp() {
       const response = await fetch('/api/menu');
       const result = await response.json();
       if (response.ok && result.ok) {
-        const useBaseCatalog = Boolean(result.baseCatalogEnabled);
+        const useBaseCatalog = false;
         const baseCategories = useBaseCatalog ? categories : [];
         const baseProducts = useBaseCatalog ? CATALOG_PRODUCTS : [];
         setBaseCatalogEnabled(useBaseCatalog);
@@ -1791,8 +1791,11 @@ export default function PublicApp() {
 
   const catalogCategories = useMemo(() => mergeCategoriesWithExtras(baseCatalogEnabled ? categories : [], extraCategories), [baseCatalogEnabled, extraCategories]);
   const catalogProducts = useMemo(() => mergeProductsWithExtras(baseCatalogEnabled ? CATALOG_PRODUCTS : [], extraProducts), [baseCatalogEnabled, extraProducts]);
-  const currentCategories = useMemo(() => sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id]), [catalogCategories, categoryOrder, categoryHidden]);
   const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
+  const currentCategories = useMemo(() => {
+    const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
+    return sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
+  }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours((branchSettings.multiBranchEnabled && selectedBranch?.businessHours) ? selectedBranch.businessHours : businessHours), [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
   const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
@@ -1928,6 +1931,7 @@ export default function PublicApp() {
     </main>
   );
 }
+
 
 
 

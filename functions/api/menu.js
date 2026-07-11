@@ -154,11 +154,12 @@ export async function onRequestGet({ request, env }) {
       branchPromotions: saved.branchPromotions || {},
       businessHours: saved.businessHours || null,
       branchSettings: publicBranches,
-      baseCatalogEnabled: Boolean(saved.baseCatalogEnabled),
+      baseCatalogEnabled: false,
       tenant,
     });
   } catch (error) {
     return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false, tenant: publicTenantConfig(null), warning: error.message });
   }
 }
+
 

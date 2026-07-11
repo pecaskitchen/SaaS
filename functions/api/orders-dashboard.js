@@ -592,7 +592,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
       String(orderId),
       'Orders',
       'system',
-      'OperaciÃ³n',
+      'Operación',
       null,
       order.branch_id || 'dominio',
       order.branch_name || 'Dominio',
@@ -673,7 +673,7 @@ export async function onRequestPatch(context) {
     const body = await request.json();
     const { orderId, status, note = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invÃ¡lido.' }, 400);
+    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus inválido.' }, 400);
 
     const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
@@ -697,7 +697,7 @@ export async function onRequestPatch(context) {
     ).bind(status, timestamps.utc, timestamps.monterrey, tenantId, orderId).run();
 
     const eventNote = stockResult
-      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automÃ¡ticamente.`
+      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automáticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(

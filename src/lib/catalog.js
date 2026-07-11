@@ -54,7 +54,7 @@ export function mergeProductsWithExtras(base = CATALOG_PRODUCTS, extraProducts =
 }
 
 export function categoryMeta(categoryId) {
-  return categories.find((item) => item.id === categoryId) || { label: categoryId, emoji: 'ðŸ½ï¸' };
+  return categories.find((item) => item.id === categoryId) || { label: categoryId, emoji: '🍽️' };
 }
 
 export function sortByOrder(items, order, key = 'id') {

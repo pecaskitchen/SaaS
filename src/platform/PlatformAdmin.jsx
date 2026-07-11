@@ -137,7 +137,7 @@ export default function PlatformAdmin() {
   const loginPlatform = async () => {
     const cleanPassword = password.trim();
     if (!cleanPassword) {
-      setStatus('Ingresa la contraseÃ±a de plataforma.');
+      setStatus('Ingresa la contraseña de plataforma.');
       return;
     }
     setLoading(true);
@@ -150,7 +150,7 @@ export default function PlatformAdmin() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false || data.role !== 'platform_admin' || !data.sessionToken) {
-        throw new Error(data.error || 'ContraseÃ±a de plataforma invÃ¡lida.');
+        throw new Error(data.error || 'Contraseña de plataforma inválida.');
       }
       setPlatformToken(data.sessionToken);
       setPassword('');
@@ -262,12 +262,12 @@ export default function PlatformAdmin() {
             <span className="eyebrow"><Shield size={14} /> Admin global</span>
             <h1>Acceso de plataforma</h1>
             <label className="field">
-              <span>ContraseÃ±a</span>
+              <span>Contraseña</span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="ContraseÃ±a de plataforma"
+                placeholder="Contraseña de plataforma"
                 autoFocus
               />
             </label>
@@ -330,11 +330,11 @@ export default function PlatformAdmin() {
           <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); saveBusiness(); }}>
             <h2>{draft.id ? 'Editar negocio' : 'Nuevo negocio'}</h2>
             <div className="admin-promo-grid">
-              <label className="field"><span>Nombre</span><input value={draft.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="CafeterÃ­a Luna" /></label>
+              <label className="field"><span>Nombre</span><input value={draft.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="Cafetería Luna" /></label>
               <label className="field"><span>Slug</span><input value={draft.slug} onChange={(e) => updateDraft('slug', e.target.value)} placeholder="cafeteria-luna" /></label>
-              <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(e) => updateDraft('contactName', e.target.value)} placeholder="Nombre del dueÃ±o" /></label>
+              <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(e) => updateDraft('contactName', e.target.value)} placeholder="Nombre del dueño" /></label>
               <label className="field"><span>Email</span><input value={draft.contactEmail} onChange={(e) => updateDraft('contactEmail', e.target.value)} placeholder="correo@negocio.com" /></label>
-              <label className="field"><span>TelÃ©fono</span><input value={draft.contactPhone} onChange={(e) => updateDraft('contactPhone', e.target.value)} placeholder="8112345678" /></label>
+              <label className="field"><span>Teléfono</span><input value={draft.contactPhone} onChange={(e) => updateDraft('contactPhone', e.target.value)} placeholder="8112345678" /></label>
               <label className="field"><span>WhatsApp pedidos</span><input value={draft.whatsappNumber} onChange={(e) => updateDraft('whatsappNumber', e.target.value)} placeholder="5281..." /></label>
               <label className="field"><span>Plan</span><select value={draft.plan} onChange={(e) => updateDraft('plan', e.target.value)}><option value="starter">Starter</option><option value="growth">Growth</option><option value="pro">Pro</option></select></label>
               <label className="field"><span>Estado</span><select value={draft.status} onChange={(e) => updateDraft('status', e.target.value)}><option value="trial">Trial</option><option value="active">Activo</option><option value="past_due">Pago pendiente</option><option value="paused">Pausado</option></select></label>
@@ -367,12 +367,12 @@ export default function PlatformAdmin() {
             <h2>Clientes</h2>
             <div className="platform-business-list">
               {businesses.length === 0 ? (
-                <p className="empty-cart">AÃºn no hay negocios registrados.</p>
+                <p className="empty-cart">Aún no hay negocios registrados.</p>
               ) : businesses.map((business) => (
                 <article className="platform-business" key={business.id}>
                   <div>
                     <strong>{business.name}</strong>
-                    <span>{business.slug} Â· {business.plan} Â· {business.contactName || 'Sin contacto'}</span>
+                    <span>{business.slug} · {business.plan} · {business.contactName || 'Sin contacto'}</span>
                   </div>
                   <div className="platform-business-meta">
                     <StatusBadge status={business.status} />
@@ -399,7 +399,7 @@ export default function PlatformAdmin() {
             <h2>Actividad reciente</h2>
             <div className="audit-list">
               {dashboard.recentAudit.map((event) => (
-                <span key={event.id}>{event.created_at_utc} Â· {event.action} Â· {event.entity_id || event.tenant_id || 'plataforma'}</span>
+                <span key={event.id}>{event.created_at_utc} · {event.action} · {event.entity_id || event.tenant_id || 'plataforma'}</span>
               ))}
             </div>
           </section>

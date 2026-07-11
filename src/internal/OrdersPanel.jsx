@@ -29,7 +29,7 @@ function Logo() {
 const ORDER_STATUS_META = {
   pending: { label: 'Pendiente', next: ['confirmed', 'preparing', 'cancelled'] },
   confirmed: { label: 'Confirmado', next: ['preparing', 'ready', 'cancelled'] },
-  preparing: { label: 'En preparaciÃ³n', next: ['ready', 'cancelled'] },
+  preparing: { label: 'En preparación', next: ['ready', 'cancelled'] },
   ready: { label: 'Listo', next: ['delivered', 'cancelled'] },
   delivered: { label: 'Entregado', next: [] },
   cancelled: { label: 'Cancelado', next: [] },
@@ -39,7 +39,7 @@ const ORDER_STATUS_LABELS = {
   all: 'Todos',
   pending: 'Pendientes',
   confirmed: 'Confirmados',
-  preparing: 'En preparaciÃ³n',
+  preparing: 'En preparación',
   ready: 'Listos',
   delivered: 'Entregados',
   cancelled: 'Cancelados',
@@ -90,7 +90,7 @@ export default function OrdersPanel() {
   const fetchOrders = async (nextFilter = statusFilter) => {
     if (!password) {
       setUnlocked(false);
-      setStatus('Ingresa la contraseÃ±a de pedidos.');
+      setStatus('Ingresa la contraseña de pedidos.');
       return;
     }
 
@@ -193,16 +193,16 @@ export default function OrdersPanel() {
         <section className="orders-shell">
           <Logo />
           <h1>Pedidos</h1>
-          <p>Consulta la cola de pedidos y cambia el estatus de operaciÃ³n.</p>
+          <p>Consulta la cola de pedidos y cambia el estatus de operación.</p>
 
           <div className="orders-login">
             <label className="field full">
-              <span>ContraseÃ±a de pedidos</span>
+              <span>Contraseña de pedidos</span>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="ContraseÃ±a"
+                placeholder="Contraseña"
               />
             </label>
             <button type="button" className="primary" onClick={() => fetchOrders(statusFilter)}>
@@ -222,7 +222,7 @@ export default function OrdersPanel() {
           <div>
             <Logo />
             <h1>Pedidos</h1>
-            <p>Cola de operaciÃ³n, tiempos y estatus.</p>
+            <p>Cola de operación, tiempos y estatus.</p>
           </div>
           <div className="orders-header-actions">
             <button type="button" className="ghost" onClick={() => fetchOrders(statusFilter)} disabled={loading}>
@@ -300,10 +300,10 @@ export default function OrdersPanel() {
 
                   <div className="order-customer">
                     {order.branch_name ? <p><b>Sucursal:</b> {order.branch_name}</p> : null}
-                    {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` Â· ${order.cashier_shift}` : ''}</p> : null}
-                    {order.order_source === 'cashier' ? <p><b>Pago:</b> {order.payment_method || 'No capturado'} Â· {order.payment_status === 'pending' ? 'Pendiente' : 'Pagado'}</p> : null}
+                    {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` · ${order.cashier_shift}` : ''}</p> : null}
+                    {order.order_source === 'cashier' ? <p><b>Pago:</b> {order.payment_method || 'No capturado'} · {order.payment_status === 'pending' ? 'Pendiente' : 'Pagado'}</p> : null}
                     <p><b>Cliente:</b> {order.customer_name}</p>
-                    <p><b>DirecciÃ³n:</b> {order.customer_address}</p>
+                    <p><b>Dirección:</b> {order.customer_address}</p>
                     {order.customer_notes ? <p><b>Nota:</b> {order.customer_notes}</p> : null}
                   </div>
 
@@ -314,7 +314,7 @@ export default function OrdersPanel() {
                         <div className="order-item" key={item.id}>
                           <div>
                             <b>{item.quantity} x {item.product_name}</b>
-                            <span>{item.category} Â· {currency(item.line_total)}</span>
+                            <span>{item.category} · {currency(item.line_total)}</span>
                           </div>
                           {item.item_notes ? <small>{item.item_notes}</small> : null}
                           {options?.details?.length ? (
@@ -330,7 +330,7 @@ export default function OrdersPanel() {
                   <div className="order-events">
                     {(order.events || []).slice(-4).map((event) => (
                       <span key={event.id}>
-                        {ORDER_STATUS_META[event.event_type]?.label || event.event_type} Â· {formatOrderDate(event.created_at_monterrey)}
+                        {ORDER_STATUS_META[event.event_type]?.label || event.event_type} · {formatOrderDate(event.created_at_monterrey)}
                       </span>
                     ))}
                   </div>

@@ -2553,7 +2553,7 @@ textarea { resize: vertical; min-height: 48px; }
 .admin-super-moved-note {
   background: rgba(249, 169, 31, 0.12);
 }
-/* Phase 27: mover configuraciÃ³n tÃ©cnica de Stock a Admin */
+/* Phase 27: mover configuración técnica de Stock a Admin */
 .admin-embedded-stock-config {
   margin-top: 14px;
 }
@@ -2831,7 +2831,7 @@ textarea { resize: vertical; min-height: 48px; }
   }
 
   .soldout-products-card .stock-table td:nth-child(2)::before {
-    content: 'CategorÃ­a: ';
+    content: 'Categoría: ';
     font-weight: 900;
     color: var(--brown);
   }

@@ -54,10 +54,10 @@ const TEXT = {
   es: {
     brandTagline: 'Operacion',
     languageLabel: 'Idioma',
-    selectOption: 'Selecciona una opciÃ³n',
+    selectOption: 'Selecciona una opción',
     notesLabel: 'Personalizar / nota',
     notesPlaceholder: 'Ej. sin jitomate, poco aderezo, bien dorado...',
-    sideDressing: 'Aderezo de acompaÃ±amiento',
+    sideDressing: 'Aderezo de acompañamiento',
     sideDressingHint: 'Sin costo. Va aparte, no dentro del producto.',
     extraDressing: 'Aderezo extra +$10',
     removeIngredients: 'Quitar ingredientes',
@@ -67,20 +67,20 @@ const TEXT = {
     dressing: 'Aderezo',
     addCutlery: 'Agregar cubiertos',
     crepeFlavorLabel: 'Elige de 1 a 2 sabores incluidos *',
-    crepeFlavorSmall: (count) => `${count}/2 seleccionados. MÃ­nimo 1.`,
+    crepeFlavorSmall: (count) => `${count}/2 seleccionados. Mínimo 1.`,
     extraToppings: 'Toppings extra +$10 c/u',
     extraToppingsSmall: (count) => `${count}/5 toppings extra seleccionados.`,
     whippedCream: 'Crema batida +$10',
     temperature: 'Temperatura',
     milkType: 'Tipo de leche',
     syrup: 'Jarabe +$10',
-    whippedCreamDetail: 'Crema batida: SÃ­ (+$10)',
+    whippedCreamDetail: 'Crema batida: Sí (+$10)',
     noWhippedCreamDetail: 'Crema batida: No',
     chooseMilkAlert: 'Elige el tipo de leche.',
-    includedDressingDetail: (value) => `Aderezo de acompaÃ±amiento: ${value}`,
+    includedDressingDetail: (value) => `Aderezo de acompañamiento: ${value}`,
     extraDressingDetail: (value) => `Aderezo extra: ${value} (+$10)`,
     dressingDetail: (value) => `Aderezo: ${value}`,
-    cutleryDetail: (value) => `Cubiertos: ${value ? 'SÃ­' : 'No'}`,
+    cutleryDetail: (value) => `Cubiertos: ${value ? 'Sí' : 'No'}`,
     flavorsDetail: (values) => `Sabores: ${values.join(', ')}`,
     extraToppingsDetail: (values, price) => `Toppings extra: ${values.join(', ')} (+$${price})`,
     temperatureDetail: (value) => `Temperatura: ${value}`,
@@ -88,19 +88,19 @@ const TEXT = {
     syrupDetail: (value) => `Jarabe: ${value} (+$10)`,
     noSyrupDetail: 'Jarabe: Sin jarabe',
     noteDetail: (value) => `Nota: ${value}`,
-    chooseSideDressingAlert: 'Elige un aderezo de acompaÃ±amiento. TambiÃ©n puedes seleccionar â€œSin aderezoâ€.',
+    chooseSideDressingAlert: 'Elige un aderezo de acompañamiento. También puedes seleccionar "Sin aderezo".',
     chooseCrepeFlavorAlert: 'Elige al menos 1 sabor para la crepa.',
     showOptions: 'Personalizar',
     hideOptions: 'Ocultar opciones',
     add: 'Agregar',
     yourOrder: 'Tu pedido',
     cart: 'Carrito',
-    emptyCart: 'Tu carrito estÃ¡ vacÃ­o. Elige algo rico del menÃº.',
+    emptyCart: 'Tu carrito está vacío. Elige algo rico del menú.',
     customerDataTitle: 'Datos para enviar por WhatsApp',
-    welcomeBack: (name) => `QuÃ© gusto tenerte de vuelta, ${name}.`,
+    welcomeBack: (name) => `Qué gusto tenerte de vuelta, ${name}.`,
     privacyNote: 'Puedes guardar tus datos para futuros pedidos. Se guardan solo en este celular/navegador.',
     namePlaceholder: 'Nombre',
-    addressPlaceholder: 'DirecciÃ³n',
+    addressPlaceholder: 'Dirección',
     neighborhoodPlaceholder: 'Colonia / Privada',
     sectorPlaceholder: 'Sector',
     paymentPlaceholder: 'Forma de pago',
@@ -111,7 +111,7 @@ const TEXT = {
     saveMyData: 'Guardar mis datos',
     clearData: 'Borrar datos',
     savedDataAlert: 'Tus datos quedaron guardados solo en este dispositivo.',
-    completeDataAlert: 'Completa nombre y direcciÃ³n antes de enviar el pedido.',
+    completeDataAlert: 'Completa nombre y dirección antes de enviar el pedido.',
     saveOrderError: 'No se pudo guardar el pedido. Intenta de nuevo.',
     connectionOrderError: (message) => `No se pudo guardar el pedido: ${message}`,
     total: 'Total',
@@ -119,25 +119,25 @@ const TEXT = {
     sendWhatsApp: 'Enviar pedido por WhatsApp',
     orderMessageIntro: 'Hola, quiero hacer un pedido:',
     orderData: 'Datos del pedido:',
-    orderNumber: 'NÃºmero de pedido',
+    orderNumber: 'Número de pedido',
     nameLabel: 'Nombre',
-    addressLabel: 'DirecciÃ³n',
+    addressLabel: 'Dirección',
     neighborhoodLabel: 'Colonia/Privada',
     sectorLabel: 'Sector',
     paymentLabel: 'Pago',
     generalNoteLabel: 'Nota general',
-    heroEyebrow: 'Arma tu pedido en lÃ­nea',
-    heroTitle: 'Comida, cafÃ© y antojos en un solo pedido.',
-    heroText: 'Paninis, wraps, ensaladas, crepas y cafÃ©. Personaliza tu pedido y envialo por WhatsApp.',
+    heroEyebrow: 'Arma tu pedido en línea',
+    heroTitle: 'Comida, café y antojos en un solo pedido.',
+    heroText: 'Paninis, wraps, ensaladas, crepas y café. Personaliza tu pedido y envialo por WhatsApp.',
     orderNow: 'Ordenar ahora',
     viewCart: 'Ver carrito',
     heroFloatingTop: '',
     heroFloatingBottom: '',
-    menu: 'MenÃº',
-    chooseCategory: 'Elige una categorÃ­a',
+    menu: 'Menú',
+    chooseCategory: 'Elige una categoría',
     productsCount: (count) => `${count} producto${count === 1 ? '' : 's'}`,
     promoEyebrow: '',
-    promoFixed: 'Esta promociÃ³n no permite cambiar ingredientes incluidos.',
+    promoFixed: 'Esta promoción no permite cambiar ingredientes incluidos.',
     promoExtras: 'Extras',
     addPromo: 'Agregar promo',
     unavailable: 'No disponible',
@@ -182,7 +182,7 @@ const TEXT = {
     syrupDetail: (value) => `Syrup: ${optionLabel('en', value)} (+$10)`,
     noSyrupDetail: 'Syrup: No syrup',
     noteDetail: (value) => `Note: ${value}`,
-    chooseSideDressingAlert: 'Choose a side dressing. You can also select â€œNo dressingâ€.',
+    chooseSideDressingAlert: 'Choose a side dressing. You can also select "No dressing".',
     chooseCrepeFlavorAlert: 'Choose at least 1 flavor for the crepe.',
     showOptions: 'Customize',
     hideOptions: 'Hide options',
@@ -248,7 +248,7 @@ const OPTION_TRANSLATIONS = {
   Barbecue: 'Barbecue',
   Ninguno: 'None',
   'Blue Cheese': 'Blue Cheese',
-  'Vinagreta miel-limÃ³n': 'Honey-lime vinaigrette',
+  'Vinagreta miel-limón': 'Honey-lime vinaigrette',
   Helado: 'Iced',
   Caliente: 'Hot',
   Entera: 'Whole milk',
@@ -256,16 +256,16 @@ const OPTION_TRANSLATIONS = {
   'Sin jarabe': 'No syrup',
   'Vainilla francesa': 'French vanilla',
   'Caramelo salado': 'Salted caramel',
-  'Vainilla francesa sin azÃºcar': 'Sugar-free French vanilla',
-  'Caramelo salado sin azÃºcar': 'Sugar-free salted caramel',
+  'Vainilla francesa sin azúcar': 'Sugar-free French vanilla',
+  'Caramelo salado sin azúcar': 'Sugar-free salted caramel',
   Nutella: 'Nutella',
   Cajeta: 'Cajeta',
   'Queso crema dulce': 'Sweet cream cheese',
   Lechera: 'Sweetened condensed milk',
   Fresa: 'Strawberry',
-  'PlÃ¡tano': 'Banana',
+  'Plátano': 'Banana',
   Nuez: 'Walnut',
-  'JamÃ³n de pavo': 'Turkey ham',
+  'Jamón de pavo': 'Turkey ham',
   Pepperoni: 'Pepperoni',
   'Queso manchego': 'Manchego cheese',
   'Queso mozzarella': 'Mozzarella cheese',
@@ -289,7 +289,7 @@ const PRODUCT_TRANSLATIONS = {
   'crepa-salada': { name: 'Savory Crepe', badge: '2 included fillings', description: 'Choose 1 to 2 included fillings. Add extras for $10 each.' },
   americano: { name: 'Americano', description: 'Hot or iced. Optional syrup for $10.' },
   latte: { name: 'Latte', description: 'Hot or iced. Choose whole or lactose-free milk. Optional syrup for $10.' },
-  frappe: { name: 'FrappÃ©', description: 'Blended iced coffee. Choose whole or lactose-free milk. Add whipped cream for $10.' },
+  frappe: { name: 'Frappé', description: 'Blended iced coffee. Choose whole or lactose-free milk. Add whipped cream for $10.' },
   coca: { name: 'Coca-Cola', description: 'Cold soft drink.' },
   'coca-light': { name: 'Coca-Cola Light', description: 'Cold soft drink.' },
   agua: { name: 'Water', description: 'Bottled water.' },
@@ -524,7 +524,7 @@ function EmployeeLoginModal({ open, onClose }) {
 
   const submit = async () => {
     if (!password.trim()) {
-      setStatus('Ingresa tu contraseÃ±a.');
+      setStatus('Ingresa tu contraseña.');
       return;
     }
     setLoading(true);
@@ -537,7 +537,7 @@ function EmployeeLoginModal({ open, onClose }) {
       });
       const result = await response.json();
       if (!response.ok || !result.ok) {
-        setStatus(result.error || 'ContraseÃ±a incorrecta.');
+        setStatus(result.error || 'Contraseña incorrecta.');
         return;
       }
       if ((result.role === 'stock' || result.role === 'cashier') && !employeeName.trim()) {
@@ -565,18 +565,18 @@ function EmployeeLoginModal({ open, onClose }) {
         <div className="employee-login-head">
           <div>
             <h2>Ingresa al sistema</h2>
-            <p>Acceso para equipo Pecas. MÃ¡s adelante aquÃ­ podrÃ¡n registrarse clientes.</p>
+            <p>Acceso para equipo Pecas. Más adelante aquí podrán registrarse clientes.</p>
           </div>
           <button type="button" className="ghost mini" onClick={onClose}>Cerrar</button>
         </div>
         <div className="employee-login-grid">
           <label className="field full">
-            <span>ContraseÃ±a</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ContraseÃ±a de tu rol" onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} autoFocus />
+            <span>Contraseña</span>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña de tu rol" onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} autoFocus />
           </label>
           <label className="field">
             <span>Nombre empleado</span>
-            <input value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} placeholder="Ej. CÃ©sar" />
+            <input value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} placeholder="Ej. César" />
           </label>
           <label className="field">
             <span>Turno</span>
@@ -592,9 +592,9 @@ function EmployeeLoginModal({ open, onClose }) {
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const links = [
-    { key: 'admin', href: '#admin', label: 'Admin', description: 'MenÃº, catÃ¡logo y sucursales' },
+    { key: 'admin', href: '#admin', label: 'Admin', description: 'Menú, catálogo y sucursales' },
     { key: 'super', href: '#super', label: 'Super', description: 'Horarios y promociones' },
-    { key: 'orders', href: '#orders', label: 'Pedidos', description: 'Cola de producciÃ³n' },
+    { key: 'orders', href: '#orders', label: 'Pedidos', description: 'Cola de producción' },
     { key: 'stock', href: '#stock', label: 'Stock', description: 'Inventario y agotados' },
     { key: 'cashier', href: '#cashier', label: 'Caja', description: 'Capturar pedidos' },
   ];
@@ -602,7 +602,7 @@ function BackofficeNav({ current = 'admin', compact = false, showAdmin = true })
   const visibleLinks = showAdmin ? links : links.filter((link) => link.key !== 'admin');
 
   return (
-    <nav className={compact ? 'backoffice-nav compact' : 'backoffice-nav'} aria-label="NavegaciÃ³n interna Pecas">
+    <nav className={compact ? 'backoffice-nav compact' : 'backoffice-nav'} aria-label="Navegación interna Pecas">
       {visibleLinks.map((link) => (
         <a key={link.key} href={link.href} className={current === link.key ? 'active' : ''}>
           <strong>{link.label}</strong>
@@ -771,7 +771,7 @@ function OptionFamilyControls({ state, update, customization, onlyKeys = null, e
                 );
               })}
             </div>
-            <small>{Number(group.maxIncluded || 0)} incluido(s). MÃ¡ximo {maxTotal} selecciÃ³n(es).</small>
+            <small>{Number(group.maxIncluded || 0)} incluido(s). Máximo {maxTotal} selección(es).</small>
           </div>
         );
       })}
@@ -797,7 +797,7 @@ function RecipeCustomizationControls({ product, state, customization, toggleRemo
                   className={`pill ${isIncluded ? 'active' : ''}`}
                   onClick={() => toggleRemovedIngredient(item.name)}
                 >
-                  {isIncluded ? 'âœ“ ' : 'âœ• '}{item.name}
+                  {isIncluded ? '✓ ' : '✕ '}{item.name}
                 </button>
               );
             })}
@@ -866,7 +866,7 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
             label={t(lang, 'temperature')}
             value={state.temperature}
             onChange={(value) => update('temperature', value)}
-            options={['FrÃ­o', 'Caliente']}
+            options={['Frío', 'Caliente']}
             lang={lang}
           />
         )}
@@ -1325,35 +1325,35 @@ function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es
       const extraToppings = extras.extraToppings || [];
       if (extraToppings.length > 0) {
         price += extraToppings.length * 10;
-        details.push(`${prefix} Â· ${t(lang, 'extraToppingsDetail', extraToppings, extraToppings.length * 10)}`);
+        details.push(`${prefix} · ${t(lang, 'extraToppingsDetail', extraToppings, extraToppings.length * 10)}`);
       }
-      details.push(`${prefix} Â· ${t(lang, 'cutleryDetail', Boolean(extras.cutlery))}`);
+      details.push(`${prefix} · ${t(lang, 'cutleryDetail', Boolean(extras.cutlery))}`);
     }
 
     if (product?.type === 'panini' || product?.type === 'wrap' || product?.type === 'salad') {
       if (extras.extraDressing && extras.extraDressing !== 'Ninguno') {
         price += 10;
-        details.push(`${prefix} Â· ${t(lang, 'extraDressingDetail', extras.extraDressing)}`);
+        details.push(`${prefix} · ${t(lang, 'extraDressingDetail', extras.extraDressing)}`);
       }
-      if (product?.type === 'salad') details.push(`${prefix} Â· ${t(lang, 'cutleryDetail', Boolean(extras.cutlery))}`);
+      if (product?.type === 'salad') details.push(`${prefix} · ${t(lang, 'cutleryDetail', Boolean(extras.cutlery))}`);
     }
 
     if (product?.type === 'coffee') {
       if (extras.syrup && extras.syrup !== 'Sin jarabe') {
         price += 10;
-        details.push(`${prefix} Â· ${t(lang, 'syrupDetail', extras.syrup)}`);
+        details.push(`${prefix} · ${t(lang, 'syrupDetail', extras.syrup)}`);
       }
       if (product.id === 'frappe') {
         if (extras.whippedCream) {
           price += 10;
-          details.push(`${prefix} Â· ${t(lang, 'whippedCreamDetail')}`);
+          details.push(`${prefix} · ${t(lang, 'whippedCreamDetail')}`);
         } else {
-          details.push(`${prefix} Â· ${t(lang, 'noWhippedCreamDetail')}`);
+          details.push(`${prefix} · ${t(lang, 'noWhippedCreamDetail')}`);
         }
       }
     }
 
-    if (extras.note?.trim()) details.push(`${prefix} Â· ${t(lang, 'noteDetail', extras.note.trim())}`);
+    if (extras.note?.trim()) details.push(`${prefix} · ${t(lang, 'noteDetail', extras.note.trim())}`);
   }
 
   return {
@@ -1426,7 +1426,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
     <section className="promo-section" id="promo">
       <div className="promo-card">
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
-          {image ? <img src={image} alt={promotion.title} /> : <span>â­</span>}
+          {image ? <img src={image} alt={promotion.title} /> : <span>★</span>}
         </div>
         <div className="promo-content">
           <h2>{promotion.title}</h2>
@@ -1502,7 +1502,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
       '',
       ...cart.map((item, index) => {
         const details = item.details.map((detail) => `   - ${detail}`).join('\n');
-        return `${index + 1}. ${item.quantity} x ${item.name} â€” ${currency(item.price * item.quantity)}\n${details}`;
+        return `${index + 1}. ${item.quantity} x ${item.name} — ${currency(item.price * item.quantity)}\n${details}`;
       }),
       '',
       `Total: ${currency(subtotal)}`,
@@ -1542,7 +1542,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
       items: cart.map((item) => ({
         id: item.productId || item.id,
         name: item.name,
-        category: item.category || 'Sin categorÃ­a',
+        category: item.category || 'Sin categoría',
         quantity: item.quantity || 1,
         price: item.price,
         lineTotal: (item.price || 0) * (item.quantity || 1),
@@ -1687,7 +1687,7 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
 
   const login = () => {
     if (!password.trim() || !cashierName.trim()) {
-      setStatus('Ingresa nombre de cajero y contraseÃ±a de caja.');
+      setStatus('Ingresa nombre de cajero y contraseña de caja.');
       return;
     }
     try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift })); } catch { /* ignore */ }
@@ -1774,9 +1774,9 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
           <h1>Caja</h1>
           <p>Captura pedidos internos de sucursal sin enviarlos a WhatsApp.</p>
           <div className="orders-login">
-            <label className="field full"><span>Nombre del cajero</span><input value={cashierName} onChange={(e) => setCashierName(e.target.value)} placeholder="Ej. CÃ©sar" /></label>
+            <label className="field full"><span>Nombre del cajero</span><input value={cashierName} onChange={(e) => setCashierName(e.target.value)} placeholder="Ej. César" /></label>
             <label className="field full"><span>Turno</span><input value={shift} onChange={(e) => setShift(e.target.value)} placeholder="Ej. Noche" /></label>
-            <label className="field full"><span>ContraseÃ±a de caja</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ContraseÃ±a de caja de la sucursal" /></label>
+            <label className="field full"><span>Contraseña de caja</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña de caja de la sucursal" /></label>
             <button type="button" className="primary" onClick={login}>Entrar a caja</button>
             {status && <p className="admin-status">{status}</p>}
           </div>
@@ -1810,15 +1810,15 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
             <div className="cart-header"><div><span className="eyebrow">Caja</span><h2>Pedido</h2></div><span className="cart-count"><ShoppingBag size={18} /> {itemCount}</span></div>
             <div className="customer-card">
               <label className="field full"><span>Cliente opcional</span><input value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} placeholder="Cliente caja" /></label>
-              <label className="field full"><span>TelÃ©fono opcional</span><input value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Opcional" /></label>
-              <label className="field"><span>MÃ©todo de pago</span><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select></label>
+              <label className="field full"><span>Teléfono opcional</span><input value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Opcional" /></label>
+              <label className="field"><span>Método de pago</span><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select></label>
               <label className="field"><span>Estado de pago</span><select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
               <label className="field full"><span>Notas</span><textarea value={customer.notes} onChange={(e) => setCustomer((c) => ({ ...c, notes: e.target.value }))} placeholder="Notas para cocina" /></label>
             </div>
             <div className="cart-items">
               {cart.length === 0 ? <div className="empty-cart"><ShoppingBag size={28} /><p>Agrega productos.</p></div> : cart.map((item) => (
                 <div className="cart-item" key={item.uid}>
-                  <div><strong>{item.name}</strong><span>{currency(item.price)} Â· {item.details?.join(' Â· ')}</span></div>
+                  <div><strong>{item.name}</strong><span>{currency(item.price)} · {item.details?.join(' · ')}</span></div>
                   <div className="cart-controls"><button type="button" onClick={() => updateQty(item.uid, item.quantity - 1)}><Minus size={14} /></button><b>{item.quantity}</b><button type="button" onClick={() => updateQty(item.uid, item.quantity + 1)}><Plus size={14} /></button><button type="button" className="danger" onClick={() => removeItem(item.uid)}><Trash2 size={14} /></button></div>
                 </div>
               ))}
@@ -1974,7 +1974,7 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
           <h1>Super usuario</h1>
           <p>Controla horarios y promociones por sucursal activa.</p>
           <div className="admin-login">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ContraseÃ±a super usuario / admin" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña super usuario / admin" />
             <button type="button" className="primary" onClick={login}>Entrar</button>
             {status && <p className="admin-status">{status}</p>}
           </div>
@@ -1990,9 +1990,9 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
         <div className="admin-hero">
           <div>
             <h1>Super usuario</h1>
-            <p>Solo se muestran sucursales activas. AquÃ­ se administran horarios y promociones por sucursal.</p>
+            <p>Solo se muestran sucursales activas. Aquí se administran horarios y promociones por sucursal.</p>
           </div>
-          <a className="ghost admin-home-link" href="#">Ver pÃ¡gina cliente</a>
+          <a className="ghost admin-home-link" href="#">Ver página cliente</a>
         </div>
         <BackofficeNav current="super" showAdmin={false} />
         <div className="admin-toolbar sticky-actions">
@@ -2013,10 +2013,10 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
               <p>Este horario controla el estado abierto/cerrado de esta sucursal.</p>
               <label className="check-row full">
                 <input type="checkbox" checked={Boolean(normalizeBusinessHours(selectedBranch.businessHours || businessHours).allowClosedOrders)} onChange={(e) => updateBranchHours(selectedBranch.id, (hours) => ({ ...hours, allowClosedOrders: e.target.checked }))} />
-                <span>Permitir pedidos aunque estÃ© cerrado</span>
+                <span>Permitir pedidos aunque esté cerrado</span>
               </label>
               <label className="field full">
-                <span>Mensaje cuando estÃ¡ cerrado</span>
+                <span>Mensaje cuando está cerrado</span>
                 <input value={normalizeBusinessHours(selectedBranch.businessHours || businessHours).messageWhenClosed || ''} onChange={(e) => updateBranchHours(selectedBranch.id, (hours) => ({ ...hours, messageWhenClosed: e.target.value }))} />
               </label>
               <div className="admin-hours-grid">
@@ -2034,14 +2034,14 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
             </section>
 
             <section className="admin-order-box">
-              <h2>PromociÃ³n de {selectedBranch.name}</h2>
-              <p>La promociÃ³n ahora depende de la sucursal seleccionada por el cliente.</p>
+              <h2>Promoción de {selectedBranch.name}</h2>
+              <p>La promoción ahora depende de la sucursal seleccionada por el cliente.</p>
               <label className="check-row full">
                 <input type="checkbox" checked={Boolean(selectedPromotion.active)} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'active', e.target.checked)} />
-                <span>Mostrar promociÃ³n en esta sucursal</span>
+                <span>Mostrar promoción en esta sucursal</span>
               </label>
               <div className="admin-promo-grid">
-                <label className="field"><span>TÃ­tulo</span><input value={selectedPromotion.title || ''} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'title', e.target.value)} /></label>
+                <label className="field"><span>Título</span><input value={selectedPromotion.title || ''} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'title', e.target.value)} /></label>
                 <label className="field"><span>Precio promo</span><input type="number" value={selectedPromotion.price || 0} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'price', Number(e.target.value || 0))} /></label>
                 <div className="field full">
                   <span>Productos incluidos</span>
@@ -2049,7 +2049,7 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
                     {(selectedPromotion.items || []).map((item, index) => (
                       <div className="admin-promo-item-row" key={`${item.productId}-${index}`}>
                         <select value={item.productId || ''} onChange={(e) => updatePromotionItemForBranch(selectedBranch.id, index, 'productId', e.target.value)}>
-                          {products.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} Â· {product.name}</option>)}
+                          {products.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} · {product.name}</option>)}
                         </select>
                         <input type="number" min="1" value={item.quantity || 1} onChange={(e) => updatePromotionItemForBranch(selectedBranch.id, index, 'quantity', e.target.value)} />
                         <button type="button" className="ghost mini danger-text" onClick={() => removePromotionItemForBranch(selectedBranch.id, index)}>Quitar</button>
@@ -2078,7 +2078,7 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
               <option value="sold_out">Agotados</option>
               <option value="purchase_suggestions">Compra sugerida</option>
               <option value="payment_summary">Resumen de pagos</option>
-              <option value="category_sales">Ventas por categorÃ­a</option>
+              <option value="category_sales">Ventas por categoría</option>
               <option value="branch_summary">Resumen por sucursal</option>
               <option value="inventory_value">Inventario valorizado</option>
             </select></label>
@@ -2274,7 +2274,7 @@ export default function App() {
         <nav className="nav">
           <Logo lang={lang} setLang={setLang} onLoginClick={() => setEmployeeLoginOpen(true)} />
           <a href="#cart" className="cart-pill">
-            <ShoppingBag size={18} /> {itemCount} Â· {currency(subtotal)}
+            <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>
         </nav>
 

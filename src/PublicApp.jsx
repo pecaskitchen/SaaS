@@ -56,6 +56,18 @@ function normalizePublicBrand(tenant) {
 
 const CUSTOMER_STORAGE_KEY = 'saas_customer_profile';
 
+function publicApiPath(path, extraParams = {}) {
+  try {
+    const params = new URLSearchParams(extraParams);
+    const tenantId = new URLSearchParams(window.location.search).get('tenant_id');
+    if (tenantId) params.set('tenant_id', tenantId);
+    const query = params.toString();
+    return query ? `${path}?${query}` : path;
+  } catch {
+    return path;
+  }
+}
+
 function modificationDetails(details = []) {
   return details.filter((detail) => {
     const value = String(detail || '').trim().toLowerCase();
@@ -1576,7 +1588,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
     };
 
     try {
-      const response = await fetch('/api/orders', {
+      const response = await fetch(publicApiPath('/api/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1736,7 +1748,7 @@ export default function PublicApp() {
 
   const loadProductCustomizations = async () => {
     try {
-      const response = await fetch(`/api/product-customizations?t=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(publicApiPath('/api/product-customizations', { t: Date.now() }), { cache: 'no-store' });
       const result = await response.json();
       if (response.ok && result.ok) setProductCustomizations(result.products || {});
     } catch {
@@ -1746,7 +1758,7 @@ export default function PublicApp() {
 
   const loadMenuOverrides = async () => {
     try {
-      const response = await fetch('/api/menu');
+      const response = await fetch(publicApiPath('/api/menu'));
       const result = await response.json();
       if (response.ok && result.ok) {
         const useBaseCatalog = false;

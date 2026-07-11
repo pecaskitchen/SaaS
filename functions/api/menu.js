@@ -1,4 +1,4 @@
-﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -58,6 +58,32 @@ function publicTenantConfig(row) {
   };
 }
 
+function hasExplicitTenant(request) {
+  try {
+    return Boolean(new URL(request.url).searchParams.get('tenant_id') || request.headers.get('x-tenant-id'));
+  } catch {
+    return false;
+  }
+}
+
+function blankPublicMenu(tenant = publicTenantConfig(null), warning = '') {
+  return {
+    ok: true,
+    overrides: {},
+    extraCategories: [],
+    extraProducts: [],
+    categoryOrder: [],
+    productOrder: [],
+    categoryHidden: {},
+    promotion: null,
+    branchPromotions: {},
+    businessHours: null,
+    branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS),
+    baseCatalogEnabled: false,
+    tenant,
+    ...(warning ? { warning } : {}),
+  };
+}
 function normalizeBranchSettings(settings = {}) {
   const branches = Array.isArray(settings.branches) && settings.branches.length
     ? settings.branches.map((branch, index) => ({
@@ -117,19 +143,25 @@ function normalizeSavedMenu(raw) {
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) {
-      return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false, tenant: publicTenantConfig(null) });
+      return jsonResponse(blankPublicMenu());
     }
 
     await ensureTenantColumns(env, ['app_settings']);
     const tenantId = await resolveTenantId(request, env);
+    const explicitTenant = hasExplicitTenant(request);
+    const defaultTenant = defaultTenantId(env);
+    if (!explicitTenant && normalizeTenantId(tenantId, env) === defaultTenant) {
+      return jsonResponse(blankPublicMenu(publicTenantConfig(null)));
+    }
+
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
     const row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
     ).bind(settingKey).first();
 
     const saved = normalizeSavedMenu(row?.value_json || '');
-    const tenantRow = await env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ?`).bind(tenantId).first().catch(() => null);
-    const tenant = publicTenantConfig(tenantRow);
+    const tenantRow = await env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ? OR slug = ?`).bind(tenantId, tenantId).first().catch(() => null);
+    const tenant = tenantRow ? publicTenantConfig(tenantRow) : publicTenantConfig({ id: tenantId, slug: tenantId, name: tenantId, brand_json: '{}', settings_json: '{}' });
 
     const publicBranches = publicBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS);
     const cleanedOverrides = { ...(saved.overrides || {}) };
@@ -158,8 +190,9 @@ export async function onRequestGet({ request, env }) {
       tenant,
     });
   } catch (error) {
-    return jsonResponse({ ok: true, overrides: {}, extraCategories: [], extraProducts: [], categoryOrder: [], productOrder: [], categoryHidden: {}, promotion: null, branchPromotions: {}, businessHours: null, branchSettings: publicBranchSettings(DEFAULT_BRANCH_SETTINGS), baseCatalogEnabled: false, tenant: publicTenantConfig(null), warning: error.message });
+    return jsonResponse(blankPublicMenu(publicTenantConfig(null), error.message));
   }
 }
+
 
 

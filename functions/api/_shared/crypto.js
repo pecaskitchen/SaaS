@@ -45,14 +45,53 @@ export async function verifyToken(token, secret) {
   return payload;
 }
 
+// MEJORADO (ver auditoria-saas-multitenant.md, hallazgo #8): un solo
+// SHA-256 con salt es barato de romper por fuerza bruta en GPU. PBKDF2 con
+// 210,000 iteraciones (recomendación OWASP 2024 para HMAC-SHA256) es
+// soportado nativamente por Web Crypto en Cloudflare Workers, sin
+// dependencias externas.
+const PBKDF2_ITERATIONS = 210000;
+
 export async function hashPassword(password, salt = crypto.randomUUID()) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits'],
+  );
+  const derived = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    256,
+  );
+  return `pbkdf2:${PBKDF2_ITERATIONS}:${salt}:${base64url(derived)}`;
+}
+
+async function verifyLegacySha256(password, salt, expectedHash) {
   const data = new TextEncoder().encode(`${salt}:${password}`);
   const digest = await crypto.subtle.digest('SHA-256', data);
-  return `sha256:${salt}:${base64url(digest)}`;
+  return base64url(digest) === expectedHash;
 }
 
 export async function verifyPassword(password, passwordHash) {
-  const [, salt] = String(passwordHash || '').split(':');
-  if (!salt) return false;
-  return await hashPassword(password, salt) === passwordHash;
+  const parts = String(passwordHash || '').split(':');
+  if (parts[0] === 'pbkdf2' && parts.length === 4) {
+    const [, , salt] = parts;
+    return await hashPassword(password, salt) === passwordHash;
+  }
+  // Compatibilidad con hashes antiguos (sha256:salt:hash) creados antes de
+  // este cambio, para no invalidar sesiones de golpe. Al hacer login exitoso
+  // con un hash legacy, quien llame a verifyPassword debería re-hashear y
+  // guardar el nuevo formato (ver auth/login.js).
+  if (parts[0] === 'sha256' && parts.length === 3) {
+    const [, salt, expectedHash] = parts;
+    if (!salt) return false;
+    return await verifyLegacySha256(password, salt, expectedHash);
+  }
+  return false;
+}
+
+export function isLegacyPasswordHash(passwordHash) {
+  return String(passwordHash || '').startsWith('sha256:');
 }

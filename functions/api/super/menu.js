@@ -1,3 +1,6 @@
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+import { requireAuth } from '../_shared/auth.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -5,11 +8,9 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function isSuperAuthorized(request, env) {
-  const adminPassword = env.ADMIN_PASSWORD;
-  const superPassword = env.SUPER_PASSWORD;
-  const providedPassword = request.headers.get('x-super-password');
-  return Boolean(providedPassword && ((adminPassword && providedPassword === adminPassword) || (superPassword && providedPassword === superPassword)));
+// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6).
+async function checkSuperAuth(request, env) {
+  return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
 }
 
 const DEFAULT_BRANCH_SETTINGS = {
@@ -29,6 +30,7 @@ async function ensureAppSettings(env) {
       updated_at TEXT NOT NULL
     )
   `).run();
+  await ensureTenantColumns(env, ['app_settings']);
   return true;
 }
 
@@ -106,16 +108,20 @@ function superPayload(saved, warning = '') {
 
 export async function onRequestGet({ request, env }) {
   try {
-    if (!isSuperAuthorized(request, env)) {
-      return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
-    }
+    const auth = await checkSuperAuth(request, env);
+    if (!auth.ok) return auth.response;
 
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse(superPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
 
+    // CORREGIDO: antes leía siempre la key global 'menu_overrides', mezclando
+    // promociones/horarios de TODOS los tenants. Ahora usa la misma clave
+    // namespaced por tenant que admin/menu.js.
+    const tenantId = await resolveTenantId(request, env);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
     const row = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
-    ).bind('menu_overrides').first();
+    ).bind(settingKey).first();
 
     return jsonResponse(superPayload(normalizeSavedMenu(row?.value_json || '')));
   } catch (error) {
@@ -125,16 +131,18 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    if (!isSuperAuthorized(request, env)) {
-      return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
-    }
+    const auth = await checkSuperAuth(request, env);
+    if (!auth.ok) return auth.response;
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+
+    const tenantId = await resolveTenantId(request, env);
+    const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
     const body = await request.json();
     const currentRow = await env.DB.prepare(
       `SELECT value_json FROM app_settings WHERE key = ?`
-    ).bind('menu_overrides').first();
+    ).bind(settingKey).first();
     const current = normalizeSavedMenu(currentRow?.value_json || '');
     const currentBranchSettings = normalizeBranchSettings(current.branchSettings || DEFAULT_BRANCH_SETTINGS);
     const incomingBranchSettings = normalizeBranchSettings(body.branchSettings || {});
@@ -174,12 +182,13 @@ export async function onRequestPost({ request, env }) {
     const now = new Date().toISOString();
 
     await env.DB.prepare(
-      `INSERT INTO app_settings (key, value_json, updated_at)
-       VALUES (?, ?, ?)
+      `INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+       VALUES (?, ?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET
+         tenant_id = excluded.tenant_id,
          value_json = excluded.value_json,
          updated_at = excluded.updated_at`
-    ).bind('menu_overrides', valueJson, now).run();
+    ).bind(settingKey, tenantId, valueJson, now).run();
 
     return jsonResponse({ ok: true });
   } catch (error) {

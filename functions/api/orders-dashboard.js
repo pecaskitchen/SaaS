@@ -1,4 +1,5 @@
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -11,14 +12,26 @@ function getPassword(request) {
   return request.headers.get('x-orders-password') || '';
 }
 
+// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
+// para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
+// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// conserva como segundo factor opcional para acotar la vista a una sola
+// sucursal — ya estaba correctamente scoped por tenant_id vía
+// readBranchSettings(env, tenantId), así que no representa una fuga.
 async function resolveOrdersAccess(request, env, tenantId) {
+  const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
+  if (!auth.ok) return { ok: false, error: 'No autorizado.', response: auth.response };
+
+  if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
+    return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
+  }
+
   const password = getPassword(request);
-  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
-  if (env.ORDERS_PASSWORD && password === env.ORDERS_PASSWORD) return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
   const branchSettings = await readBranchSettings(env, tenantId);
   const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
   if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
-  return { ok: false, error: 'No autorizado.' };
+  return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
 }
 
 const DEFAULT_BRANCH_SETTINGS = {

@@ -1,4 +1,5 @@
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -7,10 +8,12 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function isAuthorized(request, env) {
-  const adminPassword = env.ADMIN_PASSWORD;
-  const providedPassword = request.headers.get('x-admin-password');
-  return Boolean(providedPassword && adminPassword && providedPassword === adminPassword);
+// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6):
+// antes comparaba contra env.ADMIN_PASSWORD, una contraseña global para
+// todos los tenants. requireAuth valida el token del usuario, confirma que
+// pertenece a ESTE tenant, y confirma el rol.
+async function checkAuth(request, env) {
+  return requireAuth(request, env, ['admin', 'platform_admin']);
 }
 
 const DEFAULT_BRANCH_SETTINGS = {
@@ -99,9 +102,8 @@ function menuPayload(saved, warning = '') {
 
 export async function onRequestGet({ request, env }) {
   try {
-    if (!isAuthorized(request, env)) {
-      return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
-    }
+    const auth = await checkAuth(request, env);
+    if (!auth.ok) return auth.response;
 
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse(menuPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
@@ -120,9 +122,8 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    if (!isAuthorized(request, env)) {
-      return jsonResponse({ ok: false, error: 'No autorizado.' }, 401);
-    }
+    const auth = await checkAuth(request, env);
+    if (!auth.ok) return auth.response;
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     const tenantId = await resolveTenantId(request, env);

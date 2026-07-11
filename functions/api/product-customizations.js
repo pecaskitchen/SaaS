@@ -1,3 +1,5 @@
+import { resolveTenantId } from './_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -23,9 +25,16 @@ function pushUnique(list, item) {
   list.push(item);
 }
 
-export async function onRequestGet({ env }) {
+// CORREGIDO: este endpoint es público (lo consume el cliente final en el
+// menú) pero antes no filtraba por tenant_id en NINGUNA consulta, por lo
+// que devolvía recetas, insumos, marcas y precios de TODOS los negocios de
+// la plataforma a cualquier visitante de cualquier subdominio. Ahora se
+// resuelve el tenant de la petición y se agrega a cada WHERE/JOIN.
+export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+
+    const tenantId = await resolveTenantId(request, env);
 
     const tableCheck = await env.DB.prepare(
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('stock_recipes', 'stock_recipe_lines', 'inventory_items')`
@@ -52,13 +61,14 @@ export async function onRequestGet({ env }) {
         i.brand AS item_brand,
         u.code AS unit_code
        FROM stock_recipes r
-       JOIN stock_recipe_lines l ON l.recipe_id = r.id
-       JOIN inventory_items i ON i.id = l.item_id
+       JOIN stock_recipe_lines l ON l.recipe_id = r.id AND l.tenant_id = r.tenant_id
+       JOIN inventory_items i ON i.id = l.item_id AND i.tenant_id = r.tenant_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
-       WHERE r.recipe_type = 'product'
+       WHERE r.tenant_id = ?
+         AND r.recipe_type = 'product'
          AND r.is_active = 1
        ORDER BY r.recipe_key ASC, l.sort_order ASC, l.id ASC`
-    ).all();
+    ).bind(tenantId).all();
 
     const products = {};
     for (const line of result.results || []) {
@@ -108,23 +118,24 @@ export async function onRequestGet({ env }) {
         oi.id AS option_item_id, oi.option_name, oi.quantity, oi.extra_price AS option_extra_price, oi.is_default AS option_default,
         i.name AS item_name, i.brand AS item_brand, u.code AS unit_code
        FROM stock_product_option_groups pg
-       JOIN stock_option_families f ON f.id = pg.family_id
-       JOIN stock_option_family_items oi ON oi.family_id = f.id AND oi.is_active = 1
-       JOIN inventory_items i ON i.id = oi.item_id
+       JOIN stock_option_families f ON f.id = pg.family_id AND f.tenant_id = pg.tenant_id
+       JOIN stock_option_family_items oi ON oi.family_id = f.id AND oi.tenant_id = pg.tenant_id AND oi.is_active = 1
+       JOIN inventory_items i ON i.id = oi.item_id AND i.tenant_id = pg.tenant_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
-       WHERE pg.is_active = 1 AND f.is_active = 1
+       WHERE pg.tenant_id = ? AND pg.is_active = 1 AND f.is_active = 1
        ORDER BY pg.product_id ASC, pg.sort_order ASC, oi.sort_order ASC, oi.id ASC`
-    ).all();
+    ).bind(tenantId).all();
 
     let componentRows = [];
     try {
       componentRows = (await env.DB.prepare(
         `SELECT c.option_item_id, c.quantity, i.name AS item_name, u.code AS unit_code
          FROM stock_option_family_item_components c
-         JOIN inventory_items i ON i.id = c.item_id
+         JOIN inventory_items i ON i.id = c.item_id AND i.tenant_id = c.tenant_id
          LEFT JOIN stock_units u ON u.id = i.unit_id
+         WHERE c.tenant_id = ?
          ORDER BY c.option_item_id ASC, c.sort_order ASC, c.id ASC`
-      ).all()).results || [];
+      ).bind(tenantId).all()).results || [];
     } catch { componentRows = []; }
     const componentsByOption = new Map();
     for (const component of componentRows) {

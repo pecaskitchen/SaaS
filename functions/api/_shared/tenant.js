@@ -47,10 +47,32 @@ export async function resolveTenantByHostname(env, hostname) {
   return row || null;
 }
 
+// AVISO DE SEGURIDAD (ver informe, hallazgo CRÍTICO #2):
+// Antes esta función confiaba ciegamente en el header "x-tenant-id" o en el
+// query param "?tenant_id=" enviados por el cliente para decidir de qué
+// negocio se sirven los datos, SIN verificar que quien hace la petición
+// tenga permiso real sobre ese tenant. Como el resto del backend usa
+// contraseñas globales (env.ADMIN_PASSWORD, env.SUPER_PASSWORD, etc.) que
+// son las MISMAS para todos los tenants de un mismo deployment, cualquier
+// admin de un negocio podía autenticarse con su propia contraseña y luego
+// mandar "x-tenant-id: <otro-tenant>" para leer/editar datos de otro
+// negocio. Ahora el override explícito SOLO se honra si la petición trae
+// el token de plataforma (super-admin real), que es la única identidad que
+// legítimamente puede operar sobre cualquier tenant. Cualquier otra
+// petición se resuelve SIEMPRE por el hostname real de la petición.
+function hasPlatformAdminToken(request, env) {
+  const expected = env.PLATFORM_ADMIN_TOKEN || env.PLATFORM_ADMIN_PASSWORD || '';
+  if (!expected) return false;
+  const provided = request.headers.get('x-platform-admin-token')
+    || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+    || '';
+  return Boolean(provided) && provided === expected;
+}
+
 export async function resolveTenantId(request, env) {
   try {
     const explicit = request.headers.get('x-tenant-id') || new URL(request.url).searchParams.get('tenant_id');
-    if (explicit) {
+    if (explicit && hasPlatformAdminToken(request, env)) {
       const clean = normalizeTenantId(explicit, env);
       try {
         const db = requireDb(env);

@@ -1,4 +1,5 @@
 import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -93,14 +94,28 @@ function safeDecodeHeader(value) {
   }
 }
 
-async function authFromValues(values, env) {
-  const password = String(values?.password || '').trim();
+// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
+// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contraseñas globales
+// para TODOS los tenants. Ahora exige un usuario admin/kitchen/platform_admin
+// válido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
+// esta función — ver corrección de orden en onRequestPost más abajo). El PIN
+// por sucursal (branch.stockPassword) se conserva como segundo factor
+// opcional para acotar la vista a una sola sucursal; ya estaba scoped por
+// tenant_id vía readMenuSettings(env), así que no representa una fuga.
+async function authFromValues(values, env, request = null) {
   const name = String(values?.operatorName || values?.name || '').trim();
   const shift = String(values?.shift || '').trim() || 'Sin turno';
+  const password = String(values?.password || '').trim();
 
   if (!name) return { ok: false, error: 'Ingresa el nombre de quien opera.' };
-  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', name, shift, accessScope: 'all' };
-  if (env.KITCHEN_PASSWORD && password === env.KITCHEN_PASSWORD) return { ok: true, role: 'kitchen', name, shift, accessScope: 'legacy' };
+
+  if (request) {
+    const jwtAuth = await requireAuth(request, env, ['admin', 'kitchen', 'platform_admin']);
+    if (jwtAuth.ok) {
+      const role = jwtAuth.session.role === 'platform_admin' ? 'admin' : jwtAuth.session.role;
+      return { ok: true, role, name, shift, accessScope: role === 'admin' ? 'all' : 'legacy' };
+    }
+  }
 
   try {
     const settings = await readMenuSettings(env);
@@ -110,7 +125,7 @@ async function authFromValues(values, env) {
   } catch {
     // If menu settings are not initialized yet, fall through to invalid password.
   }
-  return { ok: false, error: 'Contraseña inválida.' };
+  return { ok: false, error: 'Sesión inválida o contraseña de sucursal incorrecta.' };
 }
 
 async function auth(request, env) {
@@ -118,7 +133,7 @@ async function auth(request, env) {
     password: safeDecodeHeader(request.headers.get('x-stock-password') || ''),
     operatorName: safeDecodeHeader(request.headers.get('x-stock-name') || ''),
     shift: safeDecodeHeader(request.headers.get('x-stock-shift') || ''),
-  }, env);
+  }, env, request);
 }
 
 function requireAdmin(user) {
@@ -2137,11 +2152,14 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    const body = await request.json();
-    const user = body.auth ? await authFromValues(body.auth, env) : await auth(request, env);
-    if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    // CORREGIDO: antes se llamaba a auth()/authFromValues() ANTES de fijar
+    // env.__tenantId, por lo que la validación de PIN de sucursal se hacía
+    // contra el tenant equivocado (el default, no el del hostname real).
     env.__tenantId = await resolveTenantId(request, env);
+    const body = await request.json();
+    const user = body.auth ? await authFromValues(body.auth, env, request) : await auth(request, env);
+    if (!user.ok) return jsonResponse({ ok: false, error: user.error }, 401);
     await ensureSchema(env);
     await ensureLookupDefaults(env);
     const requestedBranchId = user.lockedBranchId || body.branchId || body.branch_id || body.selectedBranchId;

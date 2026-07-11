@@ -1757,9 +1757,16 @@ export default function PublicApp() {
   };
 
   const loadMenuOverrides = async () => {
+    const menuUrl = publicApiPath('/api/menu', { t: Date.now() });
     try {
-      const response = await fetch(publicApiPath('/api/menu'));
+      const response = await fetch(menuUrl, { cache: 'no-store' });
       const result = await response.json();
+      try {
+        window.__saasLastMenuUrl = menuUrl;
+        window.__saasLastMenuPayload = result;
+      } catch {
+        // ignore diagnostics errors
+      }
       if (response.ok && result.ok) {
         const useBaseCatalog = false;
         const baseCategories = useBaseCatalog ? categories : [];
@@ -1779,7 +1786,13 @@ export default function PublicApp() {
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
       }
-    } catch {
+    } catch (error) {
+      try {
+        window.__saasLastMenuUrl = menuUrl;
+        window.__saasLastMenuError = error?.message || String(error);
+      } catch {
+        // ignore diagnostics errors
+      }
       setMenuOverrides({});
       setExtraCategories([]);
       setExtraProducts([]);

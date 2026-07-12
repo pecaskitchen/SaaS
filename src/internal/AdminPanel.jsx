@@ -181,6 +181,15 @@ export default function AdminPanel({ products, categoriesList = categories, cate
 
   const addProduct = () => {
     const name = newProductDraft.name.trim();
+    const categoryId = newProductDraft.category || categoryItems[0]?.id || '';
+    if (!categoryItems.length) {
+      setStatus('Primero crea una categoría. Después podrás agregar productos dentro de ella.');
+      return;
+    }
+    if (!categoryItems.some((category) => category.id === categoryId)) {
+      setStatus('Selecciona una categoría existente para este producto.');
+      return;
+    }
     if (!name) {
       setStatus('Escribe el nombre del producto.');
       return;
@@ -193,7 +202,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     const product = {
       id,
       name,
-      category: newProductDraft.category || categoryItems[0]?.id || 'sin-categoria',
+      category: categoryId,
       type: 'custom',
       price: Number(newProductDraft.price || 0),
       description: '',
@@ -204,7 +213,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     };
     setDrafts((current) => [...current, product]);
     setProductOrderDraft((current) => [...current, id]);
-    setNewProductDraft({ name: '', category: product.category, price: 0 });
+    setNewProductDraft({ name: '', category: categoryId, price: 0 });
     setStatus('Producto agregado. Completa sus datos y guarda cambios.');
   };
 
@@ -566,9 +575,9 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                 <label className="field"><span>Emoji/icono</span><input value={newCategoryDraft.emoji} onChange={(e) => setNewCategoryDraft((current) => ({ ...current, emoji: e.target.value }))} placeholder="🌮" /></label>
                 <button type="button" className="ghost" onClick={addCategory}>Agregar categoría</button>
                 <label className="field"><span>Nuevo producto</span><input value={newProductDraft.name} onChange={(e) => setNewProductDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ej. Taco de sirloin" /></label>
-                <label className="field"><span>Categoría</span><select value={newProductDraft.category} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
+                <label className="field"><span>Categoría existente</span><select value={newProductDraft.category || categoryItems[0]?.id || ''} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))} disabled={!categoryItems.length}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
                 <label className="field"><span>Precio</span><input type="number" value={newProductDraft.price} onChange={(e) => setNewProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
-                <button type="button" className="ghost" onClick={addProduct}>Agregar producto</button>
+                <button type="button" className="ghost" onClick={addProduct} disabled={!categoryItems.length}>Agregar producto</button>
                 <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,🌮,taco-sirloin,Taco de sirloin,85,Con tortilla de maíz,Sirloin y salsa,/products/taco.jpg" /></label>
                 <button type="button" className="ghost" onClick={importMenuCsv}>Importar productos</button>
                 <button type="button" className="ghost" onClick={makeCurrentCatalogEditable}>Convertir catálogo actual a editable</button>
@@ -675,5 +684,6 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     </main>
   );
 }
+
 
 

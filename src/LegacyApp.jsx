@@ -1705,8 +1705,11 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const currentCategories = useMemo(() => sortByOrder(categoriesList, categoryOrder).filter((category) => !categoryHidden[category.id]), [categoriesList, categoryOrder, categoryHidden]);
   const currentProducts = useMemo(() => sortByOrder(products, productOrder), [products, productOrder]);
+  const currentCategories = useMemo(() => {
+    const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
+    return sortByOrder(categoriesList, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
+  }, [categoriesList, categoryOrder, categoryHidden, currentProducts]);
   const visibleProducts = currentProducts.filter((product) => product.category === activeCategory && !product.unavailable);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -2121,18 +2124,19 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
 }
 
 export default function App() {
-  const [activeCategory, setActiveCategory] = useState(categories[0].id);
+  const [activeCategory, setActiveCategory] = useState('');
   const [cart, setCart] = useState([]);
   const [menuOverrides, setMenuOverrides] = useState({});
   const [extraCategories, setExtraCategories] = useState([]);
   const [extraProducts, setExtraProducts] = useState([]);
-  const [categoryOrder, setCategoryOrder] = useState(() => categories.map((category) => category.id));
-  const [productOrder, setProductOrder] = useState(() => CATALOG_PRODUCTS.map((product) => product.id));
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [productOrder, setProductOrder] = useState([]);
   const [categoryHidden, setCategoryHidden] = useState({});
-  const [promotion, setPromotion] = useState(() => makeDefaultPromotion(CATALOG_PRODUCTS));
+  const [promotion, setPromotion] = useState(null);
   const [branchPromotions, setBranchPromotions] = useState({});
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
+  const [baseCatalogEnabled, setBaseCatalogEnabled] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try { return window.localStorage.getItem(BRANCH_STORAGE_KEY) || DEFAULT_BRANCH_SETTINGS.defaultBranchId; } catch { return DEFAULT_BRANCH_SETTINGS.defaultBranchId; }
   });
@@ -2200,8 +2204,10 @@ export default function App() {
       const result = await response.json();
       if (response.ok && result.ok) {
         setMenuOverrides(result.overrides || {});
-        const nextCategories = mergeCategoriesWithExtras(categories, result.extraCategories || []);
-        const nextProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, result.extraProducts || []);
+        setBaseCatalogEnabled(Boolean(result.baseCatalogEnabled));
+        const useBaseCatalog = Boolean(result.baseCatalogEnabled);
+        const nextCategories = mergeCategoriesWithExtras(useBaseCatalog ? categories : [], result.extraCategories || []);
+        const nextProducts = mergeProductsWithExtras(useBaseCatalog ? CATALOG_PRODUCTS : [], result.extraProducts || []);
         setExtraCategories(result.extraCategories || []);
         setExtraProducts(result.extraProducts || []);
         setCategoryOrder(result.categoryOrder || nextCategories.map((category) => category.id));
@@ -2217,7 +2223,8 @@ export default function App() {
       setExtraCategories([]);
       setExtraProducts([]);
       setCategoryHidden({});
-      setPromotion(makeDefaultPromotion(CATALOG_PRODUCTS));
+      setPromotion(null);
+      setBaseCatalogEnabled(false);
       setBranchPromotions({});
       setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
       setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -2233,10 +2240,13 @@ export default function App() {
     loadProductCustomizations();
   }, [isStorefront, isCashier]);
 
-  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(categories, extraCategories), [extraCategories]);
-  const catalogProducts = useMemo(() => mergeProductsWithExtras(CATALOG_PRODUCTS, extraProducts), [extraProducts]);
-  const currentCategories = useMemo(() => sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id]), [catalogCategories, categoryOrder, categoryHidden]);
+  const catalogCategories = useMemo(() => mergeCategoriesWithExtras(baseCatalogEnabled ? categories : [], extraCategories), [baseCatalogEnabled, extraCategories]);
+  const catalogProducts = useMemo(() => mergeProductsWithExtras(baseCatalogEnabled ? CATALOG_PRODUCTS : [], extraProducts), [baseCatalogEnabled, extraProducts]);
   const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
+  const currentCategories = useMemo(() => {
+    const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
+    return sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
+  }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours((branchSettings.multiBranchEnabled && selectedBranch?.businessHours) ? selectedBranch.businessHours : businessHours), [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
   const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
@@ -2260,7 +2270,7 @@ export default function App() {
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
   const selectedBranchPromotion = branchSettings.multiBranchEnabled && selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
-  const activePromotion = useMemo(() => normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch), [selectedBranchPromotion, promotion, currentProductsForBranch]);
+  const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -2390,6 +2400,11 @@ export default function App() {
     </main>
   );
 }
+
+
+
+
+
 
 
 

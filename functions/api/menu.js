@@ -156,6 +156,82 @@ function normalizeSavedMenu(raw) {
   }
 }
 
+function slugifyCatalogId(value, fallback = 'item') {
+  return String(value || fallback)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || fallback;
+}
+
+function fallbackCategoryId(saved) {
+  const firstCategory = Array.isArray(saved.categoryOrder) ? saved.categoryOrder.find(Boolean) : '';
+  return slugifyCatalogId(firstCategory || 'sin-categoria', 'sin-categoria');
+}
+
+function categoryLabel(categoryId, fallback = '') {
+  return String(fallback || categoryId || 'Sin categoria').trim();
+}
+
+async function recipeCatalogFromStock(env, tenantId, saved, overrides) {
+  const products = Array.isArray(saved.extraProducts) ? [...saved.extraProducts] : [];
+  const categories = Array.isArray(saved.extraCategories) ? [...saved.extraCategories] : [];
+  const seenProducts = new Set(products.map((product) => String(product?.id || '').trim()).filter(Boolean));
+  const seenCategories = new Set(categories.map((category) => String(category?.id || '').trim()).filter(Boolean));
+
+  const rows = await env.DB.prepare(
+    `SELECT r.recipe_key, r.name,
+            COALESCE((
+              SELECT oi.category
+              FROM order_items oi
+              WHERE oi.tenant_id = ?
+                AND (oi.product_id = replace(r.recipe_key, 'product:', '') OR lower(oi.product_name) = lower(r.name))
+                AND oi.category IS NOT NULL
+                AND oi.category <> ''
+              ORDER BY oi.id DESC
+              LIMIT 1
+            ), '') AS order_category
+     FROM stock_recipes r
+     WHERE r.tenant_id = ?
+       AND r.recipe_type = 'product'
+       AND r.is_active = 1
+     ORDER BY r.name ASC`
+  ).bind(tenantId, tenantId).all().then((result) => result.results || []).catch(() => []);
+
+  for (const row of rows) {
+    const productId = String(row.recipe_key || '').replace(/^product:/, '').trim() || slugifyCatalogId(row.name, 'producto');
+    if (seenProducts.has(productId)) continue;
+    const override = overrides[productId] || {};
+    const categoryId = slugifyCatalogId(override.category || row.order_category || fallbackCategoryId(saved), 'sin-categoria');
+    products.push({
+      id: productId,
+      name: override.name || row.name || productId,
+      category: categoryId,
+      type: 'custom',
+      price: Number(override.price || 0),
+      badge: override.badge || '',
+      description: override.description || '',
+      ingredients: override.ingredients || '',
+      image: override.image || '',
+      unavailable: Boolean(override.unavailable),
+      customProduct: true,
+    });
+    seenProducts.add(productId);
+    if (!seenCategories.has(categoryId)) {
+      categories.push({
+        id: categoryId,
+        label: categoryLabel(categoryId, row.order_category),
+        emoji: '',
+        customCategory: true,
+      });
+      seenCategories.add(categoryId);
+    }
+  }
+
+  return { extraProducts: products, extraCategories: categories };
+}
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) {
@@ -200,7 +276,8 @@ export async function onRequestGet({ request, env }) {
     };
     collectPromoProductIds(saved.promotion);
     for (const promo of Object.values(saved.branchPromotions || {})) collectPromoProductIds(promo);
-    const baseExtraProducts = Array.isArray(saved.extraProducts) ? saved.extraProducts : [];
+    const synthesizedCatalog = await recipeCatalogFromStock(env, tenantId, saved, cleanedOverrides);
+    const baseExtraProducts = synthesizedCatalog.extraProducts;
     const existingProductIds = new Set(baseExtraProducts.map((product) => product.id));
     const legacyPromoProducts = baseExtraProducts.length ? [] : [...promoProductIds]
       .filter((productId) => cleanedOverrides[productId] && !existingProductIds.has(productId))
@@ -217,7 +294,7 @@ export async function onRequestGet({ request, env }) {
         unavailable: Boolean(cleanedOverrides[productId].unavailable),
         customProduct: true,
       }));
-    const baseExtraCategories = Array.isArray(saved.extraCategories) ? saved.extraCategories : [];
+    const baseExtraCategories = synthesizedCatalog.extraCategories;
     const legacyPromoCategories = legacyPromoProducts.length && baseExtraCategories.length === 0
       ? [{ id: legacyPromoProducts[0].category, label: legacyPromoProducts[0].category, emoji: '', customCategory: true }]
       : [];

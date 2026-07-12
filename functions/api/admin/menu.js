@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
 import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -9,21 +9,31 @@ function jsonResponse(data, status = 200) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6):
-// antes comparaba contra env.ADMIN_PASSWORD, una contraseña global para
+// antes comparaba contra env.ADMIN_PASSWORD, una contraseÃ±a global para
 // todos los tenants. requireAuth valida el token del usuario, confirma que
 // pertenece a ESTE tenant, y confirma el rol.
 //
 // IMPORTANTE: NO agregar de vuelta un fallback a env.ADMIN_PASSWORD "por
-// compatibilidad" — esa era la vulnerabilidad crítica #3 (una sola
-// contraseña válida para TODOS los tenants del deployment). El frontend
+// compatibilidad" â€” esa era la vulnerabilidad crÃ­tica #3 (una sola
+// contraseÃ±a vÃ¡lida para TODOS los tenants del deployment). El frontend
 // (AdminPanel.jsx) ya hace login contra /api/auth/login y manda el JWT.
 async function checkAuth(request, env) {
   return requireAuth(request, env, ['admin', 'platform_admin']);
 }
 
+const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
+}
+
 const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
@@ -61,7 +71,11 @@ function normalizeBranchSettings(settings = {}) {
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
   const defaultBranchId = normalizeBranchId(settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId);
-  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, branches };
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const defaultCashierOrderSource = cashierOrderSources.includes(settings.defaultCashierOrderSource || settings.default_cashier_order_source)
+    ? String(settings.defaultCashierOrderSource || settings.default_cashier_order_source).trim()
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
+  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, cashierOrderSources, defaultCashierOrderSource, branches };
 }
 
 function normalizeSavedMenu(raw) {
@@ -181,3 +195,4 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el menu.', detail: error.message }, 500);
   }
 }
+

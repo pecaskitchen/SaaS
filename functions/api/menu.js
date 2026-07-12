@@ -7,9 +7,19 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
+}
+
 const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
@@ -99,9 +109,15 @@ function normalizeBranchSettings(settings = {}) {
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
   const defaultBranchId = settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId;
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const defaultCashierOrderSource = cashierOrderSources.includes(settings.defaultCashierOrderSource || settings.default_cashier_order_source)
+    ? String(settings.defaultCashierOrderSource || settings.default_cashier_order_source).trim()
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
   return {
     multiBranchEnabled: Boolean(settings.multiBranchEnabled),
     defaultBranchId,
+    cashierOrderSources,
+    defaultCashierOrderSource,
     branches,
   };
 }
@@ -174,11 +190,43 @@ export async function onRequestGet({ request, env }) {
       }
     }
 
+    const promoProductIds = new Set();
+    const collectPromoProductIds = (promo) => {
+      if (!promo?.active || !Array.isArray(promo.items)) return;
+      for (const item of promo.items) {
+        const productId = String(item?.productId || '').trim();
+        if (productId) promoProductIds.add(productId);
+      }
+    };
+    collectPromoProductIds(saved.promotion);
+    for (const promo of Object.values(saved.branchPromotions || {})) collectPromoProductIds(promo);
+    const baseExtraProducts = Array.isArray(saved.extraProducts) ? saved.extraProducts : [];
+    const existingProductIds = new Set(baseExtraProducts.map((product) => product.id));
+    const legacyPromoProducts = baseExtraProducts.length ? [] : [...promoProductIds]
+      .filter((productId) => cleanedOverrides[productId] && !existingProductIds.has(productId))
+      .map((productId) => ({
+        id: productId,
+        name: cleanedOverrides[productId].name || productId,
+        category: (saved.categoryOrder || [])[0] || 'promociones',
+        type: 'custom',
+        price: Number(cleanedOverrides[productId].price || 0),
+        badge: '',
+        description: cleanedOverrides[productId].description || '',
+        ingredients: cleanedOverrides[productId].ingredients || '',
+        image: cleanedOverrides[productId].image || '',
+        unavailable: Boolean(cleanedOverrides[productId].unavailable),
+        customProduct: true,
+      }));
+    const baseExtraCategories = Array.isArray(saved.extraCategories) ? saved.extraCategories : [];
+    const legacyPromoCategories = legacyPromoProducts.length && baseExtraCategories.length === 0
+      ? [{ id: legacyPromoProducts[0].category, label: legacyPromoProducts[0].category, emoji: '', customCategory: true }]
+      : [];
+
     return jsonResponse({
       ok: true,
       overrides: cleanedOverrides,
-      extraCategories: saved.extraCategories || [],
-      extraProducts: saved.extraProducts || [],
+      extraCategories: [...baseExtraCategories, ...legacyPromoCategories],
+      extraProducts: [...baseExtraProducts, ...legacyPromoProducts],
       categoryOrder: saved.categoryOrder || [],
       productOrder: saved.productOrder || [],
       categoryHidden: saved.categoryHidden || {},
@@ -193,6 +241,8 @@ export async function onRequestGet({ request, env }) {
     return jsonResponse(blankPublicMenu(publicTenantConfig(null), error.message));
   }
 }
+
+
 
 
 

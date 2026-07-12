@@ -7,9 +7,19 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
+}
+
 const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [{ id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' }],
 };
 
@@ -38,7 +48,11 @@ function normalizeBranchSettings(settings = {}) {
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
   const defaultBranchId = normalizeBranchId(settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId);
-  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, branches };
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const defaultCashierOrderSource = cashierOrderSources.includes(settings.defaultCashierOrderSource || settings.default_cashier_order_source)
+    ? String(settings.defaultCashierOrderSource || settings.default_cashier_order_source).trim()
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
+  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, cashierOrderSources, defaultCashierOrderSource, branches };
 }
 
 function normalizeSavedMenu(raw) {
@@ -207,6 +221,7 @@ export async function onRequestPost({ request, env }) {
     const settings = await readBranchSettings(env, tenantId);
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
     let cashier = { name: '', shift: '' };
+    let orderSource = 'online';
     if (source === 'cashier') {
       const cashierAuth = body.cashierAuth || {};
       const access = resolveCashierAccess(settings, cashierAuth.password);
@@ -215,6 +230,11 @@ export async function onRequestPost({ request, env }) {
       cashier = { name: String(cashierAuth.name || '').trim(), shift: String(cashierAuth.shift || '').trim() };
       body.paymentMethod = String(body.paymentMethod || 'efectivo').trim();
       body.paymentStatus = String(body.paymentStatus || 'paid').trim();
+      const allowedSources = normalizeCashierOrderSources(settings.cashierOrderSources);
+      const requestedSource = String(body.orderOrigin || body.orderSource || body.order_source || settings.defaultCashierOrderSource || '').trim();
+      orderSource = allowedSources.includes(requestedSource)
+        ? requestedSource
+        : (allowedSources.includes(settings.defaultCashierOrderSource) ? settings.defaultCashierOrderSource : allowedSources[0]);
       if (!cashier.name) return jsonResponse({ ok: false, error: 'Ingresa nombre del cajero.' }, 400);
     }
     const timestamps = getTimestamps();
@@ -234,7 +254,7 @@ export async function onRequestPost({ request, env }) {
           'pending',
           branch.id,
           branch.name,
-          source,
+          orderSource,
           cashier.name || null,
           cashier.shift || null,
           String(customer.name || (source === 'cashier' ? 'Cliente caja' : '')).trim(),
@@ -286,11 +306,15 @@ export async function onRequestPost({ request, env }) {
     await env.DB.prepare(`
       INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
       VALUES (?, ?, 'created', ?, ?, ?)
-    `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido de caja creado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
+    `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido ${orderSource} capturado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
 
     return jsonResponse({ ok: true, orderId: createdOrder.id, orderNumber, branch });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
+
+
+
+
 

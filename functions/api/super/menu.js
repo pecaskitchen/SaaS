@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
 import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -10,14 +10,24 @@ function jsonResponse(data, status = 200) {
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6).
 // IMPORTANTE: no reintroducir env.SUPER_PASSWORD/env.ADMIN_PASSWORD como
-// fallback — eran contraseñas globales compartidas por TODOS los tenants.
+// fallback â€” eran contraseÃ±as globales compartidas por TODOS los tenants.
 async function checkSuperAuth(request, env) {
   return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
+}
+
+const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
 }
 
 const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
@@ -55,7 +65,11 @@ function normalizeBranchSettings(settings = {}) {
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
   const defaultBranchId = normalizeBranchId(settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId);
-  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, branches };
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const defaultCashierOrderSource = cashierOrderSources.includes(settings.defaultCashierOrderSource || settings.default_cashier_order_source)
+    ? String(settings.defaultCashierOrderSource || settings.default_cashier_order_source).trim()
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
+  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, cashierOrderSources, defaultCashierOrderSource, branches };
 }
 
 function sanitizeBranchSettingsForSuper(settings = {}) {
@@ -63,6 +77,8 @@ function sanitizeBranchSettingsForSuper(settings = {}) {
   return {
     multiBranchEnabled: normalized.multiBranchEnabled,
     defaultBranchId: normalized.defaultBranchId,
+    cashierOrderSources: normalized.cashierOrderSources,
+    defaultCashierOrderSource: normalized.defaultCashierOrderSource,
     branches: normalized.branches
       .filter((branch) => branch.active !== false)
       .map((branch) => ({
@@ -116,7 +132,7 @@ export async function onRequestGet({ request, env }) {
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse(superPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
 
-    // CORREGIDO: antes leía siempre la key global 'menu_overrides', mezclando
+    // CORREGIDO: antes leÃ­a siempre la key global 'menu_overrides', mezclando
     // promociones/horarios de TODOS los tenants. Ahora usa la misma clave
     // namespaced por tenant que admin/menu.js.
     const tenantId = await resolveTenantId(request, env);
@@ -152,6 +168,8 @@ export async function onRequestPost({ request, env }) {
 
     const mergedBranchSettings = {
       ...currentBranchSettings,
+      cashierOrderSources: incomingBranchSettings.cashierOrderSources || currentBranchSettings.cashierOrderSources,
+      defaultCashierOrderSource: incomingBranchSettings.defaultCashierOrderSource || currentBranchSettings.defaultCashierOrderSource,
       branches: currentBranchSettings.branches.map((branch) => {
         const incoming = incomingBranchesById.get(branch.id);
         if (!incoming || branch.active === false) return branch;
@@ -197,3 +215,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar Super usuario.', detail: error.message }, 500);
   }
 }
+
+
+
+

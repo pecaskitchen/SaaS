@@ -1865,8 +1865,11 @@ export default function PublicApp() {
   }, [currentCategories, activeCategory]);
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
-  const selectedBranchPromotion = selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
-  const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
+  const selectedBranchHasPromotion = Boolean(selectedBranch?.id && Object.prototype.hasOwnProperty.call(branchPromotions, selectedBranch.id));
+  const selectedBranchPromotion = selectedBranchHasPromotion ? branchPromotions[selectedBranch.id] : null;
+  const defaultBranchPromotion = branchSettings.defaultBranchId && Object.prototype.hasOwnProperty.call(branchPromotions, branchSettings.defaultBranchId) ? branchPromotions[branchSettings.defaultBranchId] : null;
+  const activePromotionSource = selectedBranchHasPromotion ? selectedBranchPromotion : (defaultBranchPromotion || promotion);
+  const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -1978,6 +1981,9 @@ export default function PublicApp() {
     </main>
   );
 }
+
+
+
 
 
 

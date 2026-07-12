@@ -1,6 +1,6 @@
-import { WHATSAPP_NUMBER } from '../data/menu.js';
+﻿import { WHATSAPP_NUMBER } from '../data/menu.js';
 
-export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes', 'SÃ¡bado'];
 
 export const DEFAULT_BUSINESS_HOURS = {
   messageWhenClosed: 'Estamos cerrados. Puedes mandar tu pedido y lo tomamos cuando abramos.',
@@ -15,6 +15,14 @@ export const DEFAULT_BUSINESS_HOURS = {
     { day: 6, active: true, open: '17:00', close: '23:00' },
   ],
 };
+
+export const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+export function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
+}
 
 export const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
@@ -126,8 +134,9 @@ export function businessStatus(hours = DEFAULT_BUSINESS_HOURS) {
   const isOpen = close > open ? current >= open && current < close : current >= open || current < close;
   return {
     open: isOpen,
-    label: isOpen ? `Abierto ahora · cerramos ${formatHour(today.close)}` : `Cerrado · abrimos ${formatHour(today.open)}`,
+    label: isOpen ? `Abierto ahora Â· cerramos ${formatHour(today.close)}` : `Cerrado Â· abrimos ${formatHour(today.open)}`,
     messageWhenClosed: normalized.messageWhenClosed,
     allowClosedOrders: normalized.allowClosedOrders,
   };
 }
+

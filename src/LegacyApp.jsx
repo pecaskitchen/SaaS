@@ -12,6 +12,7 @@ import {
   businessStatus,
   normalizeBranchSettings,
   normalizeBusinessHours,
+  normalizeCashierOrderSources,
   normalizeWhatsAppNumber,
   selectedBranchFrom,
 } from './lib/business.js';
@@ -1705,6 +1706,10 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!orderSources.includes(orderOrigin)) setOrderOrigin(defaultOrderSource);
+  }, [orderSources, orderOrigin, defaultOrderSource]);
+
   const currentProducts = useMemo(() => sortByOrder(products, productOrder), [products, productOrder]);
   const currentCategories = useMemo(() => {
     const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
@@ -1723,7 +1728,7 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
       setStatus('Ingresa nombre de cajero y contraseña de caja.');
       return;
     }
-    try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift })); } catch { /* ignore */ }
+    try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift, orderOrigin })); } catch { /* ignore */ }
     setUnlocked(true);
     setStatus('');
     if (reloadMenu) reloadMenu();
@@ -1844,6 +1849,7 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
             <div className="customer-card">
               <label className="field full"><span>Cliente opcional</span><input value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} placeholder="Cliente caja" /></label>
               <label className="field full"><span>Teléfono opcional</span><input value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Opcional" /></label>
+              <label className="field"><span>Origen del pedido</span><select value={orderOrigin} onChange={(e) => setOrderOrigin(e.target.value)}>{orderSources.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}</select></label>
               <label className="field"><span>Método de pago</span><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select></label>
               <label className="field"><span>Estado de pago</span><select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
               <label className="field full"><span>Notas</span><textarea value={customer.notes} onChange={(e) => setCustomer((c) => ({ ...c, notes: e.target.value }))} placeholder="Notas para cocina" /></label>
@@ -1951,6 +1957,44 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
       return { ...current, [branchId]: { ...promo, items: items.length ? items : [{ productId: products[0]?.id || '', quantity: 1 }] } };
     });
   };
+  const updateOrderSource = (index, value) => {
+    setBranchSettingsDraft((current) => {
+      const normalized = normalizeBranchSettings(current);
+      const sources = normalizeCashierOrderSources(normalized.cashierOrderSources);
+      sources[index] = value;
+      const cleanSources = normalizeCashierOrderSources(sources);
+      const defaultSource = cleanSources.includes(normalized.defaultCashierOrderSource) ? normalized.defaultCashierOrderSource : cleanSources[0];
+      return { ...normalized, cashierOrderSources: cleanSources, defaultCashierOrderSource: defaultSource };
+    });
+  };
+
+  const addOrderSource = () => {
+    setBranchSettingsDraft((current) => {
+      const normalized = normalizeBranchSettings(current);
+      const sources = normalizeCashierOrderSources(normalized.cashierOrderSources);
+      let nextName = 'Nuevo origen';
+      let counter = 2;
+      while (sources.includes(nextName)) {
+        nextName = `Nuevo origen ${counter}`;
+        counter += 1;
+      }
+      return { ...normalized, cashierOrderSources: [...sources, nextName] };
+    });
+  };
+
+  const removeOrderSource = (sourceName) => {
+    setBranchSettingsDraft((current) => {
+      const normalized = normalizeBranchSettings(current);
+      const sources = normalizeCashierOrderSources(normalized.cashierOrderSources).filter((item) => item !== sourceName);
+      const cleanSources = sources.length ? sources : normalizeCashierOrderSources([]);
+      const defaultSource = cleanSources.includes(normalized.defaultCashierOrderSource) ? normalized.defaultCashierOrderSource : cleanSources[0];
+      return { ...normalized, cashierOrderSources: cleanSources, defaultCashierOrderSource: defaultSource };
+    });
+  };
+
+  const setDefaultOrderSource = (sourceName) => {
+    setBranchSettingsDraft((current) => ({ ...normalizeBranchSettings(current), defaultCashierOrderSource: sourceName }));
+  };
 
   const downloadReport = async () => {
     setReportStatus('Generando reporte...');
@@ -2036,6 +2080,20 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
           {status && <p className="admin-status">{status}</p>}
         </div>
 
+        <section className="admin-order-box">
+          <h2>Orígenes de pedidos externos</h2>
+          <p>Estas opciones aparecen en Caja para capturar pedidos de WhatsApp, redes, llamada o tienda.</p>
+          <label className="field full"><span>Origen default</span><select value={normalizeBranchSettings(branchSettingsDraft).defaultCashierOrderSource} onChange={(e) => setDefaultOrderSource(e.target.value)}>{normalizeBranchSettings(branchSettingsDraft).cashierOrderSources.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}</select></label>
+          <div className="admin-promo-items">
+            {normalizeBranchSettings(branchSettingsDraft).cashierOrderSources.map((sourceName, index) => (
+              <div className="admin-promo-item-row" key={`${sourceName}-${index}`}>
+                <input value={sourceName} onChange={(e) => updateOrderSource(index, e.target.value)} />
+                <button type="button" className="ghost mini danger-text" onClick={() => removeOrderSource(sourceName)}>Quitar</button>
+              </div>
+            ))}
+            <button type="button" className="ghost mini" onClick={addOrderSource}>+ Agregar origen</button>
+          </div>
+        </section>
         {selectedBranch && (
           <>
             <section className="admin-order-box">
@@ -2269,8 +2327,11 @@ export default function App() {
   }, [currentCategories, activeCategory]);
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
-  const selectedBranchPromotion = selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
-  const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
+  const selectedBranchHasPromotion = Boolean(selectedBranch?.id && Object.prototype.hasOwnProperty.call(branchPromotions, selectedBranch.id));
+  const selectedBranchPromotion = selectedBranchHasPromotion ? branchPromotions[selectedBranch.id] : null;
+  const defaultBranchPromotion = branchSettings.defaultBranchId && Object.prototype.hasOwnProperty.call(branchPromotions, branchSettings.defaultBranchId) ? branchPromotions[branchSettings.defaultBranchId] : null;
+  const activePromotionSource = selectedBranchHasPromotion ? selectedBranchPromotion : (defaultBranchPromotion || promotion);
+  const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -2400,6 +2461,12 @@ export default function App() {
     </main>
   );
 }
+
+
+
+
+
+
 
 
 

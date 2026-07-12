@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -13,23 +13,23 @@ function getPassword(request) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseÃ±as globales
 // para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// vÃ¡lido para este tenant. El PIN por sucursal (branch.ordersPassword) se
 // conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal — ya estaba correctamente scoped por tenant_id vía
-// readBranchSettings(env, tenantId), así que no representa una fuga.
+// sucursal â€” ya estaba correctamente scoped por tenant_id vÃ­a
+// readBranchSettings(env, tenantId), asÃ­ que no representa una fuga.
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseÃ±as globales
 // para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// vÃ¡lido para este tenant. El PIN por sucursal (branch.ordersPassword) se
 // conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal — ya estaba correctamente scoped por tenant_id vía
-// readBranchSettings(env, tenantId), así que no representa una fuga.
+// sucursal â€” ya estaba correctamente scoped por tenant_id vÃ­a
+// readBranchSettings(env, tenantId), asÃ­ que no representa una fuga.
 //
 // IMPORTANTE: NO se restauran env.ADMIN_PASSWORD/env.ORDERS_PASSWORD como
-// fallback aquí — esas eran contraseñas globales compartidas por TODOS los
-// tenants del deployment (hallazgo crítico #3). Si un dev las reintroduce
+// fallback aquÃ­ â€” esas eran contraseÃ±as globales compartidas por TODOS los
+// tenants del deployment (hallazgo crÃ­tico #3). Si un dev las reintroduce
 // "por si acaso", vuelve a abrir el cross-tenant hopping.
 async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
@@ -38,8 +38,8 @@ async function resolveOrdersAccess(request, env, tenantId) {
     if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
       return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
     }
-    // JWT válido con rol "orders": igual puede acotarse a una sucursal si
-    // manda también el PIN de esa sucursal; si no, ve todas las que aplique
+    // JWT vÃ¡lido con rol "orders": igual puede acotarse a una sucursal si
+    // manda tambiÃ©n el PIN de esa sucursal; si no, ve todas las que aplique
     // a su tenant.
     const password = getPassword(request);
     const branchSettings = await readBranchSettings(env, tenantId);
@@ -48,7 +48,7 @@ async function resolveOrdersAccess(request, env, tenantId) {
     return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
   }
 
-  // Sin JWT: único camino válido es el PIN de sucursal (personal sin cuenta
+  // Sin JWT: Ãºnico camino vÃ¡lido es el PIN de sucursal (personal sin cuenta
   // propia), siempre acotado al tenant resuelto por hostname.
   const password = getPassword(request);
   if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
@@ -58,9 +58,19 @@ async function resolveOrdersAccess(request, env, tenantId) {
   return { ok: false, error: 'No autorizado.', response: auth.response };
 }
 
+const DEFAULT_CASHIER_ORDER_SOURCES = ['Grupo de WhatsApp', 'Facebook', 'Instagram', 'Llamada', 'Tienda'];
+
+function normalizeCashierOrderSources(value) {
+  const list = Array.isArray(value) ? value : DEFAULT_CASHIER_ORDER_SOURCES;
+  const clean = list.map((item) => String(item || '').trim()).filter(Boolean);
+  return [...new Set(clean)].length ? [...new Set(clean)] : DEFAULT_CASHIER_ORDER_SOURCES;
+}
+
 const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [{ id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' }],
 };
 
@@ -79,7 +89,11 @@ function normalizeBranchSettings(settings = {}) {
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
   const defaultBranchId = settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId;
-  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, branches };
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const defaultCashierOrderSource = cashierOrderSources.includes(settings.defaultCashierOrderSource || settings.default_cashier_order_source)
+    ? String(settings.defaultCashierOrderSource || settings.default_cashier_order_source).trim()
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
+  return { multiBranchEnabled: Boolean(settings.multiBranchEnabled), defaultBranchId, cashierOrderSources, defaultCashierOrderSource, branches };
 }
 
 
@@ -608,7 +622,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
       String(orderId),
       'Orders',
       'system',
-      'Operación',
+      'OperaciÃ³n',
       null,
       order.branch_id || 'dominio',
       order.branch_name || 'Dominio',
@@ -689,7 +703,7 @@ export async function onRequestPatch(context) {
     const body = await request.json();
     const { orderId, status, note = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus inválido.' }, 400);
+    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invÃ¡lido.' }, 400);
 
     const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
@@ -713,7 +727,7 @@ export async function onRequestPatch(context) {
     ).bind(status, timestamps.utc, timestamps.monterrey, tenantId, orderId).run();
 
     const eventNote = stockResult
-      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automáticamente.`
+      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automÃ¡ticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(
@@ -726,3 +740,4 @@ export async function onRequestPatch(context) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }
 }
+

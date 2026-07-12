@@ -171,8 +171,8 @@ function fallbackCategoryId(saved) {
   return slugifyCatalogId(firstCategory || 'sin-categoria', 'sin-categoria');
 }
 
-function categoryLabel(categoryId, fallback = '') {
-  return String(fallback || categoryId || 'Sin categoria').trim();
+function categoryLabel(categoryId) {
+  return String(categoryId || 'Sin categoria').trim();
 }
 
 async function recipeCatalogFromStock(env, tenantId, saved, overrides) {
@@ -182,29 +182,19 @@ async function recipeCatalogFromStock(env, tenantId, saved, overrides) {
   const seenCategories = new Set(categories.map((category) => String(category?.id || '').trim()).filter(Boolean));
 
   const rows = await env.DB.prepare(
-    `SELECT r.recipe_key, r.name,
-            COALESCE((
-              SELECT oi.category
-              FROM order_items oi
-              WHERE oi.tenant_id = ?
-                AND (oi.product_id = replace(r.recipe_key, 'product:', '') OR lower(oi.product_name) = lower(r.name))
-                AND oi.category IS NOT NULL
-                AND oi.category <> ''
-              ORDER BY oi.id DESC
-              LIMIT 1
-            ), '') AS order_category
+    `SELECT r.recipe_key, r.name
      FROM stock_recipes r
      WHERE r.tenant_id = ?
        AND r.recipe_type = 'product'
        AND r.is_active = 1
      ORDER BY r.name ASC`
-  ).bind(tenantId, tenantId).all().then((result) => result.results || []).catch(() => []);
+  ).bind(tenantId).all().then((result) => result.results || []).catch(() => []);
 
   for (const row of rows) {
     const productId = String(row.recipe_key || '').replace(/^product:/, '').trim() || slugifyCatalogId(row.name, 'producto');
     if (seenProducts.has(productId)) continue;
     const override = overrides[productId] || {};
-    const categoryId = slugifyCatalogId(override.category || row.order_category || fallbackCategoryId(saved), 'sin-categoria');
+    const categoryId = slugifyCatalogId(override.category || fallbackCategoryId(saved), 'sin-categoria');
     products.push({
       id: productId,
       name: override.name || row.name || productId,
@@ -222,7 +212,7 @@ async function recipeCatalogFromStock(env, tenantId, saved, overrides) {
     if (!seenCategories.has(categoryId)) {
       categories.push({
         id: categoryId,
-        label: categoryLabel(categoryId, row.order_category),
+        label: categoryLabel(categoryId),
         emoji: '',
         customCategory: true,
       });

@@ -27,6 +27,8 @@ export function normalizeCashierOrderSources(value) {
 export const DEFAULT_BRANCH_SETTINGS = {
   multiBranchEnabled: false,
   defaultBranchId: 'dominio',
+  cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
+  defaultCashierOrderSource: 'Tienda',
   branches: [
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
@@ -64,10 +66,17 @@ export function normalizeBranchSettings(settings = {}) {
         soldOut: branch.soldOut || branch.sold_out || {},
       }))
     : DEFAULT_BRANCH_SETTINGS.branches;
-  const defaultBranchId = normalizeBranchId(settings.defaultBranchId || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId, DEFAULT_BRANCH_SETTINGS.defaultBranchId);
+  const defaultBranchId = normalizeBranchId(settings.defaultBranchId || settings.default_branch_id || branches[0]?.id || DEFAULT_BRANCH_SETTINGS.defaultBranchId, DEFAULT_BRANCH_SETTINGS.defaultBranchId);
+  const cashierOrderSources = normalizeCashierOrderSources(settings.cashierOrderSources || settings.cashier_order_sources);
+  const requestedDefaultSource = String(settings.defaultCashierOrderSource || settings.default_cashier_order_source || '').trim();
+  const defaultCashierOrderSource = cashierOrderSources.includes(requestedDefaultSource)
+    ? requestedDefaultSource
+    : (cashierOrderSources.includes(DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource) ? DEFAULT_BRANCH_SETTINGS.defaultCashierOrderSource : cashierOrderSources[0]);
   return {
     multiBranchEnabled: Boolean(settings.multiBranchEnabled),
     defaultBranchId,
+    cashierOrderSources,
+    defaultCashierOrderSource,
     branches,
   };
 }
@@ -139,4 +148,6 @@ export function businessStatus(hours = DEFAULT_BUSINESS_HOURS) {
     allowClosedOrders: normalized.allowClosedOrders,
   };
 }
+
+
 

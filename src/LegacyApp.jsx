@@ -1701,6 +1701,10 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
   const [activeCategory, setActiveCategory] = useState(categoriesList[0]?.id || '');
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({ name: '', phone: '', notes: '' });
+  const normalizedCashierSettings = useMemo(() => normalizeBranchSettings(branchSettings), [branchSettings]);
+  const orderSources = useMemo(() => normalizeCashierOrderSources(normalizedCashierSettings.cashierOrderSources), [normalizedCashierSettings.cashierOrderSources]);
+  const defaultOrderSource = orderSources.includes(normalizedCashierSettings.defaultCashierOrderSource) ? normalizedCashierSettings.defaultCashierOrderSource : orderSources[0];
+  const [orderOrigin, setOrderOrigin] = useState(savedSession.orderOrigin || defaultOrderSource);
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [paymentStatus, setPaymentStatus] = useState('paid');
   const [status, setStatus] = useState('');
@@ -2461,6 +2465,7 @@ export default function App() {
     </main>
   );
 }
+
 
 
 

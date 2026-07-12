@@ -95,13 +95,13 @@ function safeDecodeHeader(value) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contraseñas globales
+// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contraseÃ±as globales
 // para TODOS los tenants. Ahora exige un usuario admin/kitchen/platform_admin
-// válido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
-// esta función â€” ver corrección de orden en onRequestPost más abajo). El PIN
+// vÃ¡lido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
+// esta funciÃ³n Ã¢â‚¬â€ ver correcciÃ³n de orden en onRequestPost mÃ¡s abajo). El PIN
 // por sucursal (branch.stockPassword) se conserva como segundo factor
 // opcional para acotar la vista a una sola sucursal; ya estaba scoped por
-// tenant_id vía readMenuSettings(env), así que no representa una fuga.
+// tenant_id vÃ­a readMenuSettings(env), asÃ­ que no representa una fuga.
 async function authFromValues(values, env, request = null) {
   const name = String(values?.operatorName || values?.name || '').trim();
   const shift = String(values?.shift || '').trim() || 'Sin turno';
@@ -118,9 +118,9 @@ async function authFromValues(values, env, request = null) {
   }
 
   // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
-  // fallback aquí â€” eran contraseñas globales compartidas por TODOS los
-  // tenants (hallazgo crítico #3). El único fallback válido sin JWT es el
-  // PIN por sucursal de abajo, que ya está scoped por tenant_id.
+  // fallback aquÃ­ Ã¢â‚¬â€ eran contraseÃ±as globales compartidas por TODOS los
+  // tenants (hallazgo crÃ­tico #3). El Ãºnico fallback vÃ¡lido sin JWT es el
+  // PIN por sucursal de abajo, que ya estÃ¡ scoped por tenant_id.
   try {
     const settings = await readMenuSettings(env);
     const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);
@@ -129,7 +129,7 @@ async function authFromValues(values, env, request = null) {
   } catch {
     // If menu settings are not initialized yet, fall through to invalid password.
   }
-  return { ok: false, error: 'Sesión inválida o contraseña de sucursal incorrecta.' };
+  return { ok: false, error: 'SesiÃ³n invÃ¡lida o contraseÃ±a de sucursal incorrecta.' };
 }
 
 async function auth(request, env) {
@@ -157,13 +157,13 @@ async function ensureSchema(env) {
     `CREATE TABLE IF NOT EXISTS stock_purchase_categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS stock_suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       notes TEXT
     )`,
     `CREATE TABLE IF NOT EXISTS stock_branches (
@@ -178,7 +178,7 @@ async function ensureSchema(env) {
     `CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       brand TEXT,
       item_type TEXT NOT NULL DEFAULT 'Ingrediente comprado',
       unit_id INTEGER NOT NULL,
@@ -279,7 +279,7 @@ async function ensureSchema(env) {
     `CREATE TABLE IF NOT EXISTS stock_recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      recipe_key TEXT NOT NULL UNIQUE,
+      recipe_key TEXT NOT NULL,
       recipe_type TEXT NOT NULL DEFAULT 'product',
       name TEXT NOT NULL,
       output_item_id INTEGER,
@@ -311,7 +311,7 @@ async function ensureSchema(env) {
     `CREATE TABLE IF NOT EXISTS stock_option_families (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      family_key TEXT NOT NULL UNIQUE,
+      family_key TEXT NOT NULL,
       name TEXT NOT NULL,
       description TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
@@ -370,6 +370,13 @@ async function ensureSchema(env) {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_stock_recipes_type ON stock_recipes(recipe_type, is_active)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_recipes_tenant_type ON stock_recipes(tenant_id, recipe_type, is_active)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_recipes_tenant_key ON stock_recipes(tenant_id, recipe_key)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_option_families_tenant_key ON stock_option_families(tenant_id, family_key)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_items_tenant_name ON inventory_items(tenant_id, name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_purchase_categories_tenant_name ON stock_purchase_categories(tenant_id, name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_suppliers_tenant_name ON stock_suppliers(tenant_id, name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_option_family_items_tenant_family_name ON stock_option_family_items(tenant_id, family_id, option_name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_product_option_groups_tenant_product_family ON stock_product_option_groups(tenant_id, product_id, family_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_recipe_lines_recipe ON stock_recipe_lines(recipe_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_families_key ON stock_option_families(family_key)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_family_items_family ON stock_option_family_items(family_id)`,
@@ -438,11 +445,17 @@ async function ensureSchema(env) {
 }
 
 async function getLookupId(env, table, column, value) {
-  const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE ${column} = ?`).bind(value).first();
+  if (table === 'stock_units') {
+    const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE ${column} = ?`).bind(value).first();
+    return row?.id || null;
+  }
+  const tenantId = currentTenantId(env);
+  const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE tenant_id = ? AND ${column} = ?`).bind(tenantId, value).first();
   return row?.id || null;
 }
 
 async function ensureLookupDefaults(env) {
+  const tenantId = currentTenantId(env);
   const units = [
     ['pieza', 'Pieza', 'count', 1],
     ['g', 'Gramo', 'weight', 2],
@@ -463,18 +476,19 @@ async function ensureLookupDefaults(env) {
   const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Cafe y bebidas', 'Empaque', 'Limpieza / otros'];
   for (let index = 0; index < categories.length; index += 1) {
     await env.DB.prepare(
-      `INSERT OR IGNORE INTO stock_purchase_categories (name, sort_order) VALUES (?, ?)`
-    ).bind(categories[index], index + 1).run();
+      `INSERT OR IGNORE INTO stock_purchase_categories (tenant_id, name, sort_order) VALUES (?, ?, ?)`
+    ).bind(tenantId, categories[index], index + 1).run();
   }
 
   const suppliers = ['Costco', 'Sams', 'HEB', 'Proveedor local', 'Empaques'];
   for (const supplier of suppliers) {
-    await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (name) VALUES (?)`).bind(supplier).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (tenant_id, name) VALUES (?, ?)`).bind(tenantId, supplier).run();
   }
 }
 
 async function seedDefaults(env) {
   await ensureLookupDefaults(env);
+  const tenantId = currentTenantId(env);
   const units = [
     ['pieza', 'Pieza', 'count', 1],
     ['g', 'Gramo', 'weight', 2],
@@ -484,7 +498,7 @@ async function seedDefaults(env) {
     ['bolsa', 'Bolsa', 'count', 6],
     ['paquete', 'Paquete', 'count', 7],
     ['caja', 'Caja', 'count', 8],
-    ['porcion', 'Porción', 'count', 9],
+    ['porcion', 'PorciÃ³n', 'count', 9],
   ];
   for (const unit of units) {
     await env.DB.prepare(
@@ -492,16 +506,16 @@ async function seedDefaults(env) {
     ).bind(...unit).run();
   }
 
-  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Café y bebidas', 'Empaque', 'Limpieza / otros'];
+  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'CafÃ© y bebidas', 'Empaque', 'Limpieza / otros'];
   for (let index = 0; index < categories.length; index += 1) {
     await env.DB.prepare(
-      `INSERT OR IGNORE INTO stock_purchase_categories (name, sort_order) VALUES (?, ?)`
-    ).bind(categories[index], index + 1).run();
+      `INSERT OR IGNORE INTO stock_purchase_categories (tenant_id, name, sort_order) VALUES (?, ?, ?)`
+    ).bind(tenantId, categories[index], index + 1).run();
   }
 
-  const suppliers = ['Costco', 'Samâ€™s', 'HEB', 'Proveedor local', 'Empaques'];
+  const suppliers = ['Costco', 'SamÃ¢â‚¬â„¢s', 'HEB', 'Proveedor local', 'Empaques'];
   for (const supplier of suppliers) {
-    await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (name) VALUES (?)`).bind(supplier).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (tenant_id, name) VALUES (?, ?)`).bind(tenantId, supplier).run();
   }
 
   const piece = await getLookupId(env, 'stock_units', 'code', 'pieza');
@@ -513,11 +527,11 @@ async function seedDefaults(env) {
   const fruta = await getLookupId(env, 'stock_purchase_categories', 'name', 'Fruta');
   const verd = await getLookupId(env, 'stock_purchase_categories', 'name', 'Verduras');
   const cond = await getLookupId(env, 'stock_purchase_categories', 'name', 'Condimentos y aderezos');
-  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'Café y bebidas');
+  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'CafÃ© y bebidas');
   const emp = await getLookupId(env, 'stock_purchase_categories', 'name', 'Empaque');
   const costco = await getLookupId(env, 'stock_suppliers', 'name', 'Costco');
   const heb = await getLookupId(env, 'stock_suppliers', 'name', 'HEB');
-  const sams = await getLookupId(env, 'stock_suppliers', 'name', 'Samâ€™s');
+  const sams = await getLookupId(env, 'stock_suppliers', 'name', 'SamÃ¢â‚¬â„¢s');
   const empaques = await getLookupId(env, 'stock_suppliers', 'name', 'Empaques');
   const now = new Date().toISOString();
 
@@ -525,7 +539,7 @@ async function seedDefaults(env) {
     ['Pan chapata', '', 'Ingrediente comprado', piece, 0, 10, 50, 95, costco, heb, pan, 'bolsa 12 piezas', 12, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Tortilla wrap', '', 'Ingrediente comprado', piece, 0, 10, 40, 95, costco, heb, pan, 'paquete', 10, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Masa crepa', '', 'Ingrediente comprado', grams, 0, 500, 2500, 85, heb, costco, refr, 'mezcla preparada', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-    ['Jamón de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['JamÃ³n de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Pepperoni', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso manchego', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso mozzarella', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
@@ -533,14 +547,14 @@ async function seedDefaults(env) {
     ['Pollo', '', 'Ingrediente comprado', grams, 0, 500, 3000, 80, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Lechuga', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, verd, 'pieza/bolsa', 500, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Fresa', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'paquete', 450, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-    ['Plátano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['PlÃ¡tano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nuez', '', 'Ingrediente comprado', grams, 0, 200, 1000, 85, costco, heb, cond, 'bolsa', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nutella', 'Nutella', 'Ingrediente comprado', grams, 0, 500, 3000, 85, costco, heb, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Cajeta', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, heb, costco, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Lechera', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, cond, 'lata/botella', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Leche entera', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
     ['Leche deslactosada', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
-    ['Café', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+    ['CafÃ©', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Hielo en bolsa', '', 'Hielo', bag, 0, 1, 5, 65, heb, costco, cafe, 'bolsa', 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Mayonesa', 'McCormick', 'Ingrediente comprado', grams, 0, 500, 4000, 80, sams, costco, cond, 'cubeta', 3400, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Chipotle', '', 'Ingrediente comprado', grams, 0, 200, 1500, 80, heb, costco, cond, 'lata', 200, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
@@ -552,8 +566,8 @@ async function seedDefaults(env) {
     ['Bolsa panini', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Aluminio / papel', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'rollo/paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Sticker', '', 'Empaque', piece, 0, 30, 200, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Vaso café', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Tapa café', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Vaso cafÃ©', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Tapa cafÃ©', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Popote', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Servilleta', '', 'Empaque', piece, 0, 50, 300, 92, empaques, costco, emp, 'paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Cubiertos', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
@@ -638,11 +652,11 @@ async function saveCatalogProduct(env, product) {
     name,
     description: String(product.description || '').trim(),
     price: Number(product.price || 0),
-    emoji: String(product.emoji || product.icon || 'ðŸ½ï¸').trim() || 'ðŸ½ï¸',
+    emoji: String(product.emoji || product.icon || 'Ã°Å¸ÂÂ½Ã¯Â¸Â').trim() || 'Ã°Å¸ÂÂ½Ã¯Â¸Â',
   };
   const extraCategories = Array.isArray(settings.extraCategories) ? [...settings.extraCategories] : [];
   if (!extraCategories.some((item) => item.id === category)) {
-    extraCategories.push({ id: category, label: String(product.categoryLabel || product.category || 'Sin categoria').trim() || 'Sin categoria', emoji: 'ðŸ½ï¸' });
+    extraCategories.push({ id: category, label: String(product.categoryLabel || product.category || 'Sin categoria').trim() || 'Sin categoria', emoji: 'Ã°Å¸ÂÂ½Ã¯Â¸Â' });
   }
   const baseProducts = Array.isArray(settings.extraProducts) ? settings.extraProducts : [];
   const extraProducts = [
@@ -765,12 +779,13 @@ async function upsertOptionFamily(env, family) {
   const key = String(family.family_key || '').trim();
   const name = String(family.name || '').trim();
   if (!key || !name) return null;
+  const tenantId = currentTenantId(env);
   await env.DB.prepare(
-    `INSERT INTO stock_option_families (family_key, name, description, sort_order, is_active, created_at_utc, updated_at_utc)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(family_key) DO UPDATE SET name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
-  ).bind(key, name, family.description || '', Number(family.sort_order || 0), boolNum(family.is_active !== false), ts.utc, ts.utc).run();
-  return await env.DB.prepare(`SELECT id FROM stock_option_families WHERE family_key = ?`).bind(key).first();
+    `INSERT INTO stock_option_families (tenant_id, family_key, name, description, sort_order, is_active, created_at_utc, updated_at_utc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, family_key) DO UPDATE SET name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
+  ).bind(tenantId, key, name, family.description || '', Number(family.sort_order || 0), boolNum(family.is_active !== false), ts.utc, ts.utc).run();
+  return await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`).bind(tenantId, key).first();
 }
 
 async function upsertFamilyOption(env, familyId, option, sortOrder = 0) {
@@ -779,24 +794,25 @@ async function upsertFamilyOption(env, familyId, option, sortOrder = 0) {
   const name = String(option.option_name || option.item_name || '').trim();
   if (!name) return null;
   const ts = getTimestamps();
+  const tenantId = currentTenantId(env);
   await env.DB.prepare(
-    `INSERT INTO stock_option_family_items (family_id, item_id, option_name, quantity, extra_price, is_default, is_active, sort_order, created_at_utc, updated_at_utc)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(family_id, option_name) DO UPDATE SET item_id = excluded.item_id, quantity = excluded.quantity, extra_price = excluded.extra_price, is_default = excluded.is_default, is_active = excluded.is_active, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
-  ).bind(familyId, itemId, name, Number(option.quantity || 0), Number(option.extra_price || 0), boolNum(option.is_default), boolNum(option.is_active !== false), sortOrder, ts.utc, ts.utc).run();
-  const optionRow = await env.DB.prepare(`SELECT id FROM stock_option_family_items WHERE family_id = ? AND option_name = ?`).bind(familyId, name).first();
+    `INSERT INTO stock_option_family_items (tenant_id, family_id, item_id, option_name, quantity, extra_price, is_default, is_active, sort_order, created_at_utc, updated_at_utc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, family_id, option_name) DO UPDATE SET item_id = excluded.item_id, quantity = excluded.quantity, extra_price = excluded.extra_price, is_default = excluded.is_default, is_active = excluded.is_active, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
+  ).bind(tenantId, familyId, itemId, name, Number(option.quantity || 0), Number(option.extra_price || 0), boolNum(option.is_default), boolNum(option.is_active !== false), sortOrder, ts.utc, ts.utc).run();
+  const optionRow = await env.DB.prepare(`SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ? AND option_name = ?`).bind(tenantId, familyId, name).first();
   if (!optionRow?.id) return null;
-  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id = ?`).bind(optionRow.id).run();
+  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id = ?`).bind(currentTenantId(env), optionRow.id).run();
   const components = Array.isArray(option.components) ? option.components : [];
   for (let index = 0; index < components.length; index += 1) {
     const component = components[index] || {};
     const componentItemId = Number(component.item_id || 0) || (component.item_name ? (await getItemByName(env, component.item_name))?.id : null);
     if (!componentItemId || Number(component.quantity || 0) <= 0) continue;
     await env.DB.prepare(
-      `INSERT INTO stock_option_family_item_components (option_item_id, item_id, quantity, sort_order, created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(option_item_id, item_id) DO UPDATE SET quantity = excluded.quantity, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
-    ).bind(optionRow.id, componentItemId, Number(component.quantity || 0), index + 1, ts.utc, ts.utc).run();
+      `INSERT INTO stock_option_family_item_components (tenant_id, option_item_id, item_id, quantity, sort_order, created_at_utc, updated_at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(option_item_id, item_id) DO UPDATE SET tenant_id = excluded.tenant_id, quantity = excluded.quantity, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
+    ).bind(currentTenantId(env), optionRow.id, componentItemId, Number(component.quantity || 0), index + 1, ts.utc, ts.utc).run();
   }
   return optionRow;
 }
@@ -805,45 +821,45 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
   const familyKey = String(rule.family_key || '').trim();
   const productId = String(rule.product_id || '').trim();
   if (!familyKey || !productId) return false;
-  const family = await env.DB.prepare(`SELECT id, name FROM stock_option_families WHERE family_key = ?`).bind(familyKey).first();
+  const family = await env.DB.prepare(`SELECT id, name FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`).bind(currentTenantId(env), familyKey).first();
   if (!family?.id) return false;
 
   const existing = await env.DB.prepare(
-    `SELECT id, is_active FROM stock_product_option_groups WHERE product_id = ? AND family_id = ? LIMIT 1`
-  ).bind(productId, family.id).first();
+    `SELECT id, is_active FROM stock_product_option_groups WHERE tenant_id = ? AND product_id = ? AND family_id = ? LIMIT 1`
+  ).bind(currentTenantId(env), productId, family.id).first();
 
-  // Si el usuario quitó manualmente una familia del producto, queda como is_active=0.
-  // Las semillas/base no deben reactivarla. Un import CSV o edición manual sí puede reactivarla.
+  // Si el usuario quitÃ³ manualmente una familia del producto, queda como is_active=0.
+  // Las semillas/base no deben reactivarla. Un import CSV o ediciÃ³n manual sÃ­ puede reactivarla.
   if (rule.fromSeed && existing?.id && Number(existing.is_active || 0) === 0) return true;
 
   const ts = getTimestamps();
   await env.DB.prepare(
-    `INSERT INTO stock_product_option_groups (product_id, family_id, label, min_select, max_included, max_total, default_option_name, extra_price, is_required, is_active, sort_order, created_at_utc, updated_at_utc)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(product_id, family_id) DO UPDATE SET label = excluded.label, min_select = excluded.min_select, max_included = excluded.max_included, max_total = excluded.max_total, default_option_name = excluded.default_option_name, extra_price = excluded.extra_price, is_required = excluded.is_required, is_active = excluded.is_active, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
-  ).bind(productId, family.id, rule.label || family.name, Number(rule.min_select || 0), Number(rule.max_included || 0), Number(rule.max_total || 1), rule.default_option_name || '', Number(rule.extra_price || 0), boolNum(rule.is_required), boolNum(rule.is_active !== false), sortOrder, ts.utc, ts.utc).run();
+    `INSERT INTO stock_product_option_groups (tenant_id, product_id, family_id, label, min_select, max_included, max_total, default_option_name, extra_price, is_required, is_active, sort_order, created_at_utc, updated_at_utc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, product_id, family_id) DO UPDATE SET label = excluded.label, min_select = excluded.min_select, max_included = excluded.max_included, max_total = excluded.max_total, default_option_name = excluded.default_option_name, extra_price = excluded.extra_price, is_required = excluded.is_required, is_active = excluded.is_active, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`
+  ).bind(currentTenantId(env), productId, family.id, rule.label || family.name, Number(rule.min_select || 0), Number(rule.max_included || 0), Number(rule.max_total || 1), rule.default_option_name || '', Number(rule.extra_price || 0), boolNum(rule.is_required), boolNum(rule.is_active !== false), sortOrder, ts.utc, ts.utc).run();
   return true;
 }
 
 async function seedOptionFamilies(env) {
   const families = [
-    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para café y frappés' },
+    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para cafÃ© y frappÃ©s' },
     { family_key: 'leches', name: 'Leches', description: 'Tipo de leche para bebidas' },
-    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompañamiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
+    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompaÃ±amiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
     { family_key: 'aderezos-internos', name: 'Aderezos internos', description: 'Salsas/aderezos dentro del producto' },
     { family_key: 'toppings-dulces', name: 'Toppings dulces', description: 'Sabores y toppings de crepas dulces' },
-    { family_key: 'proteinas', name: 'Proteínas', description: 'Proteínas disponibles' },
+    { family_key: 'proteinas', name: 'ProteÃ­nas', description: 'ProteÃ­nas disponibles' },
     { family_key: 'quesos', name: 'Quesos', description: 'Quesos disponibles' },
   ];
   const familyOptions = {
     'jarabes': [
-      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin azúcar', 'Vainilla sin azúcar', 20, 10], ['Jarabe caramelo sin azúcar', 'Caramelo sin azúcar', 20, 10]
+      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin azÃºcar', 'Vainilla sin azÃºcar', 20, 10], ['Jarabe caramelo sin azÃºcar', 'Caramelo sin azÃºcar', 20, 10]
     ],
     'leches': [['Leche entera', 'Leche entera', 250, 0, true], ['Leche deslactosada', 'Leche deslactosada', 250, 0]],
     'aderezos-acompanamiento': [['Aderezo chipotle preparado', 'Chipotle', 40, 10], ['Blue cheese de la casa', 'Blue cheese', 40, 10], ['Salsa BBQ', 'Barbecue', 40, 10], ['Ensalada italiana', 'Salsa italiana', 40, 10]],
     'aderezos-internos': [['Salsa de tomate', 'Salsa de tomate', 30, 0], ['Aderezo chipotle preparado', 'Chipotle', 30, 0], ['Salsa BBQ', 'Barbecue', 30, 0], ['Blue cheese de la casa', 'Blue cheese', 30, 0], ['Mayonesa', 'Mayonesa', 15, 0]],
-    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['Plátano', 'Plátano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
-    'proteinas': [['Pollo', 'Pollo', 100, 15], ['Jamón de pavo', 'Jamón de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
+    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['PlÃ¡tano', 'PlÃ¡tano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
+    'proteinas': [['Pollo', 'Pollo', 100, 15], ['JamÃ³n de pavo', 'JamÃ³n de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
     'quesos': [['Queso manchego', 'Queso manchego', 35, 10], ['Queso mozzarella', 'Queso mozzarella', 35, 10], ['Mix quesos', 'Mix quesos', 40, 10]],
   };
   for (let i = 0; i < families.length; i += 1) {
@@ -859,7 +875,7 @@ async function seedOptionFamilies(env) {
     ['latte','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['latte','jarabes','Jarabe',0,0,2,'',10,0],
     ['frappe','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['frappe','jarabes','Jarabe',0,0,2,'',10,0],
     ['crepa-dulce','toppings-dulces','Sabores y toppings',1,2,5,'',10,1],
-    ['crepa-salada','proteinas','Proteína',1,1,2,'Jamón de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
+    ['crepa-salada','proteinas','ProteÃ­na',1,1,2,'JamÃ³n de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
   ];
   const productIds = ['panini-jamon-queso','panini-pizza','panini-pollo-chipotle','panini-pollo-bbq','wrap-jamon-queso','wrap-pollo-chipotle','wrap-pollo-bbq','wrap-pecas'];
   const internalDefaults = {
@@ -868,7 +884,7 @@ async function seedOptionFamilies(env) {
   };
   for (const productId of productIds) {
     productRules.push([productId,'aderezos-internos','Aderezo interno',1,1,1,internalDefaults[productId] || '',0,1]);
-    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompañamiento',0,1,2,'',10,0]);
+    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompaÃ±amiento',0,1,2,'',10,0]);
   }
   const saladDefaults = {'ensalada-blue':'Blue cheese','ensalada-chipotle':'Chipotle','ensalada-bbq':'Barbecue','ensalada-fresa-nuez':'Salsa italiana'};
   for (const [productId, def] of Object.entries(saladDefaults)) productRules.push([productId,'aderezos-acompanamiento','Aderezo',1,1,2,def,10,1]);
@@ -883,19 +899,19 @@ async function saveOptionFamily(env, family = {}) {
   if (!fam?.id) throw new Error('No se pudo guardar la familia.');
 
   // Las opciones se reemplazan completas porque son parte interna de la familia.
-  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id IN (SELECT id FROM stock_option_family_items WHERE family_id = ?)`).bind(fam.id).run();
-  await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE family_id = ?`).bind(fam.id).run();
+  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id IN (SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?)`).bind(currentTenantId(env), currentTenantId(env), fam.id).run();
+  await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).run();
   const options = Array.isArray(family.options) ? family.options : [];
   for (let i = 0; i < options.length; i += 1) await upsertFamilyOption(env, fam.id, options[i], i + 1);
 
-  // Las reglas producto+familia NO se borran físicamente.
-  // Si el usuario quitó una regla, queda inactiva. Así seedOptionFamilies no la revive.
+  // Las reglas producto+familia NO se borran fÃ­sicamente.
+  // Si el usuario quitÃ³ una regla, queda inactiva. AsÃ­ seedOptionFamilies no la revive.
   const incomingRules = Array.isArray(family.productRules) ? family.productRules : [];
   const incomingProductIds = new Set(incomingRules.map((rule) => String(rule.product_id || '').trim()).filter(Boolean));
-  const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE family_id = ?`).bind(fam.id).all();
+  const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).all();
   for (const existing of existingRules.results || []) {
     if (!incomingProductIds.has(String(existing.product_id || '').trim())) {
-      await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE id = ?`).bind(getTimestamps().utc, existing.id).run();
+      await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(getTimestamps().utc, currentTenantId(env), existing.id).run();
     }
   }
 
@@ -908,27 +924,28 @@ async function removeProductFamilyRule(env, { familyId, familyKey, productId }) 
   const cleanProductId = String(productId || '').trim();
   if (!cleanProductId) throw new Error('Falta producto.');
   let fam = null;
-  if (familyId) fam = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE id = ?`).bind(Number(familyId)).first();
-  if (!fam?.id && familyKey) fam = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE family_key = ?`).bind(String(familyKey).trim()).first();
+  if (familyId) fam = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), Number(familyId)).first();
+  if (!fam?.id && familyKey) fam = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`).bind(currentTenantId(env), String(familyKey).trim()).first();
   if (!fam?.id) throw new Error('Familia no encontrada.');
-  await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE family_id = ? AND product_id = ?`).bind(getTimestamps().utc, fam.id, cleanProductId).run();
+  await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE tenant_id = ? AND family_id = ? AND product_id = ?`).bind(getTimestamps().utc, currentTenantId(env), fam.id, cleanProductId).run();
 }
 
 function normalizeImportedBool(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
   const normalized = String(value).trim().toLowerCase();
-  return ['1', 'true', 'si', 'sí', 'yes', 'y', 'x'].includes(normalized);
+  return ['1', 'true', 'si', 'sÃ­', 'yes', 'y', 'x'].includes(normalized);
 }
 
 async function validateFamilyImportRows(env, rows = []) {
   const errors = [];
-  const knownItems = new Set(((await env.DB.prepare(`SELECT lower(name) AS name FROM inventory_items`).all()).results || []).map((row) => row.name));
+  const knownItems = new Set(((await env.DB.prepare(`SELECT lower(name) AS name FROM inventory_items WHERE tenant_id = ?`).bind(currentTenantId(env)).all()).results || []).map((row) => row.name));
   const optionNames = new Map();
   const existingOptions = (await env.DB.prepare(
     `SELECT f.family_key, lower(oi.option_name) AS option_name
      FROM stock_option_family_items oi
-     JOIN stock_option_families f ON f.id = oi.family_id`
-  ).all()).results || [];
+     JOIN stock_option_families f ON f.tenant_id = oi.tenant_id AND f.id = oi.family_id
+     WHERE oi.tenant_id = ?`
+  ).bind(currentTenantId(env)).all()).results || [];
   for (const option of existingOptions) {
     if (!optionNames.has(option.family_key)) optionNames.set(option.family_key, new Set());
     optionNames.get(option.family_key).add(option.option_name);
@@ -939,22 +956,22 @@ async function validateFamilyImportRows(env, rows = []) {
     const rowType = String(row.row_type || row.record_type || '').trim().toLowerCase();
     if (rowType === 'family') return;
     if (!familyKey) errors.push({ line, field: 'family_key', message: 'Falta la clave de familia.' });
-    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vacío'}.` });
+    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vacÃ­o'}.` });
     if (['option','family_option'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opción.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opciÃ³n.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente principal.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente â€œ${ingredient}â€.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente Ã¢â‚¬Å“${ingredient}Ã¢â‚¬Â.` });
       if (!optionNames.has(familyKey)) optionNames.set(familyKey, new Set());
       optionNames.get(familyKey).add(optionName.toLowerCase());
     }
     if (['component','family_component'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a qué opción pertenece.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a quÃ© opciÃ³n pertenece.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente del componente.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente â€œ${ingredient}â€.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente Ã¢â‚¬Å“${ingredient}Ã¢â‚¬Â.` });
       if (Number(row.quantity || 0) <= 0) errors.push({ line, field: 'quantity', message: 'La cantidad del componente debe ser mayor a 0.' });
     }
     if (['product_rule','family_product_rule'].includes(rowType) && !String(row.product_id || '').trim()) errors.push({ line, field: 'product_id', message: 'Falta product_id.' });
@@ -964,7 +981,7 @@ async function validateFamilyImportRows(env, rows = []) {
     if (!['component','family_component'].includes(rowType)) return;
     const familyKey = String(row.family_key || '').trim();
     const optionName = String(row.option_name || '').trim().toLowerCase();
-    if (!optionNames.get(familyKey)?.has(optionName)) errors.push({ line: Number(row.__line || index + 2), field: 'option_name', message: `No existe una fila option para â€œ${row.option_name}â€ dentro de ${familyKey}.` });
+    if (!optionNames.get(familyKey)?.has(optionName)) errors.push({ line: Number(row.__line || index + 2), field: 'option_name', message: `No existe una fila option para Ã¢â‚¬Å“${row.option_name}Ã¢â‚¬Â dentro de ${familyKey}.` });
   });
   return errors;
 }
@@ -972,7 +989,7 @@ async function validateFamilyImportRows(env, rows = []) {
 async function importOptionFamilies(env, rows = [], mode = 'upsert') {
   const errors = await validateFamilyImportRows(env, rows);
   if (errors.length) {
-    const error = new Error(`CSV de familias inválido: ${errors.length} error(es).`);
+    const error = new Error(`CSV de familias invÃ¡lido: ${errors.length} error(es).`);
     error.validationErrors = errors;
     throw error;
   }
@@ -994,7 +1011,7 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
   let skipped = 0;
 
   for (const [familyKey, group] of grouped.entries()) {
-    const existing = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE family_key = ?`).bind(familyKey).first();
+    const existing = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`).bind(currentTenantId(env), familyKey).first();
     if (!existing?.id && mode === 'updateOnly') {
       skipped += 1;
       continue;
@@ -1014,16 +1031,16 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
     }
 
     if (group.options.length > 0) {
-      await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id IN (SELECT id FROM stock_option_family_items WHERE family_id = ?)`).bind(fam.id).run();
-      await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE family_id = ?`).bind(fam.id).run();
+      await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id IN (SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?)`).bind(currentTenantId(env), currentTenantId(env), fam.id).run();
+      await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).run();
     }
 
     const incomingRuleProducts = new Set((group.productRules || []).map((rule) => String(rule.product_id || '').trim()).filter(Boolean));
     if (group.productRules.length > 0) {
-      const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE family_id = ?`).bind(fam.id).all();
+      const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).all();
       for (const existingRule of existingRules.results || []) {
         if (!incomingRuleProducts.has(String(existingRule.product_id || '').trim())) {
-          await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE id = ?`).bind(getTimestamps().utc, existingRule.id).run();
+          await env.DB.prepare(`UPDATE stock_product_option_groups SET is_active = 0, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(getTimestamps().utc, currentTenantId(env), existingRule.id).run();
         }
       }
     }
@@ -1058,13 +1075,13 @@ async function importOptionFamilies(env, rows = [], mode = 'upsert') {
       }
       for (const [optionName, components] of componentsByOption.entries()) {
         const optionRow = await env.DB.prepare(
-          `SELECT id FROM stock_option_family_items WHERE family_id = ? AND lower(option_name) = lower(?) LIMIT 1`
-        ).bind(fam.id, optionName).first();
+          `SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ? AND lower(option_name) = lower(?) LIMIT 1`
+        ).bind(currentTenantId(env), fam.id, optionName).first();
         if (!optionRow?.id) {
           skipped += components.length;
           continue;
         }
-        await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE option_item_id = ?`).bind(optionRow.id).run();
+        await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id = ?`).bind(currentTenantId(env), optionRow.id).run();
         for (let index = 0; index < components.length; index += 1) {
           const component = components[index] || {};
           const componentItemId = Number(component.item_id || 0)
@@ -1140,8 +1157,8 @@ async function listData(env, requestedBranchId = null) {
        ORDER BY pc.sort_order ASC, i.name ASC`
     ).bind(branchContext.branchId, tenantId).all(),
     env.DB.prepare(`SELECT * FROM stock_units ORDER BY sort_order ASC, name ASC`).all(),
-    env.DB.prepare(`SELECT * FROM stock_purchase_categories ORDER BY sort_order ASC, name ASC`).all(),
-    env.DB.prepare(`SELECT * FROM stock_suppliers ORDER BY name ASC`).all(),
+    env.DB.prepare(`SELECT * FROM stock_purchase_categories WHERE tenant_id = ? ORDER BY sort_order ASC, name ASC`).bind(tenantId).all(),
+    env.DB.prepare(`SELECT * FROM stock_suppliers WHERE tenant_id = ? ORDER BY name ASC`).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT m.*, i.name AS item_name, u.code AS unit_code
        FROM stock_movements m
@@ -1256,7 +1273,7 @@ async function listData(env, requestedBranchId = null) {
   const effectiveOverrides = { ...(menuSettingsRaw.overrides || {}) };
   // Siempre ignoramos soldOut global legacy en Stock. El estado operativo
   // de agotado debe venir de la sucursal seleccionada, aun si multi-sucursal
-  // está apagado y se usa la sucursal default.
+  // estÃ¡ apagado y se usa la sucursal default.
   for (const productId of Object.keys(effectiveOverrides)) {
     if (effectiveOverrides[productId]) {
       const { soldOut, ...rest } = effectiveOverrides[productId];
@@ -1427,13 +1444,23 @@ function normalizeRecipeLineFlags(line) {
 async function getOrCreateLookup(env, table, column, value, extraColumns = '', extraValues = []) {
   const text = nullableText(value);
   if (!text) return null;
-  const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE lower(${column}) = lower(?)`).bind(text).first();
+  if (table === 'stock_units') {
+    const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE lower(${column}) = lower(?)`).bind(text).first();
+    if (row?.id) return row.id;
+    const extraNames = extraColumns ? `, ${extraColumns}` : '';
+    const placeholders = ['?'].concat(extraValues.map(() => '?')).join(', ');
+    await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (${column}${extraNames}) VALUES (${placeholders})`).bind(text, ...extraValues).run();
+    const created = await env.DB.prepare(`SELECT id FROM ${table} WHERE lower(${column}) = lower(?)`).bind(text).first();
+    return created?.id || null;
+  }
+  const tenantId = currentTenantId(env);
+  const row = await env.DB.prepare(`SELECT id FROM ${table} WHERE tenant_id = ? AND lower(${column}) = lower(?)`).bind(tenantId, text).first();
   if (row?.id) return row.id;
 
   const extraNames = extraColumns ? `, ${extraColumns}` : '';
-  const placeholders = ['?'].concat(extraValues.map(() => '?')).join(', ');
-  await env.DB.prepare(`INSERT INTO ${table} (${column}${extraNames}) VALUES (${placeholders})`).bind(text, ...extraValues).run();
-  const created = await env.DB.prepare(`SELECT id FROM ${table} WHERE lower(${column}) = lower(?)`).bind(text).first();
+  const placeholders = ['?', '?'].concat(extraValues.map(() => '?')).join(', ');
+  await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (tenant_id, ${column}${extraNames}) VALUES (${placeholders})`).bind(tenantId, text, ...extraValues).run();
+  const created = await env.DB.prepare(`SELECT id FROM ${table} WHERE tenant_id = ? AND lower(${column}) = lower(?)`).bind(tenantId, text).first();
   return created?.id || null;
 }
 
@@ -1536,7 +1563,7 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 
   const stockBefore = await getBranchStock(env, itemId, selectedBranchId);
   const qty = wholeNumber(quantity, 'Cantidad de movimiento');
-  if (!qty) throw new Error('Cantidad inválida.');
+  if (!qty) throw new Error('Cantidad invÃ¡lida.');
   const stockAfter = stockBefore + qty;
   if (stockAfter < 0) throw new Error('No hay suficiente stock para descontar esa cantidad.');
   const ts = getTimestamps();
@@ -1604,7 +1631,7 @@ async function updateQuickItems(env, items, user, branchId) {
         itemId,
         movementType: 'ajuste_rapido',
         quantity: diff,
-        reason: 'Edición rápida de inventario',
+        reason: 'EdiciÃ³n rÃ¡pida de inventario',
         sourceType: 'quick_edit',
         user,
         approvedBy: user.name,
@@ -1687,7 +1714,7 @@ async function importItems(env, rows, mode, user, branchId) {
           itemId: existing.id,
           movementType: 'importacion_csv',
           quantity: diff,
-          reason: 'Importación CSV',
+          reason: 'ImportaciÃ³n CSV',
           sourceType: 'csv_import',
           user,
           approvedBy: user.name,
@@ -1773,7 +1800,7 @@ async function saveRecipe(env, recipe) {
     await env.DB.prepare(
       `INSERT INTO stock_recipes (tenant_id, recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(recipe_key) DO UPDATE SET tenant_id = excluded.tenant_id, recipe_type = excluded.recipe_type, name = excluded.name, output_item_id = excluded.output_item_id, output_quantity = excluded.output_quantity, notes = excluded.notes, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
+       ON CONFLICT(tenant_id, recipe_key) DO UPDATE SET recipe_type = excluded.recipe_type, name = excluded.name, output_item_id = excluded.output_item_id, output_quantity = excluded.output_quantity, notes = excluded.notes, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
     ).bind(tenantId, recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, now).run();
     const row = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
     recipeId = row?.id;
@@ -1814,11 +1841,11 @@ async function saveRecipe(env, recipe) {
 
 
 const PRODUCT_RECIPE_SHELLS = [
-  ['product:panini-jamon-queso', 'Panini jamón y queso'],
+  ['product:panini-jamon-queso', 'Panini jamÃ³n y queso'],
   ['product:panini-pizza', 'Panini pizza'],
   ['product:panini-pollo-chipotle', 'Panini pollo chipotle'],
   ['product:panini-pollo-bbq', 'Panini pollo BBQ'],
-  ['product:wrap-jamon-queso', 'Wrap jamón y queso'],
+  ['product:wrap-jamon-queso', 'Wrap jamÃ³n y queso'],
   ['product:wrap-pollo-chipotle', 'Wrap pollo chipotle'],
   ['product:wrap-pollo-bbq', 'Wrap pollo BBQ'],
   ['product:wrap-pecas', 'Wrap Pecas'],
@@ -1830,7 +1857,7 @@ const PRODUCT_RECIPE_SHELLS = [
   ['product:crepa-salada', 'Crepa salada'],
   ['product:americano', 'Americano'],
   ['product:latte', 'Latte'],
-  ['product:frappe', 'Frappé'],
+  ['product:frappe', 'FrappÃ©'],
   ['product:coca', 'Coca-Cola'],
   ['product:coca-light', 'Coca-Cola Light'],
   ['product:agua', 'Agua'],
@@ -1856,7 +1883,7 @@ async function ensureProductRecipeShells(env) {
     await env.DB.prepare(
       `INSERT INTO stock_recipes (recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
        VALUES (?, 'product', ?, NULL, 0, ?, 1, ?, ?)`
-    ).bind(recipeKey, name, 'Receta base pendiente de completar. Se creó para que aparezca en la descarga de CSV.', now, now).run();
+    ).bind(recipeKey, name, 'Receta base pendiente de completar. Se creÃ³ para que aparezca en la descarga de CSV.', now, now).run();
     created += 1;
   }
   return { created, existing, total: PRODUCT_RECIPE_SHELLS.length };
@@ -1878,13 +1905,13 @@ async function seedRecipeDefaults(env) {
     },
 
     // Paninis
-    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jamón y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Jamón de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jamÃ³n y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pizza', recipe_type: 'product', name: 'Panini pizza', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pepperoni', 45, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa de tomate', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-chipotle', recipe_type: 'product', name: 'Panini pollo chipotle', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 35, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-bbq', recipe_type: 'product', name: 'Panini pollo BBQ', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 35, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
 
     // Wraps
-    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jamón y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Jamón de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jamÃ³n y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-chipotle', recipe_type: 'product', name: 'Wrap pollo chipotle', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-bbq', recipe_type: 'product', name: 'Wrap pollo BBQ', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 30, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pecas', recipe_type: 'product', name: 'Wrap Pecas', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Blue cheese de la casa', 30, 'aderezo_interno', 1, 0, 0], ['Queso mozzarella', 25, 'ingrediente', 1, 1, 0], ['Queso manchego', 25, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
@@ -1901,23 +1928,23 @@ async function seedRecipeDefaults(env) {
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
         ['Nutella', 35, 'ingrediente', 1, 1, 10], ['Cajeta', 35, 'ingrediente', 1, 1, 10], ['Lechera', 30, 'ingrediente', 1, 1, 10], ['Queso crema', 35, 'ingrediente', 1, 1, 10],
-        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['Plátano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
+        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['PlÃ¡tano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
       ]
     },
     {
       recipe_key: 'product:crepa-salada', recipe_type: 'product', name: 'Crepa salada',
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
-        ['Jamón de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
+        ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
       ]
     },
 
-    // Café y bebidas
-    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frappé', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
+    // CafÃ© y bebidas
+    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'FrappÃ©', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:coca', recipe_type: 'product', name: 'Coca-Cola', lines: [['Coca Cola regular', 1, 'ingrediente', 0, 0, 0]] },
-    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin azúcar', 1, 'ingrediente', 0, 0, 0]] },
+    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin azÃºcar', 1, 'ingrediente', 0, 0, 0]] },
     { recipe_key: 'product:agua', recipe_type: 'product', name: 'Agua', lines: [['Aguas', 1, 'ingrediente', 0, 0, 0]] },
   ];
 
@@ -1942,7 +1969,7 @@ async function seedRecipeDefaults(env) {
           extra_price: extraPrice,
         });
       }
-      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada automáticamente.' : 'Receta base creada sin líneas porque faltan ingredientes en inventario. Completar desde CSV.' });
+      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada automÃ¡ticamente.' : 'Receta base creada sin lÃ­neas porque faltan ingredientes en inventario. Completar desde CSV.' });
       saved += 1;
     } catch (error) {
       errors.push(`${def.recipe_key}: ${error.message}`);
@@ -1954,7 +1981,7 @@ async function seedRecipeDefaults(env) {
 
 function truthy(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
-  return ['1', 'true', 'sí', 'si', 'yes', 'y', 'x'].includes(normalized);
+  return ['1', 'true', 'sÃ­', 'si', 'yes', 'y', 'x'].includes(normalized);
 }
 
 async function importRecipes(env, rows, mode = 'upsert') {
@@ -1984,7 +2011,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
 
     const ingredientName = String(row.ingredient_name || '').trim();
     const quantity = Number(row.quantity || 0);
-    // Permite recetas cascarón descargadas desde el sistema: crean/actualizan la receta sin líneas.
+    // Permite recetas cascarÃ³n descargadas desde el sistema: crean/actualizan la receta sin lÃ­neas.
     if (!ingredientName && !quantity) continue;
     if (!ingredientName || !quantity) {
       skipped += 1;
@@ -2009,7 +2036,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
   let updated = 0;
 
   for (const recipe of grouped.values()) {
-    const existing = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE recipe_key = ?`).bind(recipe.recipe_key).first();
+    const existing = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(currentTenantId(env), recipe.recipe_key).first();
     if (!existing && mode === 'updateOnly') {
       skipped += 1;
       continue;
@@ -2033,11 +2060,11 @@ async function importRecipes(env, rows, mode = 'upsert') {
 }
 
 async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId }, user) {
-  const recipe = await env.DB.prepare(`SELECT * FROM stock_recipes WHERE id = ? AND recipe_type = 'subrecipe'`).bind(Number(recipeId)).first();
+  const recipe = await env.DB.prepare(`SELECT * FROM stock_recipes WHERE tenant_id = ? AND id = ? AND recipe_type = 'subrecipe'`).bind(currentTenantId(env), Number(recipeId)).first();
   if (!recipe) throw new Error('Sub-receta no encontrada.');
   if (!recipe.output_item_id) throw new Error('La sub-receta necesita un ingrediente de salida.');
   const outputQty = wholeNonNegativeNumber(outputQuantity, 'Cantidad producida');
-  if (!outputQty) throw new Error('Cantidad producida inválida.');
+  if (!outputQty) throw new Error('Cantidad producida invÃ¡lida.');
   const baseOutput = Number(recipe.output_quantity || 0);
   if (!baseOutput) throw new Error('La sub-receta necesita rendimiento base.');
   const factor = outputQty / baseOutput;
@@ -2045,7 +2072,7 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
 
   for (const line of lines) {
     const needed = Number(line.quantity || 0) * factor;
-    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE id = ?`).bind(line.item_id).first();
+    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), line.item_id).first();
     if (!item) throw new Error('Ingrediente de receta no encontrado.');
     const available = await getBranchStock(env, line.item_id, branchId);
     if (available - needed < 0) throw new Error(`No hay suficiente stock de ${item.name}.`);
@@ -2054,9 +2081,9 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   const sourceId = `recipe:${recipe.id}:${Date.now()}`;
   for (const line of lines) {
     const needed = Number(line.quantity || 0) * factor;
-    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `Producción de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `ProducciÃ³n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
   }
-  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `Producción de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `ProducciÃ³n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
 }
 
 
@@ -2066,7 +2093,7 @@ async function submitInventoryCounts(env, rows, reason, user, branchId) {
     const itemId = Number(row.itemId || row.id || 0);
     const requestedStock = wholeNonNegativeNumber(row.current_stock, 'Conteo de inventario');
     if (!itemId || !Number.isFinite(requestedStock) || requestedStock < 0) continue;
-    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE id = ?`).bind(itemId).first();
+    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), itemId).first();
     if (!item) continue;
     const currentStock = await getBranchStock(env, itemId, branchId);
     const diff = requestedStock - currentStock;
@@ -2108,19 +2135,19 @@ async function submitInventoryCounts(env, rows, reason, user, branchId) {
 }
 
 async function resolveInventoryCount(env, requestId, approve, adminUser) {
-  const request = await env.DB.prepare(`SELECT * FROM inventory_count_requests WHERE id = ?`).bind(requestId).first();
+  const request = await env.DB.prepare(`SELECT * FROM inventory_count_requests WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), requestId).first();
   if (!request) throw new Error('Conteo no encontrado.');
   if (request.status !== 'pending') throw new Error('El conteo ya fue procesado.');
   const ts = getTimestamps();
 
   if (!approve) {
     await env.DB.prepare(
-      `UPDATE inventory_count_requests SET status = 'rejected', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE id = ?`
-    ).bind(adminUser.name, ts.utc, ts.monterrey, requestId).run();
+      `UPDATE inventory_count_requests SET status = 'rejected', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
+    ).bind(adminUser.name, ts.utc, ts.monterrey, currentTenantId(env), requestId).run();
     return;
   }
 
-  const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE id = ?`).bind(request.item_id).first();
+  const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), request.item_id).first();
   if (!item) throw new Error('Ingrediente no encontrado.');
   const currentStock = await getBranchStock(env, request.item_id, request.branch_id || 'dominio');
   const requestedStock = wholeNonNegativeNumber(request.requested_stock, 'Conteo de inventario');
@@ -2140,8 +2167,8 @@ async function resolveInventoryCount(env, requestId, approve, adminUser) {
     });
   }
   await env.DB.prepare(
-    `UPDATE inventory_count_requests SET status = 'approved', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE id = ?`
-  ).bind(adminUser.name, ts.utc, ts.monterrey, requestId).run();
+    `UPDATE inventory_count_requests SET status = 'approved', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
+  ).bind(adminUser.name, ts.utc, ts.monterrey, currentTenantId(env), requestId).run();
 }
 
 
@@ -2171,7 +2198,7 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     // CORREGIDO: antes se llamaba a auth()/authFromValues() ANTES de fijar
-    // env.__tenantId, por lo que la validación de PIN de sucursal se hacía
+    // env.__tenantId, por lo que la validaciÃ³n de PIN de sucursal se hacÃ­a
     // contra el tenant equivocado (el default, no el del hostname real).
     env.__tenantId = await resolveTenantId(request, env);
     const body = await request.json();
@@ -2189,7 +2216,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (body.action === 'seedDefaults') {
-      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede crear catálogo base.' }, 403);
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede crear catÃ¡logo base.' }, 403);
       await seedDefaults(env);
       await seedOptionFamilies(env);
       return jsonResponse({ ok: true });
@@ -2202,7 +2229,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (body.action === 'bulkUpdateItems') {
-      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar inventario rápido.' }, 403);
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar inventario rÃ¡pido.' }, 403);
       await updateQuickItems(env, body.items || [], user, actionBranchId);
       return jsonResponse({ ok: true });
     }
@@ -2316,7 +2343,7 @@ export async function onRequestPost({ request, env }) {
       const itemId = Number(body.itemId);
       const quantity = wholeNonNegativeNumber(body.quantity, 'Cantidad a descontar');
       const reason = (body.reason || '').trim();
-      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y razón.' }, 400);
+      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y razÃ³n.' }, 400);
 
       if (user.role === 'admin') {
         await addMovement(env, {
@@ -2345,15 +2372,15 @@ export async function onRequestPost({ request, env }) {
     if (body.action === 'approveWaste' || body.action === 'rejectWaste') {
       if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede aprobar o rechazar mermas.' }, 403);
       const requestId = Number(body.requestId);
-      const waste = await env.DB.prepare(`SELECT * FROM waste_requests WHERE id = ?`).bind(requestId).first();
+      const waste = await env.DB.prepare(`SELECT * FROM waste_requests WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), requestId).first();
       if (!waste) return jsonResponse({ ok: false, error: 'Merma no encontrada.' }, 404);
       if (waste.status !== 'pending') return jsonResponse({ ok: false, error: 'La merma ya fue procesada.' }, 400);
       const ts = getTimestamps();
 
       if (body.action === 'rejectWaste') {
         await env.DB.prepare(
-          `UPDATE waste_requests SET status = 'rejected', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE id = ?`
-        ).bind(user.name, ts.utc, ts.monterrey, requestId).run();
+          `UPDATE waste_requests SET status = 'rejected', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
+        ).bind(user.name, ts.utc, ts.monterrey, currentTenantId(env), requestId).run();
         return jsonResponse({ ok: true });
       }
 
@@ -2370,14 +2397,15 @@ export async function onRequestPost({ request, env }) {
         branchName: waste.branch_name || branchContext.branchName,
       });
       await env.DB.prepare(
-        `UPDATE waste_requests SET status = 'approved', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE id = ?`
-      ).bind(user.name, ts.utc, ts.monterrey, requestId).run();
+        `UPDATE waste_requests SET status = 'approved', approved_by = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
+      ).bind(user.name, ts.utc, ts.monterrey, currentTenantId(env), requestId).run();
       return jsonResponse({ ok: true });
     }
 
-    return jsonResponse({ ok: false, error: 'Acción inválida.' }, 400);
+    return jsonResponse({ ok: false, error: 'AcciÃ³n invÃ¡lida.' }, 400);
   } catch (error) {
-    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
+    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validaciÃ³n.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
+
 

@@ -101,7 +101,7 @@ async function ensureSchema(env) {
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
-      order_number TEXT NOT NULL UNIQUE,
+      order_number TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       branch_id TEXT NOT NULL DEFAULT 'dominio',
       branch_name TEXT NOT NULL DEFAULT 'Dominio',
@@ -167,6 +167,7 @@ async function ensureSchema(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_tenant_status ON orders(tenant_id, status, created_at_monterrey)`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS ux_orders_tenant_order_number ON orders(tenant_id, order_number)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_tenant_order ON order_items(tenant_id, order_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_events_tenant_order ON order_events(tenant_id, order_id)`).run();
   await ensureTenantColumns(env, ['orders', 'order_items', 'order_events']);

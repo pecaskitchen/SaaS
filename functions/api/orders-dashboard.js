@@ -19,27 +19,43 @@ function getPassword(request) {
 // conserva como segundo factor opcional para acotar la vista a una sola
 // sucursal — ya estaba correctamente scoped por tenant_id vía
 // readBranchSettings(env, tenantId), así que no representa una fuga.
+// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
+// para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
+// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// conserva como segundo factor opcional para acotar la vista a una sola
+// sucursal — ya estaba correctamente scoped por tenant_id vía
+// readBranchSettings(env, tenantId), así que no representa una fuga.
+//
+// IMPORTANTE: NO se restauran env.ADMIN_PASSWORD/env.ORDERS_PASSWORD como
+// fallback aquí — esas eran contraseñas globales compartidas por TODOS los
+// tenants del deployment (hallazgo crítico #3). Si un dev las reintroduce
+// "por si acaso", vuelve a abrir el cross-tenant hopping.
 async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
-  if (!auth.ok) {
+
+  if (auth.ok) {
+    if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
+      return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
+    }
+    // JWT válido con rol "orders": igual puede acotarse a una sucursal si
+    // manda también el PIN de esa sucursal; si no, ve todas las que aplique
+    // a su tenant.
     const password = getPassword(request);
-    if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
-    if (env.ORDERS_PASSWORD && password === env.ORDERS_PASSWORD) return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
     const branchSettings = await readBranchSettings(env, tenantId);
     const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
     if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
-    return { ok: false, error: 'No autorizado.', response: auth.response };
+    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
   }
 
-  if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
-    return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
-  }
-
+  // Sin JWT: único camino válido es el PIN de sucursal (personal sin cuenta
+  // propia), siempre acotado al tenant resuelto por hostname.
   const password = getPassword(request);
+  if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
   const branchSettings = await readBranchSettings(env, tenantId);
   const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
   if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
-  return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
+  return { ok: false, error: 'No autorizado.', response: auth.response };
 }
 
 const DEFAULT_BRANCH_SETTINGS = {

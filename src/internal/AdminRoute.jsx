@@ -13,9 +13,9 @@ import {
   normalizeBusinessHours,
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
+import { apiFetch, getSessionToken } from '../lib/apiClient.js';
 
 const EMPTY_PRODUCTS = [];
-const ADMIN_PASSWORD_STORAGE_KEY = 'pecas_admin_password';
 
 function mergeProductsWithOverrides(products, overrides) {
   if (!overrides || Object.keys(overrides).length === 0) return products;
@@ -43,14 +43,10 @@ export default function AdminRoute() {
 
   const loadMenu = useCallback(async () => {
     try {
-      let adminPassword = '';
-      try { adminPassword = window.sessionStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) || ''; } catch { adminPassword = ''; }
-      const response = await fetch(adminPassword ? '/api/admin/menu' : '/api/menu', {
-        cache: 'no-store',
-        headers: adminPassword ? { 'x-admin-password': adminPassword } : {},
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.ok === false) throw new Error(result.detail || result.error || 'No se pudo leer el menu.');
+      const hasSession = Boolean(getSessionToken());
+      const result = hasSession
+        ? await apiFetch('/api/admin/menu', { cache: 'no-store' })
+        : await apiFetch('/api/menu', { cache: 'no-store' });
 
       const nextCategories = mergeCategoriesWithExtras([], result.extraCategories || []);
       const nextProducts = mergeProductsWithExtras(EMPTY_PRODUCTS, result.extraProducts || []);

@@ -67,14 +67,9 @@ async function readMenuOverrides(env, tenantId) {
 // MIGRADO a JWT: antes comparaba contra env.ADMIN_PASSWORD/SUPER_PASSWORD
 // (contraseñas globales, mismas para todos los tenants). Ahora exige un
 // usuario admin/super/platform_admin válido PARA ESTE tenant.
+// IMPORTANTE: no reintroducir el fallback a esas contraseñas globales.
 async function auth(request, env) {
-  const jwt = await requireAuth(request, env, ['admin', 'super', 'platform_admin']);
-  if (jwt.ok) return jwt;
-  const adminPassword = request.headers.get('x-admin-password') || '';
-  const superPassword = request.headers.get('x-super-password') || '';
-  if (env.ADMIN_PASSWORD && adminPassword === env.ADMIN_PASSWORD) return { ok: true, session: { role: 'admin', legacy: true } };
-  if (env.SUPER_PASSWORD && superPassword === env.SUPER_PASSWORD) return { ok: true, session: { role: 'super', legacy: true } };
-  return jwt;
+  return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
 }
 
 function branchClause(branchId, column = 'branch_id') {

@@ -69,11 +69,16 @@ function hasPlatformAdminToken(request, env) {
   return Boolean(provided) && provided === expected;
 }
 
+// SEGURIDAD: el carve-out de vista previa se limita a localhost/127.0.0.1
+// (desarrollo local real, nunca accesible desde internet). NO se incluye
+// "*.pages.dev": ese dominio queda público en paralelo al dominio
+// personalizado en la mayoría de los proyectos de Cloudflare Pages, así que
+// incluirlo aquí reabría el cross-tenant hopping (hallazgo crítico #4) para
+// cualquiera que conociera esa URL. Para probar cambio de tenant en un
+// preview deploy, usa el mismo token de plataforma que en producción.
 function allowsExplicitTenantForPreview(request) {
   const host = hostnameFromRequest(request);
-  return host === 'localhost'
-    || host === '127.0.0.1'
-    || host.endsWith('.pages.dev');
+  return host === 'localhost' || host === '127.0.0.1';
 }
 
 export async function resolveTenantId(request, env) {

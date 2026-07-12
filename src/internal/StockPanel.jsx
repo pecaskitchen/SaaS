@@ -589,8 +589,20 @@ function makeQuickDrafts(items) {
   }));
 }
 
+import { getSessionToken } from '../lib/apiClient.js';
+
+// Si ya hay sesión de personal (login por email/password, ver AdminPanel /
+// EmployeeLoginModal), se manda como Bearer y el backend la prioriza sobre
+// el PIN de sucursal. El PIN (password/operatorName/shift) sigue funcionando
+// tal cual para personal de cocina sin cuenta propia.
+function authHeaders() {
+  const token = getSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {}) {
   const isAdminConfigMode = mode === 'adminConfig';
+  const hasSession = Boolean(getSessionToken());
   const visibleStockTabs = isAdminConfigMode ? STOCK_ADMIN_CONFIG_TABS : STOCK_OPERATION_TABS;
   const savedSession = (() => {
     try {
@@ -600,13 +612,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     }
   })();
 
-  const [password, setPassword] = useState(isAdminConfigMode ? embeddedPassword : (savedSession.password || ''));
+  const [password, setPassword] = useState(isAdminConfigMode ? '' : (savedSession.password || ''));
   const [operatorName, setOperatorName] = useState(isAdminConfigMode ? 'Admin' : (savedSession.operatorName || ''));
   const [shift, setShift] = useState(isAdminConfigMode ? 'Admin' : (savedSession.shift || 'Noche'));
   const [role, setRole] = useState(isAdminConfigMode ? 'admin' : (savedSession.role || ''));
   const [stockAccessScope, setStockAccessScope] = useState(savedSession.accessScope || 'legacy');
   const [stockLockedBranchId, setStockLockedBranchId] = useState(savedSession.lockedBranchId || null);
-  const [unlocked, setUnlocked] = useState(isAdminConfigMode ? Boolean(embeddedPassword) : Boolean(savedSession.password));
+  const [unlocked, setUnlocked] = useState(isAdminConfigMode ? hasSession : Boolean(savedSession.password));
   const [activeTab, setActiveTab] = useState(isAdminConfigMode ? 'productSetup' : 'dashboard');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -646,7 +658,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   });
 
   const loadStock = async () => {
-    if (!password || (!isAdminConfigMode && !operatorName.trim())) {
+    if (!hasSession && (!password || (!isAdminConfigMode && !operatorName.trim()))) {
       setStatus('Ingresa tu nombre y contraseña.');
       return;
     }
@@ -656,7 +668,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     try {
       const response = await fetch('/api/stock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
   action: 'list',
   branchId: stockBranchId || undefined,
@@ -717,7 +729,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
 
   useEffect(() => {
-    if (isAdminConfigMode && embeddedPassword) {
+    if (isAdminConfigMode && hasSession) {
       loadStock();
     }
   }, []);
@@ -728,7 +740,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     try {
       const response = await fetch('/api/stock', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ ...payload, branchId: stockBranchId || data.selectedBranch?.id || undefined, auth: authPayload() }),
       });
       const result = await response.json();

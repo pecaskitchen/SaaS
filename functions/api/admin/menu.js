@@ -12,14 +12,13 @@ function jsonResponse(data, status = 200) {
 // antes comparaba contra env.ADMIN_PASSWORD, una contraseña global para
 // todos los tenants. requireAuth valida el token del usuario, confirma que
 // pertenece a ESTE tenant, y confirma el rol.
+//
+// IMPORTANTE: NO agregar de vuelta un fallback a env.ADMIN_PASSWORD "por
+// compatibilidad" — esa era la vulnerabilidad crítica #3 (una sola
+// contraseña válida para TODOS los tenants del deployment). El frontend
+// (AdminPanel.jsx) ya hace login contra /api/auth/login y manda el JWT.
 async function checkAuth(request, env) {
-  const jwt = await requireAuth(request, env, ['admin', 'platform_admin']);
-  if (jwt.ok) return jwt;
-  const password = request.headers.get('x-admin-password') || '';
-  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
-    return { ok: true, session: { role: 'admin', legacy: true } };
-  }
-  return jwt;
+  return requireAuth(request, env, ['admin', 'platform_admin']);
 }
 
 const DEFAULT_BRANCH_SETTINGS = {

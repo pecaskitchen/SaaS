@@ -117,9 +117,10 @@ async function authFromValues(values, env, request = null) {
     }
   }
 
-  if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return { ok: true, role: 'admin', name, shift, accessScope: 'all' };
-  if (env.KITCHEN_PASSWORD && password === env.KITCHEN_PASSWORD) return { ok: true, role: 'kitchen', name, shift, accessScope: 'legacy' };
-
+  // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
+  // fallback aquí — eran contraseñas globales compartidas por TODOS los
+  // tenants (hallazgo crítico #3). El único fallback válido sin JWT es el
+  // PIN por sucursal de abajo, que ya está scoped por tenant_id.
   try {
     const settings = await readMenuSettings(env);
     const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);

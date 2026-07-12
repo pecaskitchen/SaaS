@@ -8,9 +8,19 @@ import {
   normalizeBranchSettings,
   selectedBranchFrom,
 } from '../lib/business.js';
+import { getSessionToken } from '../lib/apiClient.js';
 
 const currency = (amount) => `$${amount}`;
 const ORDERS_PASSWORD_STORAGE_KEY = 'pecas_orders_password';
+
+// Si hay sesión de personal (login por email/password), se manda como
+// Bearer y el backend la prioriza sobre el PIN de sucursal (ver
+// auditoria-saas-multitenant.md). El PIN sigue funcionando igual para
+// quien no tiene cuenta propia.
+function authHeaders() {
+  const token = getSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 function Logo() {
   return (
@@ -77,7 +87,7 @@ export default function OrdersPanel() {
       return '';
     }
   });
-  const [unlocked, setUnlocked] = useState(Boolean(password));
+  const [unlocked, setUnlocked] = useState(Boolean(password) || Boolean(getSessionToken()));
   const [orders, setOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -88,7 +98,7 @@ export default function OrdersPanel() {
   const [status, setStatus] = useState('');
 
   const fetchOrders = async (nextFilter = statusFilter) => {
-    if (!password) {
+    if (!password && !getSessionToken()) {
       setUnlocked(false);
       setStatus('Ingresa la contraseña de pedidos.');
       return;
@@ -99,7 +109,7 @@ export default function OrdersPanel() {
 
     try {
       const response = await fetch(`/api/orders-dashboard?status=${nextFilter}&limit=100&branch=${encodeURIComponent(branchFilter)}`, {
-        headers: { 'x-orders-password': password },
+        headers: { ...authHeaders(), ...(password ? { 'x-orders-password': password } : {}) },
       });
       const result = await response.json();
 

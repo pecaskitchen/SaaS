@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils } from 'lucide-react';
 import './styles.css';
+import { apiFetch, getSessionToken, setSessionToken } from './lib/apiClient.js';
 import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
 import {
   BRANCH_STORAGE_KEY,
@@ -495,6 +496,7 @@ function legacyRoute() {
 
 
 function EmployeeLoginModal({ open, onClose }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [employeeName, setEmployeeName] = useState(() => {
     try { return window.localStorage.getItem(EMPLOYEE_LOGIN_NAME_STORAGE_KEY) || ''; } catch { return ''; }
@@ -530,6 +532,30 @@ function EmployeeLoginModal({ open, onClose }) {
     setLoading(true);
     setStatus('Validando acceso...');
     try {
+      // Cuenta de personal (email + password) → login JWT. Cubre
+      // admin/super/orders/kitchen/platform_admin. Ver auditoria-saas-multitenant.md.
+      if (email.trim()) {
+        const login = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+        });
+        setSessionToken(login.token);
+        const cleanName = employeeName.trim();
+        const cleanShift = shift.trim() || 'Turno';
+        try {
+          if (cleanName) window.localStorage.setItem(EMPLOYEE_LOGIN_NAME_STORAGE_KEY, cleanName);
+          if (cleanShift) window.localStorage.setItem(EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY, cleanShift);
+        } catch { /* ignore */ }
+        const redirectByRole = { admin: '#admin', super: '#super', orders: '#orders', kitchen: '#stock', platform_admin: '#platform' };
+        setStatus('Entrando...');
+        window.location.hash = redirectByRole[login.user?.role] || '#';
+        onClose();
+        setPassword('');
+        return;
+      }
+
+      // Sin email: PIN de sucursal para personal sin cuenta propia (cajero,
+      // cocina). Sigue funcionando igual que antes, scoped por tenant_id.
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -553,7 +579,7 @@ function EmployeeLoginModal({ open, onClose }) {
       onClose();
       setPassword('');
     } catch (error) {
-      setStatus(`No se pudo entrar: ${error.message}`);
+      setStatus(error.message || `No se pudo entrar.`);
     } finally {
       setLoading(false);
     }
@@ -571,8 +597,12 @@ function EmployeeLoginModal({ open, onClose }) {
         </div>
         <div className="employee-login-grid">
           <label className="field full">
+            <span>Email (cuenta de personal)</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Deja vacío si usas PIN de sucursal" />
+          </label>
+          <label className="field full">
             <span>Contraseña</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña de tu rol" onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} autoFocus />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña de tu rol o PIN de sucursal" onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} autoFocus />
           </label>
           <label className="field">
             <span>Nombre empleado</span>
@@ -1857,24 +1887,23 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
   const login = async () => {
     setStatus('Validando...');
     try {
-      const response = await fetch('/api/super/menu', { headers: { 'x-super-password': password } });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        setStatus(result.error || 'No autorizado.');
-        return;
+      const result = await apiFetch('/api/super/menu', {
+        headers: getSessionToken() ? {} : { 'x-super-password': password },
+      });
+      if (!getSessionToken()) {
+        try { window.sessionStorage.setItem(SUPER_PASSWORD_STORAGE_KEY, password); } catch { /* ignore */ }
       }
-      try { window.sessionStorage.setItem(SUPER_PASSWORD_STORAGE_KEY, password); } catch { /* ignore */ }
       setAuthed(true);
       setStatus('');
       setBranchSettingsDraft(normalizeBranchSettings(result.branchSettings));
       setBranchPromotionsDraft(result.branchPromotions || {});
     } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus(error.message || 'No autorizado.');
     }
   };
 
   useEffect(() => {
-    if (password && !authed) login();
+    if ((password || getSessionToken()) && !authed) login();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1924,7 +1953,10 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
     setReportStatus('Generando reporte...');
     try {
       const params = new URLSearchParams({ type: reportType, start: reportStart || '', end: reportEnd || '', branchId: reportBranchId || 'all' });
-      const response = await fetch(`/api/reports?${params.toString()}`, { headers: { 'x-super-password': password } });
+      const token = getSessionToken();
+      const response = await fetch(`/api/reports?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : { 'x-super-password': password },
+      });
       const text = await response.text();
       if (!response.ok) {
         try { setReportStatus(JSON.parse(text).error || 'No se pudo generar reporte.'); }
@@ -1949,20 +1981,15 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
   const saveSuper = async () => {
     setStatus('Guardando...');
     try {
-      const response = await fetch('/api/super/menu', {
+      await apiFetch('/api/super/menu', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-super-password': password },
+        headers: getSessionToken() ? {} : { 'x-super-password': password },
         body: JSON.stringify({ branchSettings: branchSettingsDraft, branchPromotions: branchPromotionsDraft }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        setStatus(result.error || result.detail || 'No se pudo guardar.');
-        return;
-      }
       setStatus('Guardado.');
       await reloadMenu();
     } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus(error.message || 'No se pudo guardar.');
     }
   };
 

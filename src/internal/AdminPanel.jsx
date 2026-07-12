@@ -10,9 +10,9 @@ import {
   normalizeBusinessHours,
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
+import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js';
 
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
-const ADMIN_PASSWORD_STORAGE_KEY = 'pecas_admin_password';
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const items = [
@@ -92,7 +92,8 @@ function parseMenuCsv(text) {
 }
 
 export default function AdminPanel({ products, categoriesList = categories, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu }) {
-  const [password, setPassword] = useState(() => { try { return window.sessionStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) || ''; } catch { return ''; } });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [unlocked, setUnlocked] = useState(false);
   const [drafts, setDrafts] = useState(() => products.map((product) => ({ ...product })));
   const [categoryItems, setCategoryItems] = useState(() => categoriesList.map((category) => ({ ...category })));
@@ -352,29 +353,38 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const orderedDrafts = useMemo(() => sortByOrder(drafts, productOrderDraft), [drafts, productOrderDraft]);
   const orderedCategories = useMemo(() => sortByOrder(categoryItems, categoryDraft), [categoryItems, categoryDraft]);
 
+  // MIGRADO a JWT: antes mandaba la contraseña compartida como header en
+  // cada request. Ahora hace login con email/password contra
+  // /api/auth/login, guarda el token (apiClient.setSessionToken) y todas las
+  // llamadas subsecuentes lo adjuntan solas via apiFetch.
   const unlock = async () => {
     setStatus('Validando...');
     try {
-      const response = await fetch('/api/admin/menu', {
-        headers: { 'x-admin-password': password },
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        setStatus(result.error || 'Contraseña incorrecta.');
+      if (email.trim() && password) {
+        const login = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+        setSessionToken(login.token);
+      } else if (!getSessionToken()) {
+        setStatus('Ingresa tu email y contraseña.');
         return;
       }
-      try { window.sessionStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, password); } catch { /* ignore */ }
+
+      const result = await apiFetch('/api/admin/menu');
       setUnlocked(true);
       if (result.businessHours) setBusinessHoursDraft(normalizeBusinessHours(result.businessHours));
       if (result.branchSettings) setBranchSettingsDraft(normalizeBranchSettings(result.branchSettings));
       setStatus('');
+      setPassword('');
     } catch (error) {
-      setStatus(`No se pudo validar: ${error.message}`);
+      setSessionToken('');
+      setStatus(error.message || 'No se pudo validar.');
     }
   };
 
   useEffect(() => {
-    if (password && !unlocked) unlock();
+    if (getSessionToken() && !unlocked) unlock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -415,12 +425,8 @@ export default function AdminPanel({ products, categoriesList = categories, cate
       }));
 
     try {
-      const response = await fetch('/api/admin/menu', {
+      const result = await apiFetch('/api/admin/menu', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-password': password,
-        },
         body: JSON.stringify({
           overrides,
           extraCategories,
@@ -433,11 +439,6 @@ export default function AdminPanel({ products, categoriesList = categories, cate
           branchSettings: branchSettingsDraft,
         }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        setStatus(result.error || 'No se pudo guardar.');
-        return;
-      }
       setStatus('Cambios guardados.');
       await reloadMenu();
     } catch (error) {
@@ -460,8 +461,12 @@ export default function AdminPanel({ products, categoriesList = categories, cate
         {!unlocked ? (
           <div className="admin-login">
             <label className="field full">
+              <span>Email</span>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@negocio.com" autoFocus />
+            </label>
+            <label className="field full">
               <span>Contraseña</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña admin" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Tu contraseña" onKeyDown={(e) => { if (e.key === 'Enter') unlock(); }} />
             </label>
             <button type="button" className="primary" onClick={unlock}><Lock size={16} /> Entrar</button>
             {status && <p className="admin-status">{status}</p>}
@@ -478,7 +483,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               {openAdminSections.catalog && (
                 <div className="admin-embedded-stock-config">
                   <AdminSectionIntro title="Catálogo operativo" description="Aquí vive lo técnico: ingredientes, recetas/sub-recetas, familias e importación." />
-                  <StockPanel mode="adminConfig" embeddedPassword={password} />
+                  <StockPanel mode="adminConfig" />
                 </div>
               )}
             </section>

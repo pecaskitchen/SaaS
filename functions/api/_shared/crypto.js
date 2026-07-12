@@ -47,10 +47,10 @@ export async function verifyToken(token, secret) {
 
 // MEJORADO (ver auditoria-saas-multitenant.md, hallazgo #8): un solo
 // SHA-256 con salt es barato de romper por fuerza bruta en GPU. PBKDF2 con
-// 210,000 iteraciones (recomendación OWASP 2024 para HMAC-SHA256) es
+// 100,000 iteraciones para respetar el limite de Web Crypto en Cloudflare Pages Functions es
 // soportado nativamente por Web Crypto en Cloudflare Workers, sin
 // dependencias externas.
-const PBKDF2_ITERATIONS = 210000;
+const PBKDF2_ITERATIONS = 100000;
 
 export async function hashPassword(password, salt = crypto.randomUUID()) {
   const keyMaterial = await crypto.subtle.importKey(

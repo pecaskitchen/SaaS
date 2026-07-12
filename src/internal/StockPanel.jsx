@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
 import { formatOrderDate } from '../lib/dates.js';
-import { CATALOG_PRODUCTS, categoryMeta, mergeProductsWithExtras, slugifyCatalogId } from '../lib/catalog.js';
+import { categoryMeta, mergeProductsWithExtras, slugifyCatalogId } from '../lib/catalog.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   activeBranches,
@@ -910,12 +910,21 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       return null;
     }
     const id = slugifyCatalogId(productInput.id || name, 'producto');
-    const category = slugifyCatalogId(productInput.category || stockMenuProducts[0]?.category || 'sin-categoria', 'sin-categoria');
+    const category = productInput.category || stockMenuCategories[0]?.id || '';
+    const selectedCategory = stockMenuCategories.find((item) => item.id === category);
+    if (!stockMenuCategories.length) {
+      setStatus('Primero crea una categoría en Secciones del menú. Después podrás agregar productos.');
+      return null;
+    }
+    if (!selectedCategory) {
+      setStatus('Selecciona una categoría existente para este producto.');
+      return null;
+    }
     const payload = {
       id,
       name,
       category,
-      categoryLabel: productInput.categoryLabel || category,
+      categoryLabel: selectedCategory.label || selectedCategory.id,
       price: Number(productInput.price || 0),
       description: productInput.description || '',
       emoji: productInput.emoji || '🍽️',
@@ -923,7 +932,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const ok = await postStockAction({ action: 'saveCatalogProduct', product: payload }, options.successMessage || 'Producto guardado en menú.');
     if (!ok) return null;
     setSelectedProductSetupId(id);
-    if (!options.keepDraft) setProductDraft({ name: '', category: category || '', price: '', description: '', emoji: '🍽️' });
+    if (!options.keepDraft) setProductDraft({ name: '', category, price: '', description: '', emoji: '🍽️' });
     return payload;
   };
 
@@ -946,7 +955,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const product = await saveCatalogProduct({
       id: cleanKey || recipe.name,
       name: recipe.name,
-      category: productDraft.category || stockMenuProducts[0]?.category || 'sin-categoria',
+      category: productDraft.category || stockMenuCategories[0]?.id || '',
       price: productDraft.price || 0,
       description: recipe.notes || '',
       emoji: productDraft.emoji || '🍽️',
@@ -1401,7 +1410,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const subRecipes = data.recipes.filter((recipe) => recipe.recipe_type === 'subrecipe');
   const currentRecipeList = recipeEditorType === 'subrecipe' ? subRecipes : productRecipes;
   const menuOverridesForStock = data.menuSettings?.overrides || {};
-  const stockCatalogProducts = mergeProductsWithExtras(CATALOG_PRODUCTS, data.menuSettings?.extraProducts || []);
+  const stockCatalogProducts = mergeProductsWithExtras([], data.menuSettings?.extraProducts || []);
   const stockMenuProducts = stockCatalogProducts.map((product) => ({
     ...product,
     ...(menuOverridesForStock[product.id] || {}),
@@ -1537,7 +1546,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
               <label className="field full">
                 <span>Producto</span>
                 <select value={selectedProductSetup?.id || ''} onChange={(e) => setSelectedProductSetupId(e.target.value)}>
-                  {stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{categoryMeta(product.category).label} · {product.name}</option>)}
+                  {stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{stockCategoryLabel(product.category)} · {product.name}</option>)}
                 </select>
               </label>
 
@@ -1546,19 +1555,19 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <h3>Agregar producto</h3>
                   <div className="stock-form-grid compact-grid">
                     <label className="field"><span>Nombre</span><input value={productDraft.name} onChange={(e) => setProductDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Ej. Producto test" /></label>
-                    <label className="field"><span>Categoria</span><input value={productDraft.category} onChange={(e) => setProductDraft((current) => ({ ...current, category: e.target.value }))} placeholder={selectedProductSetup?.category || 'cafes'} /></label>
+                    <label className="field"><span>Categoría existente</span><select value={productDraft.category || stockMenuCategories[0]?.id || ''} onChange={(e) => setProductDraft((current) => ({ ...current, category: e.target.value }))} disabled={!stockMenuCategories.length}><option value="">Selecciona</option>{stockMenuCategories.map((category) => <option key={category.id} value={category.id}>{stockCategoryLabel(category.id)}</option>)}</select></label>
                     <label className="field"><span>Precio</span><input type="number" value={productDraft.price} onChange={(e) => setProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
                     <label className="field"><span>Icono</span><input value={productDraft.emoji} onChange={(e) => setProductDraft((current) => ({ ...current, emoji: e.target.value }))} /></label>
                     <label className="field full"><span>Descripcion</span><input value={productDraft.description} onChange={(e) => setProductDraft((current) => ({ ...current, description: e.target.value }))} placeholder="Descripcion corta para el menu" /></label>
                   </div>
-                  <button type="button" className="ghost" onClick={createProductFromDraft}>Agregar producto y preparar receta</button>
+                  <button type="button" className="ghost" onClick={createProductFromDraft} disabled={!stockMenuCategories.length}>Agregar producto y preparar receta</button>
                 </div>
               )}
 
               {selectedProductSetup ? (
                 <div className="stock-alert">
                   <b>{selectedProductSetup.name}</b>
-                  <span>{categoryMeta(selectedProductSetup.category).label} · ${selectedProductSetup.price || 0}</span>
+                  <span>{stockCategoryLabel(selectedProductSetup.category)} · ${selectedProductSetup.price || 0}</span>
                   <small>{selectedProductSetup.description || 'Sin descripción'}</small>
                 </div>
               ) : <p>No hay productos configurados todavía.</p>}
@@ -2335,7 +2344,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 <div className="soldout-row" key={product.id}>
                   <div>
                     <b>{product.name}</b>
-                    <span>{categoryMeta(product.category).label}</span>
+                    <span>{stockCategoryLabel(product.category)}</span>
                   </div>
                   <button type="button" className="ghost" onClick={() => setProductSoldOut(product.id, false)}>Quitar agotado</button>
                 </div>
@@ -2351,7 +2360,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     {stockMenuProducts.map((product) => (
                       <tr key={product.id}>
                         <td><b>{product.name}</b></td>
-                        <td>{categoryMeta(product.category).label}</td>
+                        <td>{stockCategoryLabel(product.category)}</td>
                         <td>{product.soldOut ? <span className="stock-pill danger">Agotado</span> : <span className="stock-pill ok">Disponible</span>}</td>
                         <td><button type="button" className={product.soldOut ? 'ghost' : 'ghost danger-text'} onClick={() => setProductSoldOut(product.id, !product.soldOut)}>{product.soldOut ? 'Quitar agotado' : 'Marcar agotado'}</button></td>
                       </tr>
@@ -2389,6 +2398,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     </main>
   );
 }
+
+
 
 
 

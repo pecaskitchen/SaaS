@@ -547,7 +547,7 @@ async function seedDefaults(env) {
     ['Pollo', '', 'Ingrediente comprado', grams, 0, 500, 3000, 80, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Lechuga', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, verd, 'pieza/bolsa', 500, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Fresa', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'paquete', 450, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-    ['Pl?tano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['Plátano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nuez', '', 'Ingrediente comprado', grams, 0, 200, 1000, 85, costco, heb, cond, 'bolsa', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nutella', 'Nutella', 'Ingrediente comprado', grams, 0, 500, 3000, 85, costco, heb, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Cajeta', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, heb, costco, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
@@ -566,8 +566,8 @@ async function seedDefaults(env) {
     ['Bolsa panini', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Aluminio / papel', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'rollo/paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Sticker', '', 'Empaque', piece, 0, 30, 200, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Vaso caf?', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Tapa caf?', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Vaso café', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Tapa café', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Popote', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Servilleta', '', 'Empaque', piece, 0, 50, 300, 92, empaques, costco, emp, 'paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Cubiertos', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
@@ -843,28 +843,34 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
 
 async function seedOptionFamilies(env) {
   const families = [
-    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para caf? y frapp?s' },
+    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para café y frappés' },
     { family_key: 'leches', name: 'Leches', description: 'Tipo de leche para bebidas' },
-    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompa?amiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
+    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompañamiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
     { family_key: 'aderezos-internos', name: 'Aderezos internos', description: 'Salsas/aderezos dentro del producto' },
     { family_key: 'toppings-dulces', name: 'Toppings dulces', description: 'Sabores y toppings de crepas dulces' },
-    { family_key: 'proteinas', name: 'Prote?nas', description: 'Prote?nas disponibles' },
+    { family_key: 'proteinas', name: 'Proteínas', description: 'Proteínas disponibles' },
     { family_key: 'quesos', name: 'Quesos', description: 'Quesos disponibles' },
   ];
   const familyOptions = {
     'jarabes': [
-      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin az?car', 'Vainilla sin az?car', 20, 10], ['Jarabe caramelo sin az?car', 'Caramelo sin az?car', 20, 10]
+      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin azúcar', 'Vainilla sin azúcar', 20, 10], ['Jarabe caramelo sin azúcar', 'Caramelo sin azúcar', 20, 10]
     ],
     'leches': [['Leche entera', 'Leche entera', 250, 0, true], ['Leche deslactosada', 'Leche deslactosada', 250, 0]],
     'aderezos-acompanamiento': [['Aderezo chipotle preparado', 'Chipotle', 40, 10], ['Blue cheese de la casa', 'Blue cheese', 40, 10], ['Salsa BBQ', 'Barbecue', 40, 10], ['Ensalada italiana', 'Salsa italiana', 40, 10]],
     'aderezos-internos': [['Salsa de tomate', 'Salsa de tomate', 30, 0], ['Aderezo chipotle preparado', 'Chipotle', 30, 0], ['Salsa BBQ', 'Barbecue', 30, 0], ['Blue cheese de la casa', 'Blue cheese', 30, 0], ['Mayonesa', 'Mayonesa', 15, 0]],
-    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['Pl?tano', 'Pl?tano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
+    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['Plátano', 'Plátano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
     'proteinas': [['Pollo', 'Pollo', 100, 15], ['Jamón de pavo', 'Jamón de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
     'quesos': [['Queso manchego', 'Queso manchego', 35, 10], ['Queso mozzarella', 'Queso mozzarella', 35, 10], ['Mix quesos', 'Mix quesos', 40, 10]],
   };
   for (let i = 0; i < families.length; i += 1) {
+    const existingFamily = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`)
+      .bind(currentTenantId(env), families[i].family_key)
+      .first();
     const fam = await upsertOptionFamily(env, { ...families[i], sort_order: i + 1 });
     if (!fam?.id) continue;
+    // Solo sembrar opciones cuando la familia acaba de crearse. Si ya existia,
+    // respetamos ediciones manuales como quitar Salsa italiana o agregar jalapeños.
+    if (existingFamily?.id) continue;
     const options = familyOptions[families[i].family_key] || [];
     for (let j = 0; j < options.length; j += 1) {
       const [item_name, option_name, quantity, extra_price, is_default] = options[j];
@@ -875,7 +881,7 @@ async function seedOptionFamilies(env) {
     ['latte','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['latte','jarabes','Jarabe',0,0,2,'',10,0],
     ['frappe','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['frappe','jarabes','Jarabe',0,0,2,'',10,0],
     ['crepa-dulce','toppings-dulces','Sabores y toppings',1,2,5,'',10,1],
-    ['crepa-salada','proteinas','Prote?na',1,1,2,'Jamón de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
+    ['crepa-salada','proteinas','Proteína',1,1,2,'Jamón de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
   ];
   const productIds = ['panini-jamon-queso','panini-pizza','panini-pollo-chipotle','panini-pollo-bbq','wrap-jamon-queso','wrap-pollo-chipotle','wrap-pollo-bbq','wrap-pecas'];
   const internalDefaults = {
@@ -884,7 +890,7 @@ async function seedOptionFamilies(env) {
   };
   for (const productId of productIds) {
     productRules.push([productId,'aderezos-internos','Aderezo interno',1,1,1,internalDefaults[productId] || '',0,1]);
-    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompa?amiento',0,1,2,'',10,0]);
+    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompañamiento',0,1,2,'',10,0]);
   }
   const saladDefaults = {'ensalada-blue':'Blue cheese','ensalada-chipotle':'Chipotle','ensalada-bbq':'Barbecue','ensalada-fresa-nuez':'Salsa italiana'};
   for (const [productId, def] of Object.entries(saladDefaults)) productRules.push([productId,'aderezos-acompanamiento','Aderezo',1,1,2,def,10,1]);
@@ -904,8 +910,8 @@ async function saveOptionFamily(env, family = {}) {
   const options = Array.isArray(family.options) ? family.options : [];
   for (let i = 0; i < options.length; i += 1) await upsertFamilyOption(env, fam.id, options[i], i + 1);
 
-  // Las reglas producto+familia NO se borran f?sicamente.
-  // Si el usuario quit? una regla, queda inactiva. As? seedOptionFamilies no la revive.
+  // Las reglas producto+familia NO se borran fisicamente.
+  // Si el usuario quito una regla, queda inactiva. Asi seedOptionFamilies no la revive.
   const incomingRules = Array.isArray(family.productRules) ? family.productRules : [];
   const incomingProductIds = new Set(incomingRules.map((rule) => String(rule.product_id || '').trim()).filter(Boolean));
   const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).all();
@@ -1928,7 +1934,7 @@ async function seedRecipeDefaults(env) {
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
         ['Nutella', 35, 'ingrediente', 1, 1, 10], ['Cajeta', 35, 'ingrediente', 1, 1, 10], ['Lechera', 30, 'ingrediente', 1, 1, 10], ['Queso crema', 35, 'ingrediente', 1, 1, 10],
-        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['Pl?tano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
+        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['Plátano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
       ]
     },
     {
@@ -1940,11 +1946,11 @@ async function seedRecipeDefaults(env) {
     },
 
     // Café y bebidas
-    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frappé', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frappé', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso café', 1, 'empaque', 0, 0, 0], ['Tapa café', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:coca', recipe_type: 'product', name: 'Coca-Cola', lines: [['Coca Cola regular', 1, 'ingrediente', 0, 0, 0]] },
-    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin az?car', 1, 'ingrediente', 0, 0, 0]] },
+    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin azúcar', 1, 'ingrediente', 0, 0, 0]] },
     { recipe_key: 'product:agua', recipe_type: 'product', name: 'Agua', lines: [['Aguas', 1, 'ingrediente', 0, 0, 0]] },
   ];
 
@@ -2407,6 +2413,8 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
+
+
 
 
 

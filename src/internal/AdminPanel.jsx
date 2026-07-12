@@ -205,6 +205,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
       category: categoryId,
       type: 'custom',
       price: Number(newProductDraft.price || 0),
+      recipeKey: `product:${id}`,
       description: '',
       ingredients: '',
       image: '',
@@ -418,13 +419,14 @@ export default function AdminPanel({ products, categoriesList = categories, cate
         customCategory: true,
       }));
     const extraProducts = drafts
-      .filter((product) => product.customProduct)
       .map((product) => ({
         id: slugifyCatalogId(product.id || product.name, 'producto'),
         name: product.name,
         category: product.category,
         type: product.type || 'custom',
         price: Number(product.price || 0),
+        recipeId: product.recipeId || null,
+        recipeKey: product.recipeKey || `product:${slugifyCatalogId(product.id || product.name, 'producto')}`,
         badge: product.badge || '',
         description: product.description || '',
         ingredients: product.ingredients || '',
@@ -448,7 +450,10 @@ export default function AdminPanel({ products, categoriesList = categories, cate
           branchSettings: branchSettingsDraft,
         }),
       });
-      setStatus('Cambios guardados.');
+      const warning = Array.isArray(result.mojibakeWarnings) && result.mojibakeWarnings.length
+        ? ` Revisa posible mojibake: ${result.mojibakeWarnings.slice(0, 3).join(', ')}`
+        : '';
+      setStatus(`Cambios guardados.${warning}`);
       await reloadMenu();
     } catch (error) {
       setStatus(`No se pudo guardar: ${error.message}`);
@@ -651,6 +656,11 @@ export default function AdminPanel({ products, categoriesList = categories, cate
                           <input value={product.name} onChange={(e) => updateDraft(product.id, 'name', e.target.value)} />
                         </label>
                         <label className="field">
+                          <span>Receta stock</span>
+                          <input value={product.recipeKey || `product:${product.id}`} onChange={(e) => updateDraft(product.id, 'recipeKey', e.target.value)} placeholder={`product:${product.id}`} />
+                          <small>Debe coincidir con una receta activa para descontar inventario.</small>
+                        </label>
+                        <label className="field">
                           <span>Precio</span>
                           <input type="number" value={product.price} onChange={(e) => updateDraft(product.id, 'price', e.target.value)} />
                         </label>
@@ -684,6 +694,9 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     </main>
   );
 }
+
+
+
 
 
 

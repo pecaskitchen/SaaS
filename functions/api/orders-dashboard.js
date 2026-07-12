@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -12,25 +12,9 @@ function getPassword(request) {
   return request.headers.get('x-orders-password') || '';
 }
 
-// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
-// para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
-// conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal â€” ya estaba correctamente scoped por tenant_id vía
-// readBranchSettings(env, tenantId), así que no representa una fuga.
-// MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
-// para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
-// conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal â€” ya estaba correctamente scoped por tenant_id vía
-// readBranchSettings(env, tenantId), así que no representa una fuga.
-//
-// IMPORTANTE: NO se restauran env.ADMIN_PASSWORD/env.ORDERS_PASSWORD como
-// fallback aquí â€” esas eran contraseñas globales compartidas por TODOS los
-// tenants del deployment (hallazgo crítico #3). Si un dev las reintroduce
-// "por si acaso", vuelve a abrir el cross-tenant hopping.
+// MIGRADO a JWT: ya no se aceptan contrasenas globales del deployment.
+// El acceso se valida con usuario del tenant o con PIN de sucursal acotado
+// al tenant resuelto por hostname.
 async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
 
@@ -38,8 +22,8 @@ async function resolveOrdersAccess(request, env, tenantId) {
     if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
       return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
     }
-    // JWT válido con rol "orders": igual puede acotarse a una sucursal si
-    // manda también el PIN de esa sucursal; si no, ve todas las que aplique
+    // JWT valido con rol "orders": igual puede acotarse a una sucursal si
+    // manda tambien el PIN de esa sucursal; si no, ve todas las que aplique
     // a su tenant.
     const password = getPassword(request);
     const branchSettings = await readBranchSettings(env, tenantId);
@@ -48,7 +32,7 @@ async function resolveOrdersAccess(request, env, tenantId) {
     return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
   }
 
-  // Sin JWT: único camino válido es el PIN de sucursal (personal sin cuenta
+  // Sin JWT: unico camino valido es el PIN de sucursal (personal sin cuenta
   // propia), siempre acotado al tenant resuelto por hostname.
   const password = getPassword(request);
   if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
@@ -741,4 +725,7 @@ export async function onRequestPatch(context) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }
 }
+
+
+
 

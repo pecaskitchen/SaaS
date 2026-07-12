@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
 import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -10,7 +10,7 @@ function jsonResponse(data, status = 200) {
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6).
 // IMPORTANTE: no reintroducir env.SUPER_PASSWORD/env.ADMIN_PASSWORD como
-// fallback â€” eran contraseñas globales compartidas por TODOS los tenants.
+// fallback: eran contrasenas globales compartidas por TODOS los tenants.
 async function checkSuperAuth(request, env) {
   return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
 }
@@ -132,7 +132,7 @@ export async function onRequestGet({ request, env }) {
     const hasDb = await ensureAppSettings(env);
     if (!hasDb) return jsonResponse(superPayload(normalizeSavedMenu(''), 'No hay binding DB. Los cambios no se guardaran.'));
 
-    // CORREGIDO: antes leía siempre la key global 'menu_overrides', mezclando
+    // CORREGIDO: antes leia siempre la key global 'menu_overrides', mezclando
     // promociones/horarios de TODOS los tenants. Ahora usa la misma clave
     // namespaced por tenant que admin/menu.js.
     const tenantId = await resolveTenantId(request, env);
@@ -215,6 +215,8 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar Super usuario.', detail: error.message }, 500);
   }
 }
+
+
 
 
 

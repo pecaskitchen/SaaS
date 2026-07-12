@@ -1,4 +1,4 @@
-import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -506,7 +506,7 @@ async function seedDefaults(env) {
     ).bind(...unit).run();
   }
 
-  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Caf? y bebidas', 'Empaque', 'Limpieza / otros'];
+  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Café y bebidas', 'Empaque', 'Limpieza / otros'];
   for (let index = 0; index < categories.length; index += 1) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO stock_purchase_categories (tenant_id, name, sort_order) VALUES (?, ?, ?)`
@@ -527,7 +527,7 @@ async function seedDefaults(env) {
   const fruta = await getLookupId(env, 'stock_purchase_categories', 'name', 'Fruta');
   const verd = await getLookupId(env, 'stock_purchase_categories', 'name', 'Verduras');
   const cond = await getLookupId(env, 'stock_purchase_categories', 'name', 'Condimentos y aderezos');
-  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'Caf? y bebidas');
+  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'Café y bebidas');
   const emp = await getLookupId(env, 'stock_purchase_categories', 'name', 'Empaque');
   const costco = await getLookupId(env, 'stock_suppliers', 'name', 'Costco');
   const heb = await getLookupId(env, 'stock_suppliers', 'name', 'HEB');
@@ -539,7 +539,7 @@ async function seedDefaults(env) {
     ['Pan chapata', '', 'Ingrediente comprado', piece, 0, 10, 50, 95, costco, heb, pan, 'bolsa 12 piezas', 12, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Tortilla wrap', '', 'Ingrediente comprado', piece, 0, 10, 40, 95, costco, heb, pan, 'paquete', 10, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Masa crepa', '', 'Ingrediente comprado', grams, 0, 500, 2500, 85, heb, costco, refr, 'mezcla preparada', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-    ['Jam?n de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['Jamón de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Pepperoni', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso manchego', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso mozzarella', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
@@ -554,7 +554,7 @@ async function seedDefaults(env) {
     ['Lechera', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, cond, 'lata/botella', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Leche entera', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
     ['Leche deslactosada', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
-    ['Caf?', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+    ['Café', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Hielo en bolsa', '', 'Hielo', bag, 0, 1, 5, 65, heb, costco, cafe, 'bolsa', 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Mayonesa', 'McCormick', 'Ingrediente comprado', grams, 0, 500, 4000, 80, sams, costco, cond, 'cubeta', 3400, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Chipotle', '', 'Ingrediente comprado', grams, 0, 200, 1500, 80, heb, costco, cond, 'lata', 200, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
@@ -828,7 +828,7 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
     `SELECT id, is_active FROM stock_product_option_groups WHERE tenant_id = ? AND product_id = ? AND family_id = ? LIMIT 1`
   ).bind(currentTenantId(env), productId, family.id).first();
 
-  // Si el usuario quit? manualmente una familia del producto, queda como is_active=0.
+  // Si el usuario quitó manualmente una familia del producto, queda como is_active=0.
   // Las semillas/base no deben reactivarla. Un import CSV o edici?n manual s? puede reactivarla.
   if (rule.fromSeed && existing?.id && Number(existing.is_active || 0) === 0) return true;
 
@@ -859,7 +859,7 @@ async function seedOptionFamilies(env) {
     'aderezos-acompanamiento': [['Aderezo chipotle preparado', 'Chipotle', 40, 10], ['Blue cheese de la casa', 'Blue cheese', 40, 10], ['Salsa BBQ', 'Barbecue', 40, 10], ['Ensalada italiana', 'Salsa italiana', 40, 10]],
     'aderezos-internos': [['Salsa de tomate', 'Salsa de tomate', 30, 0], ['Aderezo chipotle preparado', 'Chipotle', 30, 0], ['Salsa BBQ', 'Barbecue', 30, 0], ['Blue cheese de la casa', 'Blue cheese', 30, 0], ['Mayonesa', 'Mayonesa', 15, 0]],
     'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['Pl?tano', 'Pl?tano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
-    'proteinas': [['Pollo', 'Pollo', 100, 15], ['Jam?n de pavo', 'Jam?n de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
+    'proteinas': [['Pollo', 'Pollo', 100, 15], ['Jamón de pavo', 'Jamón de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
     'quesos': [['Queso manchego', 'Queso manchego', 35, 10], ['Queso mozzarella', 'Queso mozzarella', 35, 10], ['Mix quesos', 'Mix quesos', 40, 10]],
   };
   for (let i = 0; i < families.length; i += 1) {
@@ -875,7 +875,7 @@ async function seedOptionFamilies(env) {
     ['latte','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['latte','jarabes','Jarabe',0,0,2,'',10,0],
     ['frappe','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['frappe','jarabes','Jarabe',0,0,2,'',10,0],
     ['crepa-dulce','toppings-dulces','Sabores y toppings',1,2,5,'',10,1],
-    ['crepa-salada','proteinas','Prote?na',1,1,2,'Jam?n de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
+    ['crepa-salada','proteinas','Prote?na',1,1,2,'Jamón de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
   ];
   const productIds = ['panini-jamon-queso','panini-pizza','panini-pollo-chipotle','panini-pollo-bbq','wrap-jamon-queso','wrap-pollo-chipotle','wrap-pollo-bbq','wrap-pecas'];
   const internalDefaults = {
@@ -1841,11 +1841,11 @@ async function saveRecipe(env, recipe) {
 
 
 const PRODUCT_RECIPE_SHELLS = [
-  ['product:panini-jamon-queso', 'Panini jam?n y queso'],
+  ['product:panini-jamon-queso', 'Panini jamón y queso'],
   ['product:panini-pizza', 'Panini pizza'],
   ['product:panini-pollo-chipotle', 'Panini pollo chipotle'],
   ['product:panini-pollo-bbq', 'Panini pollo BBQ'],
-  ['product:wrap-jamon-queso', 'Wrap jam?n y queso'],
+  ['product:wrap-jamon-queso', 'Wrap jamón y queso'],
   ['product:wrap-pollo-chipotle', 'Wrap pollo chipotle'],
   ['product:wrap-pollo-bbq', 'Wrap pollo BBQ'],
   ['product:wrap-pecas', 'Wrap Pecas'],
@@ -1857,7 +1857,7 @@ const PRODUCT_RECIPE_SHELLS = [
   ['product:crepa-salada', 'Crepa salada'],
   ['product:americano', 'Americano'],
   ['product:latte', 'Latte'],
-  ['product:frappe', 'Frapp?'],
+  ['product:frappe', 'Frappé'],
   ['product:coca', 'Coca-Cola'],
   ['product:coca-light', 'Coca-Cola Light'],
   ['product:agua', 'Agua'],
@@ -1905,13 +1905,13 @@ async function seedRecipeDefaults(env) {
     },
 
     // Paninis
-    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jam?n y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jamón y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Jamón de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pizza', recipe_type: 'product', name: 'Panini pizza', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pepperoni', 45, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa de tomate', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-chipotle', recipe_type: 'product', name: 'Panini pollo chipotle', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 35, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-bbq', recipe_type: 'product', name: 'Panini pollo BBQ', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 35, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
 
     // Wraps
-    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jam?n y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jamón y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Jamón de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-chipotle', recipe_type: 'product', name: 'Wrap pollo chipotle', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-bbq', recipe_type: 'product', name: 'Wrap pollo BBQ', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 30, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pecas', recipe_type: 'product', name: 'Wrap Pecas', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Blue cheese de la casa', 30, 'aderezo_interno', 1, 0, 0], ['Queso mozzarella', 25, 'ingrediente', 1, 1, 0], ['Queso manchego', 25, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
@@ -1935,14 +1935,14 @@ async function seedRecipeDefaults(env) {
       recipe_key: 'product:crepa-salada', recipe_type: 'product', name: 'Crepa salada',
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
-        ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
+        ['Jamón de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
       ]
     },
 
-    // Caf? y bebidas
-    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frapp?', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
+    // Café y bebidas
+    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frappé', lines: [['Café', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:coca', recipe_type: 'product', name: 'Coca-Cola', lines: [['Coca Cola regular', 1, 'ingrediente', 0, 0, 0]] },
     { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin az?car', 1, 'ingrediente', 0, 0, 0]] },
     { recipe_key: 'product:agua', recipe_type: 'product', name: 'Agua', lines: [['Aguas', 1, 'ingrediente', 0, 0, 0]] },
@@ -1969,7 +1969,7 @@ async function seedRecipeDefaults(env) {
           extra_price: extraPrice,
         });
       }
-      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada autom?ticamente.' : 'Receta base creada sin l?neas porque faltan ingredientes en inventario. Completar desde CSV.' });
+      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada automáticamente.' : 'Receta base creada sin líneas porque faltan ingredientes en inventario. Completar desde CSV.' });
       saved += 1;
     } catch (error) {
       errors.push(`${def.recipe_key}: ${error.message}`);
@@ -2011,7 +2011,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
 
     const ingredientName = String(row.ingredient_name || '').trim();
     const quantity = Number(row.quantity || 0);
-    // Permite recetas cascar?n descargadas desde el sistema: crean/actualizan la receta sin l?neas.
+    // Permite recetas cascar?n descargadas desde el sistema: crean/actualizan la receta sin líneas.
     if (!ingredientName && !quantity) continue;
     if (!ingredientName || !quantity) {
       skipped += 1;
@@ -2198,7 +2198,7 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     // CORREGIDO: antes se llamaba a auth()/authFromValues() ANTES de fijar
-    // env.__tenantId, por lo que la validaci?n de PIN de sucursal se hac?a
+    // env.__tenantId, por lo que la validación de PIN de sucursal se hacía
     // contra el tenant equivocado (el default, no el del hostname real).
     env.__tenantId = await resolveTenantId(request, env);
     const body = await request.json();
@@ -2404,8 +2404,9 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({ ok: false, error: 'Acci?n inv?lida.' }, 400);
   } catch (error) {
-    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validaci?n.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
+    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
+
 
 

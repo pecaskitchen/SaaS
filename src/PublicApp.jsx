@@ -145,6 +145,7 @@ const TEXT = {
     paymentTransfer: 'Transferencia',
     paymentCash: 'Efectivo',
     paymentCard: 'Tarjeta',
+    paymentMercadoPago: 'Mercado Pago',
     orderNotePlaceholder: 'Nota general del pedido',
     saveMyData: 'Guardar mis datos',
     clearData: 'Borrar datos',
@@ -243,6 +244,7 @@ const TEXT = {
     paymentTransfer: 'Bank transfer',
     paymentCash: 'Cash',
     paymentCard: 'Card',
+    paymentMercadoPago: 'Mercado Pago',
     orderNotePlaceholder: 'General order note',
     saveMyData: 'Save my details',
     clearData: 'Clear details',
@@ -1569,7 +1571,8 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
 
     const message = buildMessage();
     const total = subtotal;
-    const whatsappWindow = window.open('', '_blank');
+    const isMercadoPago = customer.payment === 'Mercado Pago';
+    const whatsappWindow = isMercadoPago ? null : window.open('', '_blank');
 
     const payload = {
       customer: {
@@ -1602,7 +1605,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     };
 
     try {
-      const response = await fetch(publicApiPath('/api/orders'), {
+      const response = await fetch(publicApiPath(isMercadoPago ? '/api/checkout/create' : '/api/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1613,6 +1616,12 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       if (!response.ok || !result.ok) {
         if (whatsappWindow) whatsappWindow.close();
         alert(result.error || result.detail || t(lang, 'saveOrderError'));
+        return;
+      }
+
+      if (isMercadoPago) {
+        if (clearCart) clearCart();
+        window.location.href = result.initPoint;
         return;
       }
 
@@ -1685,6 +1694,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
           <option value="Transferencia">{t(lang, 'paymentTransfer')}</option>
           <option value="Efectivo">{t(lang, 'paymentCash')}</option>
           <option value="Tarjeta">{t(lang, 'paymentCard')}</option>
+          <option value="Mercado Pago">{t(lang, 'paymentMercadoPago')}</option>
         </select>
         <textarea value={customer.orderNote} onChange={(e) => updateCustomer('orderNote', e.target.value)} placeholder={t(lang, 'orderNotePlaceholder')} rows="2" />
         <div className="profile-actions">
@@ -1982,7 +1992,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
 
 
 

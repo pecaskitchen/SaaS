@@ -97,7 +97,7 @@ function getTimestamps() {
   return { utc: now.toISOString(), monterrey: monterreyTime };
 }
 
-async function ensureSchema(env) {
+export async function ensureSchema(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -318,7 +318,6 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
-
 
 
 

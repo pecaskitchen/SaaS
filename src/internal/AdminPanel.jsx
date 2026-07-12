@@ -13,6 +13,7 @@ import { categories } from '../data/menu.js';
 import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js';
 
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
+const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const items = [
@@ -106,7 +107,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
   const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
-  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, catalog: false, promo: true, hours: true, sections: true });
+  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, catalog: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
@@ -492,6 +493,15 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               <button type="button" className="primary" onClick={saveMenu}><Save size={16} /> Guardar cambios</button>
               {status && <p className="admin-status">{status}</p>}
             </div>
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('payments')}>Pagos en línea <span>{openAdminSections.payments ? '-' : '+'}</span></button>
+              {openAdminSections.payments && (
+                <div className="admin-order-box">
+                  <PaymentsSettings />
+                </div>
+              )}
+            </section>
+
             <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('catalog')}>Catálogo operativo <span>{openAdminSections.catalog ? '-' : '+'}</span></button>
               {openAdminSections.catalog && (

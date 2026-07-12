@@ -95,13 +95,13 @@ function safeDecodeHeader(value) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contraseÃ±as globales
+// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contrase?as globales
 // para TODOS los tenants. Ahora exige un usuario admin/kitchen/platform_admin
-// vÃ¡lido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
-// esta funciÃ³n Ã¢â‚¬â€ ver correcciÃ³n de orden en onRequestPost mÃ¡s abajo). El PIN
+// v?lido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
+// esta funci?n - ver correcci?n de orden en onRequestPost m?s abajo). El PIN
 // por sucursal (branch.stockPassword) se conserva como segundo factor
 // opcional para acotar la vista a una sola sucursal; ya estaba scoped por
-// tenant_id vÃ­a readMenuSettings(env), asÃ­ que no representa una fuga.
+// tenant_id v?a readMenuSettings(env), as? que no representa una fuga.
 async function authFromValues(values, env, request = null) {
   const name = String(values?.operatorName || values?.name || '').trim();
   const shift = String(values?.shift || '').trim() || 'Sin turno';
@@ -118,9 +118,9 @@ async function authFromValues(values, env, request = null) {
   }
 
   // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
-  // fallback aquÃ­ Ã¢â‚¬â€ eran contraseÃ±as globales compartidas por TODOS los
-  // tenants (hallazgo crÃ­tico #3). El Ãºnico fallback vÃ¡lido sin JWT es el
-  // PIN por sucursal de abajo, que ya estÃ¡ scoped por tenant_id.
+  // fallback aqu? - eran contrase?as globales compartidas por TODOS los
+  // tenants (hallazgo cr?tico #3). El ?nico fallback v?lido sin JWT es el
+  // PIN por sucursal de abajo, que ya est? scoped por tenant_id.
   try {
     const settings = await readMenuSettings(env);
     const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);
@@ -129,7 +129,7 @@ async function authFromValues(values, env, request = null) {
   } catch {
     // If menu settings are not initialized yet, fall through to invalid password.
   }
-  return { ok: false, error: 'SesiÃ³n invÃ¡lida o contraseÃ±a de sucursal incorrecta.' };
+  return { ok: false, error: 'Sesi?n inv?lida o contrase?a de sucursal incorrecta.' };
 }
 
 async function auth(request, env) {
@@ -498,7 +498,7 @@ async function seedDefaults(env) {
     ['bolsa', 'Bolsa', 'count', 6],
     ['paquete', 'Paquete', 'count', 7],
     ['caja', 'Caja', 'count', 8],
-    ['porcion', 'PorciÃ³n', 'count', 9],
+    ['porcion', 'Porci?n', 'count', 9],
   ];
   for (const unit of units) {
     await env.DB.prepare(
@@ -506,14 +506,14 @@ async function seedDefaults(env) {
     ).bind(...unit).run();
   }
 
-  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'CafÃ© y bebidas', 'Empaque', 'Limpieza / otros'];
+  const categories = ['Pan', 'Refrigerados', 'Verduras', 'Fruta', 'Condimentos y aderezos', 'Caf? y bebidas', 'Empaque', 'Limpieza / otros'];
   for (let index = 0; index < categories.length; index += 1) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO stock_purchase_categories (tenant_id, name, sort_order) VALUES (?, ?, ?)`
     ).bind(tenantId, categories[index], index + 1).run();
   }
 
-  const suppliers = ['Costco', 'SamÃ¢â‚¬â„¢s', 'HEB', 'Proveedor local', 'Empaques'];
+  const suppliers = ['Costco', "Sam's", 'HEB', 'Proveedor local', 'Empaques'];
   for (const supplier of suppliers) {
     await env.DB.prepare(`INSERT OR IGNORE INTO stock_suppliers (tenant_id, name) VALUES (?, ?)`).bind(tenantId, supplier).run();
   }
@@ -527,11 +527,11 @@ async function seedDefaults(env) {
   const fruta = await getLookupId(env, 'stock_purchase_categories', 'name', 'Fruta');
   const verd = await getLookupId(env, 'stock_purchase_categories', 'name', 'Verduras');
   const cond = await getLookupId(env, 'stock_purchase_categories', 'name', 'Condimentos y aderezos');
-  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'CafÃ© y bebidas');
+  const cafe = await getLookupId(env, 'stock_purchase_categories', 'name', 'Caf? y bebidas');
   const emp = await getLookupId(env, 'stock_purchase_categories', 'name', 'Empaque');
   const costco = await getLookupId(env, 'stock_suppliers', 'name', 'Costco');
   const heb = await getLookupId(env, 'stock_suppliers', 'name', 'HEB');
-  const sams = await getLookupId(env, 'stock_suppliers', 'name', 'SamÃ¢â‚¬â„¢s');
+  const sams = await getLookupId(env, 'stock_suppliers', 'name', "Sam's");
   const empaques = await getLookupId(env, 'stock_suppliers', 'name', 'Empaques');
   const now = new Date().toISOString();
 
@@ -539,7 +539,7 @@ async function seedDefaults(env) {
     ['Pan chapata', '', 'Ingrediente comprado', piece, 0, 10, 50, 95, costco, heb, pan, 'bolsa 12 piezas', 12, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Tortilla wrap', '', 'Ingrediente comprado', piece, 0, 10, 40, 95, costco, heb, pan, 'paquete', 10, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Masa crepa', '', 'Ingrediente comprado', grams, 0, 500, 2500, 85, heb, costco, refr, 'mezcla preparada', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-    ['JamÃ³n de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['Jam?n de pavo', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Pepperoni', '', 'Ingrediente comprado', grams, 0, 300, 1500, 85, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso manchego', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Queso mozzarella', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, refr, 'paquete 1 kg', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
@@ -547,14 +547,14 @@ async function seedDefaults(env) {
     ['Pollo', '', 'Ingrediente comprado', grams, 0, 500, 3000, 80, costco, heb, refr, 'paquete', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Lechuga', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, verd, 'pieza/bolsa', 500, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
     ['Fresa', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'paquete', 450, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
-    ['PlÃ¡tano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+    ['Pl?tano', '', 'Ingrediente comprado', grams, 0, 300, 1500, 75, heb, costco, fruta, 'kg aprox', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nuez', '', 'Ingrediente comprado', grams, 0, 200, 1000, 85, costco, heb, cond, 'bolsa', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Nutella', 'Nutella', 'Ingrediente comprado', grams, 0, 500, 3000, 85, costco, heb, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Cajeta', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, heb, costco, cond, 'frasco', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Lechera', '', 'Ingrediente comprado', grams, 0, 300, 2000, 85, costco, heb, cond, 'lata/botella', 1000, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1],
     ['Leche entera', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
     ['Leche deslactosada', '', 'Ingrediente comprado', ml, 0, 1000, 6000, 95, heb, costco, cafe, 'litro', 1000, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0],
-    ['CafÃ©', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+    ['Caf?', '', 'Ingrediente comprado', grams, 0, 500, 2000, 95, costco, heb, cafe, 'bolsa', 1000, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Hielo en bolsa', '', 'Hielo', bag, 0, 1, 5, 65, heb, costco, cafe, 'bolsa', 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Mayonesa', 'McCormick', 'Ingrediente comprado', grams, 0, 500, 4000, 80, sams, costco, cond, 'cubeta', 3400, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
     ['Chipotle', '', 'Ingrediente comprado', grams, 0, 200, 1500, 80, heb, costco, cond, 'lata', 200, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
@@ -566,8 +566,8 @@ async function seedDefaults(env) {
     ['Bolsa panini', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Aluminio / papel', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'rollo/paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Sticker', '', 'Empaque', piece, 0, 30, 200, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Vaso cafÃ©', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
-    ['Tapa cafÃ©', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Vaso caf?', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+    ['Tapa caf?', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Popote', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 100 piezas', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Servilleta', '', 'Empaque', piece, 0, 50, 300, 92, empaques, costco, emp, 'paquete', 100, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
     ['Cubiertos', '', 'Empaque', piece, 0, 20, 100, 92, empaques, costco, emp, 'paquete 50 piezas', 50, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0],
@@ -652,11 +652,11 @@ async function saveCatalogProduct(env, product) {
     name,
     description: String(product.description || '').trim(),
     price: Number(product.price || 0),
-    emoji: String(product.emoji || product.icon || 'Ã°Å¸ÂÂ½Ã¯Â¸Â').trim() || 'Ã°Å¸ÂÂ½Ã¯Â¸Â',
+    emoji: String(product.emoji || product.icon || '').trim() || '',
   };
   const extraCategories = Array.isArray(settings.extraCategories) ? [...settings.extraCategories] : [];
   if (!extraCategories.some((item) => item.id === category)) {
-    extraCategories.push({ id: category, label: String(product.categoryLabel || product.category || 'Sin categoria').trim() || 'Sin categoria', emoji: 'Ã°Å¸ÂÂ½Ã¯Â¸Â' });
+    extraCategories.push({ id: category, label: String(product.categoryLabel || product.category || 'Sin categoria').trim() || 'Sin categoria', emoji: '' });
   }
   const baseProducts = Array.isArray(settings.extraProducts) ? settings.extraProducts : [];
   const extraProducts = [
@@ -828,8 +828,8 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
     `SELECT id, is_active FROM stock_product_option_groups WHERE tenant_id = ? AND product_id = ? AND family_id = ? LIMIT 1`
   ).bind(currentTenantId(env), productId, family.id).first();
 
-  // Si el usuario quitÃ³ manualmente una familia del producto, queda como is_active=0.
-  // Las semillas/base no deben reactivarla. Un import CSV o ediciÃ³n manual sÃ­ puede reactivarla.
+  // Si el usuario quit? manualmente una familia del producto, queda como is_active=0.
+  // Las semillas/base no deben reactivarla. Un import CSV o edici?n manual s? puede reactivarla.
   if (rule.fromSeed && existing?.id && Number(existing.is_active || 0) === 0) return true;
 
   const ts = getTimestamps();
@@ -843,23 +843,23 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
 
 async function seedOptionFamilies(env) {
   const families = [
-    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para cafÃ© y frappÃ©s' },
+    { family_key: 'jarabes', name: 'Jarabes', description: 'Sabores para caf? y frapp?s' },
     { family_key: 'leches', name: 'Leches', description: 'Tipo de leche para bebidas' },
-    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompaÃ±amiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
+    { family_key: 'aderezos-acompanamiento', name: 'Aderezos de acompa?amiento', description: 'Aderezo aparte para chapatas, wraps y ensaladas' },
     { family_key: 'aderezos-internos', name: 'Aderezos internos', description: 'Salsas/aderezos dentro del producto' },
     { family_key: 'toppings-dulces', name: 'Toppings dulces', description: 'Sabores y toppings de crepas dulces' },
-    { family_key: 'proteinas', name: 'ProteÃ­nas', description: 'ProteÃ­nas disponibles' },
+    { family_key: 'proteinas', name: 'Prote?nas', description: 'Prote?nas disponibles' },
     { family_key: 'quesos', name: 'Quesos', description: 'Quesos disponibles' },
   ];
   const familyOptions = {
     'jarabes': [
-      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin azÃºcar', 'Vainilla sin azÃºcar', 20, 10], ['Jarabe caramelo sin azÃºcar', 'Caramelo sin azÃºcar', 20, 10]
+      ['Jarabe vainilla francesa', 'Vainilla francesa', 20, 10], ['Jarabe caramelo salado', 'Caramelo salado', 20, 10], ['Jarabe vainilla sin az?car', 'Vainilla sin az?car', 20, 10], ['Jarabe caramelo sin az?car', 'Caramelo sin az?car', 20, 10]
     ],
     'leches': [['Leche entera', 'Leche entera', 250, 0, true], ['Leche deslactosada', 'Leche deslactosada', 250, 0]],
     'aderezos-acompanamiento': [['Aderezo chipotle preparado', 'Chipotle', 40, 10], ['Blue cheese de la casa', 'Blue cheese', 40, 10], ['Salsa BBQ', 'Barbecue', 40, 10], ['Ensalada italiana', 'Salsa italiana', 40, 10]],
     'aderezos-internos': [['Salsa de tomate', 'Salsa de tomate', 30, 0], ['Aderezo chipotle preparado', 'Chipotle', 30, 0], ['Salsa BBQ', 'Barbecue', 30, 0], ['Blue cheese de la casa', 'Blue cheese', 30, 0], ['Mayonesa', 'Mayonesa', 15, 0]],
-    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['PlÃ¡tano', 'PlÃ¡tano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
-    'proteinas': [['Pollo', 'Pollo', 100, 15], ['JamÃ³n de pavo', 'JamÃ³n de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
+    'toppings-dulces': [['Nutella', 'Nutella', 35, 10], ['Cajeta', 'Cajeta', 30, 10], ['Queso crema dulce', 'Queso crema dulce', 35, 10], ['Lechera', 'Lechera', 25, 10], ['Fresa', 'Fresa', 40, 10], ['Pl?tano', 'Pl?tano', 40, 10], ['Nuez', 'Nuez', 15, 10]],
+    'proteinas': [['Pollo', 'Pollo', 100, 15], ['Jam?n de pavo', 'Jam?n de pavo', 60, 10], ['Pepperoni', 'Pepperoni', 45, 10]],
     'quesos': [['Queso manchego', 'Queso manchego', 35, 10], ['Queso mozzarella', 'Queso mozzarella', 35, 10], ['Mix quesos', 'Mix quesos', 40, 10]],
   };
   for (let i = 0; i < families.length; i += 1) {
@@ -875,7 +875,7 @@ async function seedOptionFamilies(env) {
     ['latte','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['latte','jarabes','Jarabe',0,0,2,'',10,0],
     ['frappe','leches','Tipo de leche',1,1,1,'Leche entera',0,1], ['frappe','jarabes','Jarabe',0,0,2,'',10,0],
     ['crepa-dulce','toppings-dulces','Sabores y toppings',1,2,5,'',10,1],
-    ['crepa-salada','proteinas','ProteÃ­na',1,1,2,'JamÃ³n de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
+    ['crepa-salada','proteinas','Prote?na',1,1,2,'Jam?n de pavo',10,1], ['crepa-salada','quesos','Queso',1,1,2,'Queso manchego',10,1],
   ];
   const productIds = ['panini-jamon-queso','panini-pizza','panini-pollo-chipotle','panini-pollo-bbq','wrap-jamon-queso','wrap-pollo-chipotle','wrap-pollo-bbq','wrap-pecas'];
   const internalDefaults = {
@@ -884,7 +884,7 @@ async function seedOptionFamilies(env) {
   };
   for (const productId of productIds) {
     productRules.push([productId,'aderezos-internos','Aderezo interno',1,1,1,internalDefaults[productId] || '',0,1]);
-    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompaÃ±amiento',0,1,2,'',10,0]);
+    productRules.push([productId,'aderezos-acompanamiento','Aderezo de acompa?amiento',0,1,2,'',10,0]);
   }
   const saladDefaults = {'ensalada-blue':'Blue cheese','ensalada-chipotle':'Chipotle','ensalada-bbq':'Barbecue','ensalada-fresa-nuez':'Salsa italiana'};
   for (const [productId, def] of Object.entries(saladDefaults)) productRules.push([productId,'aderezos-acompanamiento','Aderezo',1,1,2,def,10,1]);
@@ -904,8 +904,8 @@ async function saveOptionFamily(env, family = {}) {
   const options = Array.isArray(family.options) ? family.options : [];
   for (let i = 0; i < options.length; i += 1) await upsertFamilyOption(env, fam.id, options[i], i + 1);
 
-  // Las reglas producto+familia NO se borran fÃ­sicamente.
-  // Si el usuario quitÃ³ una regla, queda inactiva. AsÃ­ seedOptionFamilies no la revive.
+  // Las reglas producto+familia NO se borran f?sicamente.
+  // Si el usuario quit? una regla, queda inactiva. As? seedOptionFamilies no la revive.
   const incomingRules = Array.isArray(family.productRules) ? family.productRules : [];
   const incomingProductIds = new Set(incomingRules.map((rule) => String(rule.product_id || '').trim()).filter(Boolean));
   const existingRules = await env.DB.prepare(`SELECT id, product_id FROM stock_product_option_groups WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).all();
@@ -933,7 +933,7 @@ async function removeProductFamilyRule(env, { familyId, familyKey, productId }) 
 function normalizeImportedBool(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
   const normalized = String(value).trim().toLowerCase();
-  return ['1', 'true', 'si', 'sÃ­', 'yes', 'y', 'x'].includes(normalized);
+  return ['1', 'true', 'si', 's?', 'yes', 'y', 'x'].includes(normalized);
 }
 
 async function validateFamilyImportRows(env, rows = []) {
@@ -956,22 +956,22 @@ async function validateFamilyImportRows(env, rows = []) {
     const rowType = String(row.row_type || row.record_type || '').trim().toLowerCase();
     if (rowType === 'family') return;
     if (!familyKey) errors.push({ line, field: 'family_key', message: 'Falta la clave de familia.' });
-    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vacÃ­o'}.` });
+    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vac?o'}.` });
     if (['option','family_option'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opciÃ³n.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opci?n.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente principal.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente Ã¢â‚¬Å“${ingredient}Ã¢â‚¬Â.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
       if (!optionNames.has(familyKey)) optionNames.set(familyKey, new Set());
       optionNames.get(familyKey).add(optionName.toLowerCase());
     }
     if (['component','family_component'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a quÃ© opciÃ³n pertenece.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a qu? opci?n pertenece.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente del componente.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente Ã¢â‚¬Å“${ingredient}Ã¢â‚¬Â.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
       if (Number(row.quantity || 0) <= 0) errors.push({ line, field: 'quantity', message: 'La cantidad del componente debe ser mayor a 0.' });
     }
     if (['product_rule','family_product_rule'].includes(rowType) && !String(row.product_id || '').trim()) errors.push({ line, field: 'product_id', message: 'Falta product_id.' });
@@ -981,7 +981,7 @@ async function validateFamilyImportRows(env, rows = []) {
     if (!['component','family_component'].includes(rowType)) return;
     const familyKey = String(row.family_key || '').trim();
     const optionName = String(row.option_name || '').trim().toLowerCase();
-    if (!optionNames.get(familyKey)?.has(optionName)) errors.push({ line: Number(row.__line || index + 2), field: 'option_name', message: `No existe una fila option para Ã¢â‚¬Å“${row.option_name}Ã¢â‚¬Â dentro de ${familyKey}.` });
+    if (!optionNames.get(familyKey)?.has(optionName)) errors.push({ line: Number(row.__line || index + 2), field: 'option_name', message: `No existe una fila option para ?${row.option_name}? dentro de ${familyKey}.` });
   });
   return errors;
 }
@@ -989,7 +989,7 @@ async function validateFamilyImportRows(env, rows = []) {
 async function importOptionFamilies(env, rows = [], mode = 'upsert') {
   const errors = await validateFamilyImportRows(env, rows);
   if (errors.length) {
-    const error = new Error(`CSV de familias invÃ¡lido: ${errors.length} error(es).`);
+    const error = new Error(`CSV de familias inv?lido: ${errors.length} error(es).`);
     error.validationErrors = errors;
     throw error;
   }
@@ -1273,7 +1273,7 @@ async function listData(env, requestedBranchId = null) {
   const effectiveOverrides = { ...(menuSettingsRaw.overrides || {}) };
   // Siempre ignoramos soldOut global legacy en Stock. El estado operativo
   // de agotado debe venir de la sucursal seleccionada, aun si multi-sucursal
-  // estÃ¡ apagado y se usa la sucursal default.
+  // est? apagado y se usa la sucursal default.
   for (const productId of Object.keys(effectiveOverrides)) {
     if (effectiveOverrides[productId]) {
       const { soldOut, ...rest } = effectiveOverrides[productId];
@@ -1563,7 +1563,7 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 
   const stockBefore = await getBranchStock(env, itemId, selectedBranchId);
   const qty = wholeNumber(quantity, 'Cantidad de movimiento');
-  if (!qty) throw new Error('Cantidad invÃ¡lida.');
+  if (!qty) throw new Error('Cantidad inv?lida.');
   const stockAfter = stockBefore + qty;
   if (stockAfter < 0) throw new Error('No hay suficiente stock para descontar esa cantidad.');
   const ts = getTimestamps();
@@ -1631,7 +1631,7 @@ async function updateQuickItems(env, items, user, branchId) {
         itemId,
         movementType: 'ajuste_rapido',
         quantity: diff,
-        reason: 'EdiciÃ³n rÃ¡pida de inventario',
+        reason: 'Edici?n r?pida de inventario',
         sourceType: 'quick_edit',
         user,
         approvedBy: user.name,
@@ -1714,7 +1714,7 @@ async function importItems(env, rows, mode, user, branchId) {
           itemId: existing.id,
           movementType: 'importacion_csv',
           quantity: diff,
-          reason: 'ImportaciÃ³n CSV',
+          reason: 'Importaci?n CSV',
           sourceType: 'csv_import',
           user,
           approvedBy: user.name,
@@ -1841,11 +1841,11 @@ async function saveRecipe(env, recipe) {
 
 
 const PRODUCT_RECIPE_SHELLS = [
-  ['product:panini-jamon-queso', 'Panini jamÃ³n y queso'],
+  ['product:panini-jamon-queso', 'Panini jam?n y queso'],
   ['product:panini-pizza', 'Panini pizza'],
   ['product:panini-pollo-chipotle', 'Panini pollo chipotle'],
   ['product:panini-pollo-bbq', 'Panini pollo BBQ'],
-  ['product:wrap-jamon-queso', 'Wrap jamÃ³n y queso'],
+  ['product:wrap-jamon-queso', 'Wrap jam?n y queso'],
   ['product:wrap-pollo-chipotle', 'Wrap pollo chipotle'],
   ['product:wrap-pollo-bbq', 'Wrap pollo BBQ'],
   ['product:wrap-pecas', 'Wrap Pecas'],
@@ -1857,7 +1857,7 @@ const PRODUCT_RECIPE_SHELLS = [
   ['product:crepa-salada', 'Crepa salada'],
   ['product:americano', 'Americano'],
   ['product:latte', 'Latte'],
-  ['product:frappe', 'FrappÃ©'],
+  ['product:frappe', 'Frapp?'],
   ['product:coca', 'Coca-Cola'],
   ['product:coca-light', 'Coca-Cola Light'],
   ['product:agua', 'Agua'],
@@ -1883,7 +1883,7 @@ async function ensureProductRecipeShells(env) {
     await env.DB.prepare(
       `INSERT INTO stock_recipes (recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
        VALUES (?, 'product', ?, NULL, 0, ?, 1, ?, ?)`
-    ).bind(recipeKey, name, 'Receta base pendiente de completar. Se creÃ³ para que aparezca en la descarga de CSV.', now, now).run();
+    ).bind(recipeKey, name, 'Receta base pendiente de completar. Se cre? para que aparezca en la descarga de CSV.', now, now).run();
     created += 1;
   }
   return { created, existing, total: PRODUCT_RECIPE_SHELLS.length };
@@ -1905,13 +1905,13 @@ async function seedRecipeDefaults(env) {
     },
 
     // Paninis
-    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jamÃ³n y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:panini-jamon-queso', recipe_type: 'product', name: 'Panini jam?n y queso', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pizza', recipe_type: 'product', name: 'Panini pizza', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pepperoni', 45, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa de tomate', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-chipotle', recipe_type: 'product', name: 'Panini pollo chipotle', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 35, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:panini-pollo-bbq', recipe_type: 'product', name: 'Panini pollo BBQ', lines: [['Pan chapata', 1, 'ingrediente', 0, 0, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 40, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 35, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Aluminio / papel', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
 
     // Wraps
-    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jamÃ³n y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:wrap-jamon-queso', recipe_type: 'product', name: 'Wrap jam?n y queso', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Mayonesa', 15, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-chipotle', recipe_type: 'product', name: 'Wrap pollo chipotle', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Aderezo chipotle preparado', 30, 'aderezo_interno', 1, 0, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pollo-bbq', recipe_type: 'product', name: 'Wrap pollo BBQ', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Queso manchego', 35, 'ingrediente', 1, 1, 0], ['Salsa BBQ', 30, 'aderezo_interno', 1, 0, 0], ['Cebolla caramelizada', 15, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:wrap-pecas', recipe_type: 'product', name: 'Wrap Pecas', lines: [['Tortilla wrap', 1, 'ingrediente', 0, 0, 0], ['Lechuga', 60, 'ingrediente', 1, 1, 0], ['Pollo', 100, 'ingrediente', 1, 1, 0], ['Blue cheese de la casa', 30, 'aderezo_interno', 1, 0, 0], ['Queso mozzarella', 25, 'ingrediente', 1, 1, 0], ['Queso manchego', 25, 'ingrediente', 1, 1, 0], ['Bolsa panini', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0]] },
@@ -1928,23 +1928,23 @@ async function seedRecipeDefaults(env) {
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
         ['Nutella', 35, 'ingrediente', 1, 1, 10], ['Cajeta', 35, 'ingrediente', 1, 1, 10], ['Lechera', 30, 'ingrediente', 1, 1, 10], ['Queso crema', 35, 'ingrediente', 1, 1, 10],
-        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['PlÃ¡tano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
+        ['Fresa', 40, 'ingrediente', 1, 1, 10], ['Pl?tano', 50, 'ingrediente', 1, 1, 10], ['Nuez', 15, 'ingrediente', 1, 1, 10]
       ]
     },
     {
       recipe_key: 'product:crepa-salada', recipe_type: 'product', name: 'Crepa salada',
       lines: [
         ['Masa crepa', 120, 'ingrediente', 0, 0, 0], ['Contenedor crepa', 1, 'empaque', 0, 0, 0], ['Sticker', 1, 'empaque', 0, 0, 0],
-        ['JamÃ³n de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
+        ['Jam?n de pavo', 60, 'ingrediente', 1, 1, 10], ['Pepperoni', 45, 'ingrediente', 1, 1, 10], ['Queso manchego', 40, 'ingrediente', 1, 1, 10], ['Queso mozzarella', 40, 'ingrediente', 1, 1, 10], ['Mix quesos', 40, 'ingrediente', 1, 1, 10]
       ]
     },
 
-    // CafÃ© y bebidas
-    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0]] },
-    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'FrappÃ©', lines: [['CafÃ©', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso cafÃ©', 1, 'empaque', 0, 0, 0], ['Tapa cafÃ©', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
+    // Caf? y bebidas
+    { recipe_key: 'product:americano', recipe_type: 'product', name: 'Americano', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:latte', recipe_type: 'product', name: 'Latte', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0]] },
+    { recipe_key: 'product:frappe', recipe_type: 'product', name: 'Frapp?', lines: [['Caf?', 18, 'ingrediente', 0, 0, 0], ['Leche entera', 250, 'ingrediente', 1, 1, 0], ['Leche deslactosada', 250, 'ingrediente', 1, 1, 0], ['Hielo en bolsa', 0.1, 'hielo', 0, 0, 0], ['Vaso caf?', 1, 'empaque', 0, 0, 0], ['Tapa caf?', 1, 'empaque', 0, 0, 0], ['Popote', 1, 'empaque', 0, 0, 0]] },
     { recipe_key: 'product:coca', recipe_type: 'product', name: 'Coca-Cola', lines: [['Coca Cola regular', 1, 'ingrediente', 0, 0, 0]] },
-    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin azÃºcar', 1, 'ingrediente', 0, 0, 0]] },
+    { recipe_key: 'product:coca-light', recipe_type: 'product', name: 'Coca-Cola Light', lines: [['Coca sin az?car', 1, 'ingrediente', 0, 0, 0]] },
     { recipe_key: 'product:agua', recipe_type: 'product', name: 'Agua', lines: [['Aguas', 1, 'ingrediente', 0, 0, 0]] },
   ];
 
@@ -1969,7 +1969,7 @@ async function seedRecipeDefaults(env) {
           extra_price: extraPrice,
         });
       }
-      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada automÃ¡ticamente.' : 'Receta base creada sin lÃ­neas porque faltan ingredientes en inventario. Completar desde CSV.' });
+      await saveRecipe(env, { ...def, output_item_id: outputItemId, lines, is_active: true, notes: lines.length ? 'Base editable generada autom?ticamente.' : 'Receta base creada sin l?neas porque faltan ingredientes en inventario. Completar desde CSV.' });
       saved += 1;
     } catch (error) {
       errors.push(`${def.recipe_key}: ${error.message}`);
@@ -1981,7 +1981,7 @@ async function seedRecipeDefaults(env) {
 
 function truthy(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
-  return ['1', 'true', 'sÃ­', 'si', 'yes', 'y', 'x'].includes(normalized);
+  return ['1', 'true', 's?', 'si', 'yes', 'y', 'x'].includes(normalized);
 }
 
 async function importRecipes(env, rows, mode = 'upsert') {
@@ -2011,7 +2011,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
 
     const ingredientName = String(row.ingredient_name || '').trim();
     const quantity = Number(row.quantity || 0);
-    // Permite recetas cascarÃ³n descargadas desde el sistema: crean/actualizan la receta sin lÃ­neas.
+    // Permite recetas cascar?n descargadas desde el sistema: crean/actualizan la receta sin l?neas.
     if (!ingredientName && !quantity) continue;
     if (!ingredientName || !quantity) {
       skipped += 1;
@@ -2064,7 +2064,7 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   if (!recipe) throw new Error('Sub-receta no encontrada.');
   if (!recipe.output_item_id) throw new Error('La sub-receta necesita un ingrediente de salida.');
   const outputQty = wholeNonNegativeNumber(outputQuantity, 'Cantidad producida');
-  if (!outputQty) throw new Error('Cantidad producida invÃ¡lida.');
+  if (!outputQty) throw new Error('Cantidad producida inv?lida.');
   const baseOutput = Number(recipe.output_quantity || 0);
   if (!baseOutput) throw new Error('La sub-receta necesita rendimiento base.');
   const factor = outputQty / baseOutput;
@@ -2081,9 +2081,9 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   const sourceId = `recipe:${recipe.id}:${Date.now()}`;
   for (const line of lines) {
     const needed = Number(line.quantity || 0) * factor;
-    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `ProducciÃ³n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `Producci?n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
   }
-  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `ProducciÃ³n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `Producci?n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
 }
 
 
@@ -2198,7 +2198,7 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     // CORREGIDO: antes se llamaba a auth()/authFromValues() ANTES de fijar
-    // env.__tenantId, por lo que la validaciÃ³n de PIN de sucursal se hacÃ­a
+    // env.__tenantId, por lo que la validaci?n de PIN de sucursal se hac?a
     // contra el tenant equivocado (el default, no el del hostname real).
     env.__tenantId = await resolveTenantId(request, env);
     const body = await request.json();
@@ -2216,7 +2216,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (body.action === 'seedDefaults') {
-      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede crear catÃ¡logo base.' }, 403);
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede crear cat?logo base.' }, 403);
       await seedDefaults(env);
       await seedOptionFamilies(env);
       return jsonResponse({ ok: true });
@@ -2229,7 +2229,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (body.action === 'bulkUpdateItems') {
-      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar inventario rÃ¡pido.' }, 403);
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede editar inventario r?pido.' }, 403);
       await updateQuickItems(env, body.items || [], user, actionBranchId);
       return jsonResponse({ ok: true });
     }
@@ -2343,7 +2343,7 @@ export async function onRequestPost({ request, env }) {
       const itemId = Number(body.itemId);
       const quantity = wholeNonNegativeNumber(body.quantity, 'Cantidad a descontar');
       const reason = (body.reason || '').trim();
-      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y razÃ³n.' }, 400);
+      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y raz?n.' }, 400);
 
       if (user.role === 'admin') {
         await addMovement(env, {
@@ -2402,9 +2402,9 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: true });
     }
 
-    return jsonResponse({ ok: false, error: 'AcciÃ³n invÃ¡lida.' }, 400);
+    return jsonResponse({ ok: false, error: 'Acci?n inv?lida.' }, 400);
   } catch (error) {
-    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validaciÃ³n.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
+    return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validaci?n.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
 

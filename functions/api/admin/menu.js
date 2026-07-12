@@ -14,7 +14,7 @@ function jsonResponse(data, status = 200) {
 // pertenece a ESTE tenant, y confirma el rol.
 //
 // IMPORTANTE: NO agregar de vuelta un fallback a env.ADMIN_PASSWORD "por
-// compatibilidad" â€” esa era la vulnerabilidad crítica #3 (una sola
+// compatibilidad" - esa era la vulnerabilidad crítica #3 (una sola
 // contraseña válida para TODOS los tenants del deployment). El frontend
 // (AdminPanel.jsx) ya hace login contra /api/auth/login y manda el JWT.
 async function checkAuth(request, env) {

@@ -546,8 +546,11 @@ function EmployeeLoginModal({ open, onClose }) {
         try {
           if (cleanName) window.localStorage.setItem(EMPLOYEE_LOGIN_NAME_STORAGE_KEY, cleanName);
           if (cleanShift) window.localStorage.setItem(EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY, cleanShift);
+          if (login.user?.role === 'cashier') {
+            window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password: '', cashierName: cleanName || 'Caja', shift: cleanShift }));
+          }
         } catch { /* ignore */ }
-        const redirectByRole = { admin: '#admin', super: '#super', orders: '#orders', kitchen: '#stock', platform_admin: '#platform' };
+        const redirectByRole = { admin: '#admin', super: '#super', orders: '#orders', kitchen: '#stock', cashier: '#cashier', platform_admin: '#platform' };
         setStatus('Entrando...');
         window.location.hash = redirectByRole[login.user?.role] || '#';
         onClose();
@@ -1695,10 +1698,16 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
   const savedSession = (() => {
     try { return JSON.parse(window.sessionStorage.getItem(CASHIER_SESSION_STORAGE_KEY) || '{}'); } catch { return {}; }
   })();
+  const savedEmployeeName = (() => {
+    try { return window.localStorage.getItem(EMPLOYEE_LOGIN_NAME_STORAGE_KEY) || ''; } catch { return ''; }
+  })();
+  const savedEmployeeShift = (() => {
+    try { return window.localStorage.getItem(EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY) || 'Turno'; } catch { return 'Turno'; }
+  })();
   const [password, setPassword] = useState(savedSession.password || '');
-  const [cashierName, setCashierName] = useState(savedSession.cashierName || '');
-  const [shift, setShift] = useState(savedSession.shift || 'Turno');
-  const [unlocked, setUnlocked] = useState(Boolean(savedSession.password && savedSession.cashierName));
+  const [cashierName, setCashierName] = useState(savedSession.cashierName || savedEmployeeName || '');
+  const [shift, setShift] = useState(savedSession.shift || savedEmployeeShift || 'Turno');
+  const [unlocked, setUnlocked] = useState(Boolean((savedSession.password && savedSession.cashierName) || (getSessionToken() && (savedSession.cashierName || savedEmployeeName))));
   const [activeCategory, setActiveCategory] = useState(categoriesList[0]?.id || '');
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({ name: '', phone: '', notes: '' });
@@ -1729,8 +1738,12 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
   }, [currentCategories, activeCategory]);
 
   const login = () => {
-    if (!password.trim() || !cashierName.trim()) {
-      setStatus('Ingresa nombre de cajero y contraseña de caja.');
+    if (!cashierName.trim()) {
+      setStatus('Ingresa nombre de cajero.');
+      return;
+    }
+    if (!password.trim() && !getSessionToken()) {
+      setStatus('Ingresa contraseña de caja o entra con tu cuenta de personal.');
       return;
     }
     try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift, orderOrigin })); } catch { /* ignore */ }
@@ -1764,7 +1777,10 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
     try {
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {}),
+        },
         body: JSON.stringify({
           source: 'cashier',
           cashierAuth: { password, name: cashierName, shift },

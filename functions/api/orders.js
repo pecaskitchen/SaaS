@@ -1,3 +1,4 @@
+import { requireAuth } from './_shared/auth.js';
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
@@ -225,9 +226,12 @@ export async function onRequestPost({ request, env }) {
     let orderSource = 'online';
     if (source === 'cashier') {
       const cashierAuth = body.cashierAuth || {};
-      const access = resolveCashierAccess(settings, cashierAuth.password);
-      if (!access.ok) return jsonResponse({ ok: false, error: access.error }, 401);
-      branch = access.branch;
+      const jwtAccess = await requireAuth(request, env, ['admin', 'cashier', 'platform_admin']);
+      const pinAccess = jwtAccess.ok ? null : resolveCashierAccess(settings, cashierAuth.password);
+      if (!jwtAccess.ok && !pinAccess?.ok) {
+        return jsonResponse({ ok: false, error: pinAccess?.error || 'No autorizado para crear pedidos de caja.' }, 401);
+      }
+      branch = pinAccess?.branch || resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
       cashier = { name: String(cashierAuth.name || '').trim(), shift: String(cashierAuth.shift || '').trim() };
       body.paymentMethod = String(body.paymentMethod || 'efectivo').trim();
       body.paymentStatus = String(body.paymentStatus || 'paid').trim();
@@ -314,7 +318,6 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
-
 
 
 

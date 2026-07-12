@@ -1416,6 +1416,13 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     ...(menuOverridesForStock[product.id] || {}),
     soldOut: Boolean(menuOverridesForStock[product.id]?.soldOut),
   }));
+  const stockMenuCategories = Array.isArray(data.menuSettings?.extraCategories) ? data.menuSettings.extraCategories : [];
+  const menuCategoryById = new Map(stockMenuCategories.map((category) => [category.id, category]));
+  const stockCategoryLabel = (categoryId) => {
+    const category = menuCategoryById.get(categoryId);
+    if (category) return `${category.emoji ? `${category.emoji} ` : ''}${category.label || category.id}`;
+    return categoryMeta(categoryId).label;
+  };
   const productById = new Map(stockMenuProducts.map((product) => [product.id, product]));
   const itemById = new Map(data.items.map((item) => [Number(item.id), item]));
   const productStockSuggestions = productRecipes.map((recipe) => {
@@ -2398,6 +2405,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     </main>
   );
 }
+
 
 
 

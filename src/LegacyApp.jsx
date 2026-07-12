@@ -1498,7 +1498,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0] }) {
+function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0] }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
@@ -1607,6 +1607,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
       const finalMessage = `${message}\n\n${t(lang, 'orderNumber')}: ${result.orderNumber}`;
       const whatsappNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp);
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      if (clearCart) clearCart();
 
       if (whatsappWindow) {
         whatsappWindow.location.href = whatsappUrl;
@@ -1788,6 +1789,7 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
           total: subtotal,
           paymentMethod,
           paymentStatus,
+          orderOrigin,
           whatsappMessage: '',
         }),
       });
@@ -1853,7 +1855,10 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
             <div className="customer-card">
               <label className="field full"><span>Cliente opcional</span><input value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} placeholder="Cliente caja" /></label>
               <label className="field full"><span>Teléfono opcional</span><input value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Opcional" /></label>
-              <label className="field"><span>Origen del pedido</span><select value={orderOrigin} onChange={(e) => setOrderOrigin(e.target.value)}>{orderSources.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}</select></label>
+              <label className="field"><span>Origen del pedido</span><select value={orderOrigin} onChange={(e) => {
+                setOrderOrigin(e.target.value);
+                try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift, orderOrigin: e.target.value })); } catch { /* ignore */ }
+              }}>{orderSources.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}</select></label>
               <label className="field"><span>Método de pago</span><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select></label>
               <label className="field"><span>Estado de pago</span><select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
               <label className="field full"><span>Notas</span><textarea value={customer.notes} onChange={(e) => setCustomer((c) => ({ ...c, notes: e.target.value }))} placeholder="Notas para cocina" /></label>
@@ -2454,7 +2459,7 @@ export default function App() {
           </div>
         </div>
 
-        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} />
+        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} />
       </section>
 
       <a href="#cart" className="mobile-cart-bar">

@@ -1017,13 +1017,27 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const removeFamilyComponent = (index) => setFamilyOptionDraft((current) => ({ ...current, components: (current.components || []).filter((_, i) => i !== index) }));
 
   const addFamilyOption = () => {
-    if (!familyOptionDraft.item_id || !familyOptionDraft.option_name.trim() || !Number(familyOptionDraft.quantity)) {
+    const optionName = familyOptionDraft.option_name.trim();
+    const isNoneOption = ['ninguno', 'sin opcion', 'sin opción'].includes(optionName.toLowerCase());
+    if (!optionName || (!isNoneOption && (!familyOptionDraft.item_id || !Number(familyOptionDraft.quantity)))) {
       setStatus('La opción necesita ingrediente, nombre visible y cantidad por uso.');
       return;
     }
-    setOptionFamilyDraft((current) => ({ ...current, options: [...(current.options || []), { ...familyOptionDraft }] }));
+    setOptionFamilyDraft((current) => ({ ...current, options: [...(current.options || []), { ...familyOptionDraft, option_name: optionName, quantity: isNoneOption ? 0 : familyOptionDraft.quantity, extra_price: isNoneOption ? 0 : familyOptionDraft.extra_price }] }));
     setFamilyOptionDraft(emptyFamilyOptionDraft);
     setFamilyComponentDraft(emptyFamilyComponentDraft);
+  };
+
+  const addNoneFamilyOption = () => {
+    setOptionFamilyDraft((current) => {
+      const options = current.options || [];
+      if (options.some((option) => String(option.option_name || '').trim().toLowerCase() === 'ninguno')) return current;
+      return {
+        ...current,
+        options: [...options, { item_id: '', option_name: 'Ninguno', quantity: 0, extra_price: 0, is_default: false, is_active: true, components: [] }],
+      };
+    });
+    setStatus('Opción "Ninguno" agregada. Guarda la familia para publicarla.');
   };
 
   const removeFamilyOption = (index) => setOptionFamilyDraft((current) => ({ ...current, options: (current.options || []).filter((_, i) => i !== index) }));
@@ -2105,7 +2119,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       </div>
                       {(familyOptionDraft.components || []).map((component, index) => { const item = data.items.find((entry) => Number(entry.id) === Number(component.item_id)); return <div className="component-chip" key={`${component.item_id}-${index}`}><span>{item?.name || component.item_name} · {component.quantity} {item?.unit_code || ''}</span><button type="button" onClick={() => removeFamilyComponent(index)}>×</button></div>; })}
                     </div>
-                    <button type="button" className="ghost" onClick={addFamilyOption}>+ Agregar opción</button>
+                    <div className="inline-actions">
+                      <button type="button" className="ghost" onClick={addFamilyOption}>+ Agregar opción</button>
+                      <button type="button" className="ghost" onClick={addNoneFamilyOption}>+ Agregar Ninguno</button>
+                    </div>
                   </div>
 
                   {(optionFamilyDraft.options || []).length > 0 && (

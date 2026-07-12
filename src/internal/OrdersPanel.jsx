@@ -156,8 +156,9 @@ export default function OrdersPanel() {
       const response = await fetch('/api/orders-dashboard', {
         method: 'PATCH',
         headers: {
+          ...authHeaders(),
           'Content-Type': 'application/json',
-          'x-orders-password': password,
+          ...(password ? { 'x-orders-password': password } : {}),
         },
         body: JSON.stringify({
           orderId,
@@ -305,7 +306,7 @@ export default function OrdersPanel() {
                     <span>Tiempo total: <b>{formatElapsed(createdMinutes)}</b></span>
                     <span>Total: <b>{currency(order.total)}</b></span>
                     {order.stock_deducted ? <span>Stock: <b>descontado</b></span> : null}
-                    <span>Origen: <b>{order.order_source === 'cashier' ? 'Caja' : 'Online'}</b></span>
+                    <span>Origen: <b>{order.order_source === 'online' ? 'Online' : order.order_source || 'Caja'}</b></span>
                   </div>
 
                   <div className="order-customer">
@@ -370,5 +371,3 @@ export default function OrdersPanel() {
     </main>
   );
 }
-
-

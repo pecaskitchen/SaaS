@@ -774,6 +774,27 @@ async function getItemByName(env, name) {
   return row || null;
 }
 
+async function ensureNoneOptionItem(env) {
+  const existing = await getItemByName(env, 'Ninguno');
+  if (existing?.id) return existing.id;
+  const tenantId = currentTenantId(env);
+  const now = new Date().toISOString();
+  const unitId = await getOrCreateUnit(env, 'pieza');
+  if (!unitId) throw new Error('No se pudo crear la unidad base para Ninguno.');
+  await env.DB.prepare(
+    `INSERT INTO inventory_items (
+      tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
+      primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
+      purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
+      client_changeable, deducts_inventory, is_packaging, is_internal_dressing, is_side_dressing,
+      is_sellable_extra, created_at_utc, updated_at_utc
+    ) VALUES (?, 'Ninguno', '', 'Opcion sin consumo', ?, 0, 0, 0, 100, NULL, NULL, NULL, '', 0, 0, NULL, 1, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?)
+    ON CONFLICT(tenant_id, name) DO NOTHING`
+  ).bind(tenantId, unitId, now, now).run();
+  const created = await getItemByName(env, 'Ninguno');
+  return created?.id || null;
+}
+
 async function upsertOptionFamily(env, family) {
   const ts = getTimestamps();
   const key = String(family.family_key || '').trim();
@@ -789,9 +810,10 @@ async function upsertOptionFamily(env, family) {
 }
 
 async function upsertFamilyOption(env, familyId, option, sortOrder = 0) {
-  const itemId = Number(option.item_id || 0) || (option.item_name ? (await getItemByName(env, option.item_name))?.id : null);
-  if (!familyId || !itemId) return null;
   const name = String(option.option_name || option.item_name || '').trim();
+  const isNoneOption = ['ninguno', 'sin opcion', 'sin opción'].includes(name.toLowerCase());
+  const itemId = Number(option.item_id || 0) || (option.item_name ? (await getItemByName(env, option.item_name))?.id : null) || (isNoneOption ? await ensureNoneOptionItem(env) : null);
+  if (!familyId || !itemId) return null;
   if (!name) return null;
   const ts = getTimestamps();
   const tenantId = currentTenantId(env);
@@ -866,11 +888,11 @@ async function seedOptionFamilies(env) {
     const existingFamily = await env.DB.prepare(`SELECT id FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`)
       .bind(currentTenantId(env), families[i].family_key)
       .first();
+    if (existingFamily?.id) continue;
     const fam = await upsertOptionFamily(env, { ...families[i], sort_order: i + 1 });
     if (!fam?.id) continue;
     // Solo sembrar opciones cuando la familia acaba de crearse. Si ya existia,
     // respetamos ediciones manuales como quitar Salsa italiana o agregar jalapeños.
-    if (existingFamily?.id) continue;
     const options = familyOptions[families[i].family_key] || [];
     for (let j = 0; j < options.length; j += 1) {
       const [item_name, option_name, quantity, extra_price, is_default] = options[j];
@@ -901,12 +923,25 @@ async function seedOptionFamilies(env) {
 }
 
 async function saveOptionFamily(env, family = {}) {
+  const tenantId = currentTenantId(env);
+  const familyKey = String(family.family_key || '').trim();
+  const previousFamily = familyKey
+    ? await env.DB.prepare(`SELECT id, name FROM stock_option_families WHERE tenant_id = ? AND family_key = ?`).bind(tenantId, familyKey).first()
+    : null;
   const fam = await upsertOptionFamily(env, family);
   if (!fam?.id) throw new Error('No se pudo guardar la familia.');
+  const nextFamilyName = String(family.name || '').trim();
+  if (previousFamily?.id && previousFamily.name && nextFamilyName && previousFamily.name !== nextFamilyName) {
+    await env.DB.prepare(
+      `UPDATE stock_product_option_groups
+       SET label = ?, updated_at_utc = ?
+       WHERE tenant_id = ? AND family_id = ? AND (label IS NULL OR trim(label) = '' OR label = ?)`
+    ).bind(nextFamilyName, getTimestamps().utc, tenantId, fam.id, previousFamily.name).run();
+  }
 
   // Las opciones se reemplazan completas porque son parte interna de la familia.
-  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id IN (SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?)`).bind(currentTenantId(env), currentTenantId(env), fam.id).run();
-  await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?`).bind(currentTenantId(env), fam.id).run();
+  await env.DB.prepare(`DELETE FROM stock_option_family_item_components WHERE tenant_id = ? AND option_item_id IN (SELECT id FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?)`).bind(tenantId, tenantId, fam.id).run();
+  await env.DB.prepare(`DELETE FROM stock_option_family_items WHERE tenant_id = ? AND family_id = ?`).bind(tenantId, fam.id).run();
   const options = Array.isArray(family.options) ? family.options : [];
   for (let i = 0; i < options.length; i += 1) await upsertFamilyOption(env, fam.id, options[i], i + 1);
 

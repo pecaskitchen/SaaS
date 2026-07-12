@@ -1504,7 +1504,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND }) {
+function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
@@ -1619,6 +1619,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, lang = 'es',
       const finalMessage = `${message}\n\n${t(lang, 'orderNumber')}: ${result.orderNumber}`;
       const whatsappNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp);
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      if (clearCart) clearCart();
 
       if (whatsappWindow) {
         whatsappWindow.location.href = whatsappUrl;
@@ -1970,7 +1971,7 @@ export default function PublicApp() {
           </div>
         </div>
 
-        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} />
+        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} />
       </section>
 
       <a href="#cart" className="mobile-cart-bar">
@@ -1981,7 +1982,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
 
 
 

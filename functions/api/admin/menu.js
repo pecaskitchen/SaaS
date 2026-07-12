@@ -1,4 +1,4 @@
-﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
 import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -9,13 +9,13 @@ function jsonResponse(data, status = 200) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6):
-// antes comparaba contra env.ADMIN_PASSWORD, una contraseÃ±a global para
+// antes comparaba contra env.ADMIN_PASSWORD, una contraseña global para
 // todos los tenants. requireAuth valida el token del usuario, confirma que
 // pertenece a ESTE tenant, y confirma el rol.
 //
 // IMPORTANTE: NO agregar de vuelta un fallback a env.ADMIN_PASSWORD "por
-// compatibilidad" â€” esa era la vulnerabilidad crÃ­tica #3 (una sola
-// contraseÃ±a vÃ¡lida para TODOS los tenants del deployment). El frontend
+// compatibilidad" â€” esa era la vulnerabilidad crítica #3 (una sola
+// contraseña válida para TODOS los tenants del deployment). El frontend
 // (AdminPanel.jsx) ya hace login contra /api/auth/login y manda el JWT.
 async function checkAuth(request, env) {
   return requireAuth(request, env, ['admin', 'platform_admin']);

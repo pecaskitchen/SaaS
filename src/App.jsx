@@ -1,5 +1,4 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { installTenantFetchInterceptor } from './lib/apiClient.js';
 
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
@@ -29,11 +28,9 @@ function isLegacyRoute(route) {
 }
 
 export default function App() {
-  installTenantFetchInterceptor();
   const [route, setRoute] = useState(currentRoute);
 
   useEffect(() => {
-    installTenantFetchInterceptor();
     const syncRoute = () => setRoute(currentRoute());
     window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);

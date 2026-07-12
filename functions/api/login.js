@@ -1,3 +1,5 @@
+import { resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -43,7 +45,11 @@ function normalizeSavedMenu(raw) {
   }
 }
 
-async function readSavedMenu(env) {
+// CORREGIDO: leía siempre la key global 'menu_overrides', comparando el PIN
+// de sucursal ingresado contra las sucursales de UN SOLO tenant (el que
+// haya escrito primero esa key), sin importar desde qué hostname se hizo el
+// login. Ahora se resuelve el tenant real de la petición.
+async function readSavedMenu(env, tenantId) {
   if (!env.DB) return normalizeSavedMenu('');
   try {
     await env.DB.prepare(`
@@ -53,7 +59,7 @@ async function readSavedMenu(env) {
         updated_at TEXT NOT NULL
       )
     `).run();
-    const row = await env.DB.prepare('SELECT value_json FROM app_settings WHERE key = ?').bind('menu_overrides').first();
+    const row = await env.DB.prepare('SELECT value_json FROM app_settings WHERE key = ?').bind(tenantSettingKey('menu_overrides', tenantId, env)).first();
     return normalizeSavedMenu(row?.value_json || '');
   } catch {
     return normalizeSavedMenu('');
@@ -90,7 +96,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: true, role: 'super', redirect: '#super', accessScope: 'super' });
     }
 
-    const saved = await readSavedMenu(env);
+    const saved = await readSavedMenu(env, await resolveTenantId(request, env));
     const branchSettings = normalizeBranchSettings(saved.branchSettings || DEFAULT_BRANCH_SETTINGS);
     const activeBranches = (branchSettings.branches || []).filter((branch) => branch.active !== false);
 

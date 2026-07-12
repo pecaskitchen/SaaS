@@ -1,6 +1,6 @@
-﻿import { WHATSAPP_NUMBER } from '../data/menu.js';
+import { WHATSAPP_NUMBER } from '../data/menu.js';
 
-export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes', 'SÃ¡bado'];
+export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 export const DEFAULT_BUSINESS_HOURS = {
   messageWhenClosed: 'Estamos cerrados. Puedes mandar tu pedido y lo tomamos cuando abramos.',
@@ -134,7 +134,7 @@ export function businessStatus(hours = DEFAULT_BUSINESS_HOURS) {
   const isOpen = close > open ? current >= open && current < close : current >= open || current < close;
   return {
     open: isOpen,
-    label: isOpen ? `Abierto ahora Â· cerramos ${formatHour(today.close)}` : `Cerrado Â· abrimos ${formatHour(today.open)}`,
+    label: isOpen ? `Abierto ahora · cerramos ${formatHour(today.close)}` : `Cerrado · abrimos ${formatHour(today.open)}`,
     messageWhenClosed: normalized.messageWhenClosed,
     allowClosedOrders: normalized.allowClosedOrders,
   };

@@ -834,7 +834,7 @@ function RecipeCustomizationControls({ product, state, customization, toggleRemo
                   className={`pill ${isIncluded ? 'active' : ''}`}
                   onClick={() => toggleRemovedIngredient(item.name)}
                 >
-                  {isIncluded ? '? ' : '× '}{item.name}
+                  {isIncluded ? '✓ ' : '× '}{item.name}
                 </button>
               );
             })}
@@ -1463,7 +1463,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
     <section className="promo-section" id="promo">
       <div className="promo-card">
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
-          {image ? <img src={image} alt={promotion.title} /> : <span>?</span>}
+          {image ? <img src={image} alt={promotion.title} /> : <span>⭐</span>}
         </div>
         <div className="promo-content">
           <h2>{promotion.title}</h2>

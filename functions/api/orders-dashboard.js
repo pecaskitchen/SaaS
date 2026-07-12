@@ -1,4 +1,4 @@
-﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -13,23 +13,23 @@ function getPassword(request) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseÃ±as globales
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
 // para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// vÃ¡lido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
 // conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal â€” ya estaba correctamente scoped por tenant_id vÃ­a
-// readBranchSettings(env, tenantId), asÃ­ que no representa una fuga.
+// sucursal â€” ya estaba correctamente scoped por tenant_id vía
+// readBranchSettings(env, tenantId), así que no representa una fuga.
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseÃ±as globales
+// aceptaba env.ADMIN_PASSWORD / env.ORDERS_PASSWORD, contraseñas globales
 // para TODOS los tenants. Ahora exige un usuario admin/orders/platform_admin
-// vÃ¡lido para este tenant. El PIN por sucursal (branch.ordersPassword) se
+// válido para este tenant. El PIN por sucursal (branch.ordersPassword) se
 // conserva como segundo factor opcional para acotar la vista a una sola
-// sucursal â€” ya estaba correctamente scoped por tenant_id vÃ­a
-// readBranchSettings(env, tenantId), asÃ­ que no representa una fuga.
+// sucursal â€” ya estaba correctamente scoped por tenant_id vía
+// readBranchSettings(env, tenantId), así que no representa una fuga.
 //
 // IMPORTANTE: NO se restauran env.ADMIN_PASSWORD/env.ORDERS_PASSWORD como
-// fallback aquÃ­ â€” esas eran contraseÃ±as globales compartidas por TODOS los
-// tenants del deployment (hallazgo crÃ­tico #3). Si un dev las reintroduce
+// fallback aquí â€” esas eran contraseñas globales compartidas por TODOS los
+// tenants del deployment (hallazgo crítico #3). Si un dev las reintroduce
 // "por si acaso", vuelve a abrir el cross-tenant hopping.
 async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
@@ -38,8 +38,8 @@ async function resolveOrdersAccess(request, env, tenantId) {
     if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
       return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
     }
-    // JWT vÃ¡lido con rol "orders": igual puede acotarse a una sucursal si
-    // manda tambiÃ©n el PIN de esa sucursal; si no, ve todas las que aplique
+    // JWT válido con rol "orders": igual puede acotarse a una sucursal si
+    // manda también el PIN de esa sucursal; si no, ve todas las que aplique
     // a su tenant.
     const password = getPassword(request);
     const branchSettings = await readBranchSettings(env, tenantId);
@@ -48,7 +48,7 @@ async function resolveOrdersAccess(request, env, tenantId) {
     return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
   }
 
-  // Sin JWT: Ãºnico camino vÃ¡lido es el PIN de sucursal (personal sin cuenta
+  // Sin JWT: único camino válido es el PIN de sucursal (personal sin cuenta
   // propia), siempre acotado al tenant resuelto por hostname.
   const password = getPassword(request);
   if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
@@ -622,7 +622,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
       String(orderId),
       'Orders',
       'system',
-      'OperaciÃ³n',
+      'Operación',
       null,
       order.branch_id || 'dominio',
       order.branch_name || 'Dominio',
@@ -703,7 +703,7 @@ export async function onRequestPatch(context) {
     const body = await request.json();
     const { orderId, status, note = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invÃ¡lido.' }, 400);
+    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus inválido.' }, 400);
 
     const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
@@ -727,7 +727,7 @@ export async function onRequestPatch(context) {
     ).bind(status, timestamps.utc, timestamps.monterrey, tenantId, orderId).run();
 
     const eventNote = stockResult
-      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automÃ¡ticamente.`
+      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automáticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(

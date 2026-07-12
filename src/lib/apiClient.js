@@ -16,6 +16,7 @@ export function setSessionToken(token) {
 }
 
 export function currentTenantQuery() {
+  if (!isLocalDevHost()) return '';
   try {
     const tenantId = new URL(window.location.href).searchParams.get('tenant_id');
     const clean = String(tenantId || '').trim().replace(/^\/+|\/+$/g, '');
@@ -38,8 +39,26 @@ export function withTenantQuery(path) {
   }
 }
 
+// El override de tenant_id por query param solo tiene un uso legítimo:
+// probar el cambio de tenant en desarrollo local (localhost) sin tener que
+// levantar varios hostnames. En cualquier otro host, el backend ya lo
+// ignora (ver _shared/tenant.js, allowsExplicitTenantForPreview) salvo con
+// token de plataforma — pero antes igual se instalaba este interceptor
+// global de window.fetch para TODOS los visitantes del sitio (incluyendo el
+// storefront público), lo cual no servía para nada en producción y dejaba
+// código de parcheo global corriendo de más. Ahora solo se activa si
+// realmente estás en localhost.
+function isLocalDevHost() {
+  try {
+    return ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function installTenantFetchInterceptor() {
   if (typeof window === 'undefined' || window.__tenantFetchInterceptorInstalled) return;
+  if (!isLocalDevHost()) return;
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input, init) => {
     if (typeof input === 'string') return originalFetch(withTenantQuery(input), init);

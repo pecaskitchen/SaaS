@@ -146,6 +146,29 @@ a { color: inherit; text-decoration: none; }
   gap: 28px;
   align-items: start;
 }
+.payment-return-banner {
+  max-width: 1220px;
+  margin: 24px auto 0;
+  padding: 18px clamp(18px, 4vw, 28px);
+  background: rgba(255, 250, 242, .92);
+  border: 1px solid rgba(59,31,15,.12);
+  border-radius: 22px;
+  box-shadow: 0 16px 34px rgba(59,31,15,.11);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.payment-return-banner h2 {
+  margin: 6px 0;
+  color: var(--brown);
+  font-size: 24px;
+}
+.payment-return-banner p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
 .section-heading h2 {
   margin: 8px 0 18px;
   font-size: 36px;
@@ -307,6 +330,8 @@ textarea { resize: vertical; min-height: 48px; }
 @media (max-width: 980px) {
   .hero-grid, .menu-layout { grid-template-columns: 1fr; }
   .cart-panel { position: relative; top: 0; }
+  .payment-return-banner { flex-direction: column; align-items: stretch; margin: 18px 14px 0; }
+  .payment-return-banner .primary { width: 100%; }
 }
 
 @media (max-width: 640px) {

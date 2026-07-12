@@ -55,6 +55,7 @@ function normalizePublicBrand(tenant) {
 }
 
 const CUSTOMER_STORAGE_KEY = 'saas_customer_profile';
+const MP_PENDING_ORDER_STORAGE_KEY = 'saas_mp_pending_order';
 
 function publicApiPath(path, extraParams = {}) {
   try {
@@ -73,6 +74,20 @@ function modificationDetails(details = []) {
     const value = String(detail || '').trim().toLowerCase();
     return value.startsWith('sin:') || value.startsWith('sin ') || value.startsWith('extras:') || value.startsWith('extra ');
   });
+}
+
+function readMercadoPagoReturn() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('mp_order');
+    const status = params.get('mp_status');
+    if (!orderId || !status) return null;
+    const saved = JSON.parse(window.localStorage.getItem(MP_PENDING_ORDER_STORAGE_KEY) || '{}');
+    if (String(saved.orderId || '') !== String(orderId)) return { orderId, status, message: '', whatsappNumber: '' };
+    return { ...saved, orderId, status };
+  } catch {
+    return null;
+  }
 }
 
 const LANGUAGE_STORAGE_KEY = 'saas_language';
@@ -1620,6 +1635,18 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       }
 
       if (isMercadoPago) {
+        const finalMessage = `${message}\n\n${t(lang, 'orderNumber')}: ${result.orderNumber}`;
+        try {
+          window.localStorage.setItem(MP_PENDING_ORDER_STORAGE_KEY, JSON.stringify({
+            orderId: result.orderId,
+            orderNumber: result.orderNumber,
+            message: finalMessage,
+            whatsappNumber: normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp),
+            savedAt: Date.now(),
+          }));
+        } catch {
+          // Si localStorage falla, el pago sigue funcionando; solo no podremos sugerir WhatsApp al volver.
+        }
         if (clearCart) clearCart();
         window.location.href = result.initPoint;
         return;
@@ -1749,12 +1776,18 @@ export default function PublicApp() {
   const [route, setRoute] = useState(() => {
     try { return window.location.hash || '#'; } catch { return '#'; }
   });
+  const [mercadoPagoReturn, setMercadoPagoReturn] = useState(() => readMercadoPagoReturn());
   const isStorefront = true;
 
   useEffect(() => {
     const syncRoute = () => setRoute(window.location.hash || '#');
     window.addEventListener('hashchange', syncRoute);
     return () => window.removeEventListener('hashchange', syncRoute);
+  }, []);
+
+  useEffect(() => {
+    const result = readMercadoPagoReturn();
+    if (result) setMercadoPagoReturn(result);
   }, []);
 
   const setLang = (nextLang) => {
@@ -1894,6 +1927,14 @@ export default function PublicApp() {
   };
   const removeItem = (uid) => setCart((current) => current.filter((item) => item.uid !== uid));
 
+  const sendMercadoPagoWhatsApp = () => {
+    if (!mercadoPagoReturn?.message || !mercadoPagoReturn?.whatsappNumber) return;
+    const whatsappUrl = `https://wa.me/${mercadoPagoReturn.whatsappNumber}?text=${encodeURIComponent(mercadoPagoReturn.message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    try { window.localStorage.removeItem(MP_PENDING_ORDER_STORAGE_KEY); } catch { /* ignore */ }
+    setMercadoPagoReturn(null);
+  };
+
 
   return (
     <main>
@@ -1954,6 +1995,24 @@ export default function PublicApp() {
 
       <PromoCard promotion={activePromotion} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
 
+      {mercadoPagoReturn && (
+        <section className="payment-return-banner">
+          <div>
+            <span className="eyebrow">Mercado Pago</span>
+            <h2>{mercadoPagoReturn.status === 'success' ? 'Pago recibido' : 'Pago en proceso'}</h2>
+            <p>
+              {mercadoPagoReturn.orderNumber ? `Pedido ${mercadoPagoReturn.orderNumber}. ` : ''}
+              Envia el mensaje por WhatsApp para que el negocio reciba el detalle del pedido.
+            </p>
+          </div>
+          {mercadoPagoReturn.message && mercadoPagoReturn.whatsappNumber ? (
+            <button type="button" className="primary" onClick={sendMercadoPagoWhatsApp}>
+              <MessageCircle size={18} /> Enviar WhatsApp
+            </button>
+          ) : null}
+        </section>
+      )}
+
       <section className="menu-layout" id="menu">
         <div className="menu-main">
           <div className="section-heading">
@@ -1992,9 +2051,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
-
-
 
 
 

@@ -47,6 +47,7 @@ export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
+    const requestUrl = new URL(request.url);
     const tenantId = await resolveTenantId(request, env);
     await ensurePaymentTables(env);
 
@@ -142,7 +143,8 @@ export async function onRequestPost({ request, env }) {
     // 4) Crear la preferencia con el token OAuth del tenant (nunca uno
     //    global) — esta es la diferencia central frente a un solo negocio.
     const accessToken = await getValidAccessToken(env, tenantId, 'mercado_pago');
-    const appUrl = String(env.APP_URL || '').replace(/\/+$/, '');
+    const appUrl = String(env.APP_URL || requestUrl.origin).replace(/\/+$/, '');
+    const checkoutOrigin = requestUrl.origin.replace(/\/+$/, '');
 
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -162,9 +164,9 @@ export async function onRequestPost({ request, env }) {
         external_reference: String(orderId),
         marketplace_fee: 0,
         back_urls: {
-          success: `${appUrl}/?mp_order=${orderId}&mp_status=success`,
-          failure: `${appUrl}/?mp_order=${orderId}&mp_status=failure`,
-          pending: `${appUrl}/?mp_order=${orderId}&mp_status=pending`,
+          success: `${checkoutOrigin}/?mp_order=${orderId}&mp_status=success`,
+          failure: `${checkoutOrigin}/?mp_order=${orderId}&mp_status=failure`,
+          pending: `${checkoutOrigin}/?mp_order=${orderId}&mp_status=pending`,
         },
         auto_return: 'approved',
         // order_id propio en el query — así el webhook sabe a que tenant

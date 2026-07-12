@@ -2213,7 +2213,7 @@ export default function App() {
         setCategoryOrder(result.categoryOrder || nextCategories.map((category) => category.id));
         setProductOrder(result.productOrder || nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
-        setPromotion(normalizePromotion(result.promotion, nextProducts));
+        setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
@@ -2269,7 +2269,7 @@ export default function App() {
   }, [currentCategories, activeCategory]);
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
-  const selectedBranchPromotion = branchSettings.multiBranchEnabled && selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
+  const selectedBranchPromotion = selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
   const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
@@ -2400,6 +2400,7 @@ export default function App() {
     </main>
   );
 }
+
 
 
 

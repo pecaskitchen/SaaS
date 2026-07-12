@@ -1865,7 +1865,7 @@ export default function PublicApp() {
   }, [currentCategories, activeCategory]);
 
   const visibleProducts = useMemo(() => currentProductsForBranch.filter((product) => product.category === activeCategory && !product.unavailable), [currentProductsForBranch, activeCategory]);
-  const selectedBranchPromotion = branchSettings.multiBranchEnabled && selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
+  const selectedBranchPromotion = selectedBranch?.id ? branchPromotions[selectedBranch.id] : null;
   const activePromotion = useMemo(() => (selectedBranchPromotion || promotion) ? normalizePromotion(selectedBranchPromotion || promotion, currentProductsForBranch) : null, [selectedBranchPromotion, promotion, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
@@ -1978,6 +1978,7 @@ export default function PublicApp() {
     </main>
   );
 }
+
 
 
 

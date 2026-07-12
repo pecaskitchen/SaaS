@@ -1,4 +1,4 @@
-import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -183,12 +183,12 @@ async function nextOrderNumber(env, branch, tenantId) {
 
 function resolveCashierAccess(settings, password) {
   const clean = String(password || '').trim();
-  if (!clean) return { ok: false, error: 'Ingresa contraseña de caja.' };
+  if (!clean) return { ok: false, error: 'Ingresa contraseÃ±a de caja.' };
   if (settings && Array.isArray(settings.branches)) {
     const branch = settings.branches.find((item) => item.active !== false && item.cashierPassword && item.cashierPassword === clean);
     if (branch) return { ok: true, branch };
   }
-  return { ok: false, error: 'Contraseña de caja inválida.' };
+  return { ok: false, error: 'ContraseÃ±a de caja invÃ¡lida.' };
 }
 
 export async function onRequestPost({ request, env }) {
@@ -202,7 +202,7 @@ export async function onRequestPost({ request, env }) {
     const customer = body.customer || {};
     if (source === 'online' && (!customer.name || !customer.address)) return jsonResponse({ ok: false, error: 'Faltan datos del cliente.' }, 400);
     const items = Array.isArray(body.items) ? body.items : [];
-    if (!items.length) return jsonResponse({ ok: false, error: 'El pedido está vacío.' }, 400);
+    if (!items.length) return jsonResponse({ ok: false, error: 'El pedido estÃ¡ vacÃ­o.' }, 400);
 
     const settings = await readBranchSettings(env, tenantId);
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
@@ -231,7 +231,7 @@ export async function onRequestPost({ request, env }) {
         `).bind(
           tenantId,
           orderNumber,
-          source === 'cashier' ? 'confirmed' : 'pending',
+          'pending',
           branch.id,
           branch.name,
           source,
@@ -272,7 +272,7 @@ export async function onRequestPost({ request, env }) {
         createdOrder.id,
         String(item.id || item.productId || ''),
         String(item.name || 'Producto'),
-        String(item.category || 'Sin categoría'),
+        String(item.category || 'Sin categorÃ­a'),
         Number(item.quantity || 1),
         Number(item.price || item.unitPrice || 0),
         Number(item.lineTotal || (Number(item.price || item.unitPrice || 0) * Number(item.quantity || 1))),
@@ -293,3 +293,4 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
+

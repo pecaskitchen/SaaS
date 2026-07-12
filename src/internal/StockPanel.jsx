@@ -1509,7 +1509,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <p>{isAdminConfigMode ? 'Ingredientes, recetas, sub-recetas, familias e importación.' : `${operatorName} · ${shift} · ${role === 'admin' ? 'Admin' : 'Cocina'}`}</p>
           </div>
           <div className="stock-header-actions">
-            {role === 'admin' && <button type="button" className="ghost" onClick={seedDefaults}>Crear catálogo base</button>}
+
             <button type="button" className="ghost" onClick={loadStock} disabled={loading}>{loading ? 'Cargando...' : 'Actualizar'}</button>
             {!isAdminConfigMode && <button type="button" className="ghost danger-text" onClick={logout}>Salir</button>}
           </div>
@@ -1752,15 +1752,15 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <label className="field"><span>Marca</span><input value={itemDraft.brand || ''} onChange={(e) => setItemDraft((c) => ({ ...c, brand: e.target.value }))} placeholder="Ej. McCormick" /></label>
                   <label className="field"><span>Tipo</span><select value={itemDraft.item_type} onChange={(e) => setItemDraft((c) => ({ ...c, item_type: e.target.value }))}>{ITEM_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
                   <label className="field"><span>Unidad base</span><select value={itemDraft.unit_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, unit_id: e.target.value }))}><option value="">Selecciona</option>{data.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>)}</select></label>
-                  <label className="field"><span>Stock actual</span><input type="number" step="0.01" value={itemDraft.current_stock} onChange={(e) => setItemDraft((c) => ({ ...c, current_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Mínimo</span><input type="number" step="0.01" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Máximo</span><input type="number" step="0.01" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Stock actual</span><input type="number" step="1" value={itemDraft.current_stock} onChange={(e) => setItemDraft((c) => ({ ...c, current_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Mínimo</span><input type="number" step="1" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Máximo</span><input type="number" step="1" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
                   <label className="field"><span>Precisión esperada</span><select value={itemDraft.accuracy_target} onChange={(e) => setItemDraft((c) => ({ ...c, accuracy_target: e.target.value }))}>{ACCURACY_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}</select></label>
                   <label className="field"><span>Proveedor principal</span><select value={itemDraft.primary_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, primary_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
                   <label className="field"><span>Proveedor alternativo</span><select value={itemDraft.alt_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, alt_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
                   <label className="field"><span>Categoría compra</span><select value={itemDraft.purchase_category_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_category_id: e.target.value }))}><option value="">Sin categoría</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
                   <label className="field"><span>Presentación</span><input value={itemDraft.purchase_unit_label || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_label: e.target.value }))} placeholder="Ej. paquete 1 kg" /></label>
-                  <label className="field"><span>Cantidad por presentación</span><input type="number" step="0.01" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /></label>
+                  <label className="field"><span>Cantidad por presentación</span><input type="number" step="1" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /></label>
                   <label className="field"><span>Precio aprox.</span><input type="number" step="0.01" value={itemDraft.purchase_price || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_price: e.target.value }))} /></label>
                   <label className="field"><span>Caducidad próxima</span><input type="date" value={itemDraft.expiry_date || ''} onChange={(e) => setItemDraft((c) => ({ ...c, expiry_date: e.target.value }))} /></label>
                 </div>
@@ -1826,7 +1826,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     <tr key={item.id}>
                       <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} · {item.unit_code}</span></td>
                       <td>{formatStockQuantity(item.current_stock, item.unit_code)}</td>
-                      <td><input type="number" step="0.01" min="0" value={inventoryCounts[item.id] ?? ''} onChange={(e) => updateInventoryCount(item.id, e.target.value)} placeholder="Sin cambio" /></td>
+                      <td><input type="number" step="1" min="0" value={inventoryCounts[item.id] ?? ''} onChange={(e) => updateInventoryCount(item.id, e.target.value)} placeholder="Sin cambio" /></td>
                       <td>{formatStockQuantity(item.min_stock, item.unit_code)} / {formatStockQuantity(item.max_stock, item.unit_code)}</td>
                       <td>{item.supplier_name || 'Sin proveedor'}</td>
                     </tr>
@@ -1881,9 +1881,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   {quickDrafts.map((item) => (
                     <tr key={item.id}>
                       <td><b>{item.name}</b><span>{item.brand || 'Sin marca'} · {item.unit_code}</span></td>
-                      <td><input type="number" step="0.01" min="0" value={item.current_stock} onChange={(e) => updateQuickDraft(item.id, 'current_stock', e.target.value)} disabled={role !== 'admin'} /></td>
-                      <td><input type="number" step="0.01" min="0" value={item.min_stock} onChange={(e) => updateQuickDraft(item.id, 'min_stock', e.target.value)} disabled={role !== 'admin'} /></td>
-                      <td><input type="number" step="0.01" min="0" value={item.max_stock} onChange={(e) => updateQuickDraft(item.id, 'max_stock', e.target.value)} disabled={role !== 'admin'} /></td>
+                      <td><input type="number" step="1" min="0" value={item.current_stock} onChange={(e) => updateQuickDraft(item.id, 'current_stock', e.target.value)} disabled={role !== 'admin'} /></td>
+                      <td><input type="number" step="1" min="0" value={item.min_stock} onChange={(e) => updateQuickDraft(item.id, 'min_stock', e.target.value)} disabled={role !== 'admin'} /></td>
+                      <td><input type="number" step="1" min="0" value={item.max_stock} onChange={(e) => updateQuickDraft(item.id, 'max_stock', e.target.value)} disabled={role !== 'admin'} /></td>
                       <td><input type="number" step="0.01" min="0" value={item.purchase_price || ''} onChange={(e) => updateQuickDraft(item.id, 'purchase_price', e.target.value)} disabled={role !== 'admin'} /></td>
                       <td><input type="date" value={item.expiry_date || ''} onChange={(e) => updateQuickDraft(item.id, 'expiry_date', e.target.value)} disabled={role !== 'admin'} /></td>
                     </tr>
@@ -1944,7 +1944,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 {role === 'admin' && (
                   <div className="inline-actions">
                     <button type="button" className="ghost" onClick={() => startNewRecipe(recipeEditorType)}>Nueva</button>
-                    <button type="button" className="ghost" onClick={seedRecipes}>Crear recetas base</button>
+
                   </div>
                 )}
               </div>
@@ -1958,7 +1958,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     {recipeDraft.recipe_type === 'subrecipe' && (
                       <>
                         <label className="field"><span>Ingrediente producido</span><select value={recipeDraft.output_item_id || ''} onChange={(e) => setRecipeDraft((c) => ({ ...c, output_item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                        <label className="field"><span>Cantidad producida base</span><input type="number" step="0.01" value={recipeDraft.output_quantity || ''} onChange={(e) => setRecipeDraft((c) => ({ ...c, output_quantity: e.target.value }))} placeholder="Ej. 850" /></label>
+                        <label className="field"><span>Cantidad producida base</span><input type="number" step="1" value={recipeDraft.output_quantity || ''} onChange={(e) => setRecipeDraft((c) => ({ ...c, output_quantity: e.target.value }))} placeholder="Ej. 850" /></label>
                       </>
                     )}
                     <label className="field full"><span>Notas</span><textarea rows="2" value={recipeDraft.notes || ''} onChange={(e) => setRecipeDraft((c) => ({ ...c, notes: e.target.value }))} /></label>
@@ -1968,7 +1968,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     <h3>Ingredientes / empaques de la receta</h3>
                     <div className="stock-form-grid compact-grid">
                       <label className="field"><span>Ingrediente</span><select value={recipeLineDraft.item_id} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
-                      <label className="field"><span>Cantidad por uso</span><input type="number" step="0.01" value={recipeLineDraft.quantity} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+                      <label className="field"><span>Cantidad por uso</span><input type="number" step="1" value={recipeLineDraft.quantity} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
                       <label className="field"><span>Rol</span><select value={cleanRecipeLineRole(recipeLineDraft.line_role)} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, line_role: e.target.value }))}>{LINE_ROLES.map((roleName) => <option key={roleName} value={roleName}>{roleName}</option>)}</select></label>
                     </div>
                     <div className="stock-flags-grid compact-flags">
@@ -2070,7 +2070,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <h2>Familias de opciones</h2>
                   <p>Agrupa opciones reutilizables como jarabes, leches, aderezos, toppings, proteínas y quesos. Luego asigna la familia a productos.</p>
                 </div>
-                {role === 'admin' && <button type="button" className="ghost" onClick={seedOptionFamilies}>Crear familias base</button>}
+
               </div>
               {role !== 'admin' ? <p>Solo admin puede editar familias.</p> : null}
               {role === 'admin' && (
@@ -2090,7 +2090,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                         setFamilyOptionDraft((c) => ({ ...c, item_id: e.target.value, option_name: c.option_name || selected?.name || '' }));
                       }}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
                       <label className="field"><span>Nombre para cliente</span><input value={familyOptionDraft.option_name} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, option_name: e.target.value }))} placeholder="Vainilla francesa" /></label>
-                      <label className="field"><span>Cantidad por uso</span><input type="number" step="0.01" value={familyOptionDraft.quantity} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+                      <label className="field"><span>Cantidad por uso</span><input type="number" step="1" value={familyOptionDraft.quantity} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
                       <label className="field"><span>Precio extra default</span><input type="number" step="1" value={familyOptionDraft.extra_price || 0} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
                       <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_default)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_default: e.target.checked }))} /><span>Default</span></label>
                       <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_active)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_active: e.target.checked }))} /><span>Activa</span></label>
@@ -2100,7 +2100,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                       <p className="privacy-note">Úsalos para empaques ligados a la opción: por ejemplo, Chipotle + contenedor de aderezo, o café frío + tapa.</p>
                       <div className="stock-form-grid compact-grid">
                         <label className="field"><span>Componente</span><select value={familyComponentDraft.item_id} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
-                        <label className="field"><span>Cantidad</span><input type="number" step="0.01" value={familyComponentDraft.quantity} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+                        <label className="field"><span>Cantidad</span><input type="number" step="1" value={familyComponentDraft.quantity} onChange={(e) => setFamilyComponentDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
                         <button type="button" className="ghost" onClick={addFamilyComponent}>+ Añadir componente</button>
                       </div>
                       {(familyOptionDraft.components || []).map((component, index) => { const item = data.items.find((entry) => Number(entry.id) === Number(component.item_id)); return <div className="component-chip" key={`${component.item_id}-${index}`}><span>{item?.name || component.item_name} · {component.quantity} {item?.unit_code || ''}</span><button type="button" onClick={() => removeFamilyComponent(index)}>×</button></div>; })}
@@ -2259,7 +2259,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <section className="stock-card-block narrow-stock-form">
               <h2>Entrada de compra</h2>
               <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
-              <label className="field full"><span>Cantidad a sumar</span><input type="number" step="0.01" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+              <label className="field full"><span>Cantidad a sumar</span><input type="number" step="1" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
               <label className="field full"><span>Nota</span><textarea rows="2" value={receiveDraft.note} onChange={(e) => setReceiveDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. compra Costco" /></label>
               <button type="button" className="primary" onClick={receiveStock}>Registrar entrada</button>
             </section>
@@ -2267,7 +2267,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <section className="stock-card-block narrow-stock-form">
               <h2>{role === 'admin' ? 'Merma directa' : 'Reportar merma'}</h2>
               <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
-              <label className="field full"><span>Cantidad a descontar</span><input type="number" step="0.01" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+              <label className="field full"><span>Cantidad a descontar</span><input type="number" step="1" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
               <label className="field full"><span>Razón obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemó pan, se cayó, caducó..." /></label>
               <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobación'}</button>
             </section>
@@ -2289,7 +2289,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           <section className="stock-card-block narrow-stock-form">
             <h2>Entrada de compra</h2>
             <label className="field full"><span>Ingrediente</span><select value={receiveDraft.itemId} onChange={(e) => setReceiveDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
-            <label className="field full"><span>Cantidad a sumar</span><input type="number" step="0.01" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+            <label className="field full"><span>Cantidad a sumar</span><input type="number" step="1" value={receiveDraft.quantity} onChange={(e) => setReceiveDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
             <label className="field full"><span>Nota</span><textarea rows="2" value={receiveDraft.note} onChange={(e) => setReceiveDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. compra Costco" /></label>
             <button type="button" className="primary" onClick={receiveStock}>Registrar entrada</button>
           </section>
@@ -2300,7 +2300,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <section className="stock-card-block narrow-stock-form">
               <h2>{role === 'admin' ? 'Merma directa' : 'Reportar merma'}</h2>
               <label className="field full"><span>Ingrediente</span><select value={wasteDraft.itemId} onChange={(e) => setWasteDraft((c) => ({ ...c, itemId: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatStockQuantity(item.current_stock, item.unit_code)}</option>)}</select></label>
-              <label className="field full"><span>Cantidad a descontar</span><input type="number" step="0.01" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+              <label className="field full"><span>Cantidad a descontar</span><input type="number" step="1" value={wasteDraft.quantity} onChange={(e) => setWasteDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
               <label className="field full"><span>Razón obligatoria</span><textarea rows="3" value={wasteDraft.reason} onChange={(e) => setWasteDraft((c) => ({ ...c, reason: e.target.value }))} placeholder="Ej. se quemó pan, se cayó, caducó..." /></label>
               <button type="button" className="primary" onClick={reportWaste}>{role === 'admin' ? 'Aplicar merma' : 'Enviar para aprobación'}</button>
             </section>
@@ -2405,6 +2405,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     </main>
   );
 }
+
+
 
 
 

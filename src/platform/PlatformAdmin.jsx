@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, RefreshCw, Save, Shield, WalletCards } from 'lucide-react';
+import { Building2, RefreshCw, Save, Shield, Upload, WalletCards } from 'lucide-react';
 import '../styles.css';
 
 const emptyBusiness = {
@@ -31,6 +31,59 @@ const emptyBusiness = {
   notes: '',
 };
 
+const CUSTOM_BRAND_ALIASES = {
+  nombre: 'displayName',
+  nombre_visible: 'displayName',
+  displayName: 'displayName',
+  subtitulo: 'tagline',
+  tagline: 'tagline',
+  logo: 'logoUrl',
+  logoUrl: 'logoUrl',
+  eyebrow: 'heroEyebrow',
+  heroEyebrow: 'heroEyebrow',
+  titulo: 'heroTitle',
+  titulo_portada: 'heroTitle',
+  heroTitle: 'heroTitle',
+  texto: 'heroText',
+  texto_portada: 'heroText',
+  heroText: 'heroText',
+  boton_principal: 'primaryActionLabel',
+  primaryActionLabel: 'primaryActionLabel',
+  boton_carrito: 'secondaryActionLabel',
+  secondaryActionLabel: 'secondaryActionLabel',
+  mensaje_whatsapp: 'orderMessageIntro',
+  orderMessageIntro: 'orderMessageIntro',
+  etiqueta_catalogo: 'menuEyebrow',
+  menuEyebrow: 'menuEyebrow',
+  pestana: 'menuTitle',
+  pestaña: 'menuTitle',
+  titulo_catalogo: 'menuTitle',
+  menuTitle: 'menuTitle',
+  titulo_sin_productos: 'emptyCatalogTitle',
+  emptyCatalogTitle: 'emptyCatalogTitle',
+  texto_sin_productos: 'emptyCatalogText',
+  emptyCatalogText: 'emptyCatalogText',
+  color_principal: 'primaryColor',
+  primaryColor: 'primaryColor',
+  color_acento: 'accentColor',
+  accentColor: 'accentColor',
+};
+
+function parseCustomBrandImport(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('Pega un JSON de customizacion.');
+  const parsed = JSON.parse(raw);
+  const source = parsed.brand && typeof parsed.brand === 'object' ? parsed.brand : parsed;
+  const mapped = {};
+  for (const [key, value] of Object.entries(source || {})) {
+    const target = CUSTOM_BRAND_ALIASES[key] || CUSTOM_BRAND_ALIASES[String(key).trim()] || key;
+    if (Object.prototype.hasOwnProperty.call(emptyBusiness, target) && value !== undefined && value !== null) {
+      mapped[target] = String(value);
+    }
+  }
+  if (Object.keys(mapped).length === 0) throw new Error('No encontre campos custom validos en el JSON.');
+  return mapped;
+}
 function platformToken() {
   try {
     return window.sessionStorage.getItem('platform_admin_token') || '';
@@ -90,6 +143,7 @@ export default function PlatformAdmin() {
   const [dashboard, setDashboard] = useState(null);
   const [draft, setDraft] = useState(emptyBusiness);
   const [password, setPassword] = useState('');
+  const [customImportText, setCustomImportText] = useState('');
   const [authorized, setAuthorized] = useState(() => Boolean(platformToken()));
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -212,7 +266,18 @@ export default function PlatformAdmin() {
 
   const clearDraft = () => {
     setDraft(emptyBusiness);
+    setCustomImportText('');
     setStatus('');
+  };
+
+  const applyCustomImport = () => {
+    try {
+      const mapped = parseCustomBrandImport(customImportText);
+      setDraft((current) => ({ ...current, ...mapped }));
+      setStatus('Customizacion importada. Revisa y guarda cambios.');
+    } catch (error) {
+      setStatus(error.message || 'No se pudo importar la customizacion.');
+    }
   };
 
   const saveBusiness = async () => {
@@ -354,6 +419,8 @@ export default function PlatformAdmin() {
               <label className="field"><span>Titulo catalogo</span><input value={draft.menuTitle} onChange={(e) => updateDraft('menuTitle', e.target.value)} placeholder="Elige una categoria" /></label>
               <label className="field"><span>Titulo sin productos</span><input value={draft.emptyCatalogTitle} onChange={(e) => updateDraft('emptyCatalogTitle', e.target.value)} placeholder="Catalogo en preparacion" /></label>
               <label className="field"><span>Texto sin productos</span><input value={draft.emptyCatalogText} onChange={(e) => updateDraft('emptyCatalogText', e.target.value)} placeholder="Pronto publicaremos productos." /></label>
+              <label className="field full"><span>Import custom JSON</span><textarea rows="5" value={customImportText} onChange={(e) => setCustomImportText(e.target.value)} placeholder={'{"titulo":"Arreglos para hoy","texto":"Pedidos por WhatsApp","pestana":"Catalogo floral"}'} /></label>
+              <div className="field full"><button type="button" className="ghost small" onClick={applyCustomImport}><Upload size={16} /> Importar custom</button></div>
               <label className="field full"><span>Notas internas</span><textarea value={draft.notes} onChange={(e) => updateDraft('notes', e.target.value)} placeholder="Pendientes, acuerdos, soporte..." /></label>
             </div>
             <div className="inline-actions">
@@ -408,6 +475,8 @@ export default function PlatformAdmin() {
     </main>
   );
 }
+
+
 
 
 

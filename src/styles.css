@@ -4342,3 +4342,38 @@ textarea { resize: vertical; min-height: 48px; }
   }
 }
 
+.privacy-page {
+  min-height: 100vh;
+  background: var(--cream);
+  padding: 48px 20px 80px;
+}
+.privacy-page-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px clamp(20px, 5vw, 56px);
+  line-height: 1.6;
+}
+.privacy-page-inner h1 {
+  color: var(--brown);
+  margin-bottom: 4px;
+}
+.privacy-page-inner .privacy-updated {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0;
+}
+.privacy-page-inner h2 {
+  color: var(--brown-2);
+  font-size: 1.15rem;
+  margin-top: 32px;
+}
+.privacy-page-inner a {
+  color: var(--orange);
+}
+.privacy-page-inner ul {
+  padding-left: 22px;
+}
+

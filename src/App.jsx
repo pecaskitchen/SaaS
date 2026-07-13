@@ -8,6 +8,7 @@ const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
 const OrdersPanel = lazy(() => import('./internal/OrdersPanel.jsx'));
 const StockPanel = lazy(() => import('./internal/StockPanel.jsx'));
 const CrmPanel = lazy(() => import('./internal/CrmPanel.jsx'));
+const PrivacyPolicy = lazy(() => import('./PrivacyPolicy.jsx'));
 
 function currentRoute() {
   try {
@@ -59,6 +60,7 @@ export default function App() {
         : route === '#orders' ? <OrdersPanel />
         : route === '#crm' ? <CrmPanel />
         : route === '#stock' ? <StockPanel />
+        : route === '#privacidad' ? <PrivacyPolicy />
         : isLegacyRoute(route) ? <LegacyApp />
         : isOmdexaLandingHost() ? <OmdexaLanding />
         : <PublicApp />}

@@ -512,6 +512,7 @@ export default function PlatformAdmin() {
                     <a className="ghost small" href={tenantHref('/', business)} target="_blank" rel="noreferrer">Tienda</a>
                     <a className="ghost small" href={tenantHref('/admin', business)} target="_blank" rel="noreferrer">Admin</a>
                     <a className="ghost small" href={tenantHref('/orders', business)} target="_blank" rel="noreferrer">Pedidos</a>
+                    <a className="ghost small" href={tenantHref('/crm', business)} target="_blank" rel="noreferrer">CRM</a>
                     <a className="ghost small" href={tenantHref('/stock', business)} target="_blank" rel="noreferrer">Stock</a>
                     <button type="button" className="ghost small" onClick={() => editBusiness(business)}>Editar</button>
                     <button type="button" className="ghost small" onClick={() => updateBusinessStatus(business, 'active')}>Activar</button>

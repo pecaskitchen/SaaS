@@ -7,6 +7,7 @@ const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
 const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
 const OrdersPanel = lazy(() => import('./internal/OrdersPanel.jsx'));
 const StockPanel = lazy(() => import('./internal/StockPanel.jsx'));
+const CrmPanel = lazy(() => import('./internal/CrmPanel.jsx'));
 
 function currentRoute() {
   try {
@@ -15,6 +16,7 @@ function currentRoute() {
     if (path === '/admin') return '#admin';
     if (path === '/super') return '#super';
     if (path === '/orders') return '#orders';
+    if (path === '/crm') return '#crm';
     if (path === '/stock') return '#stock';
     if (path === '/cashier') return '#cashier';
     if (path === '/platform') return '#platform';
@@ -55,6 +57,7 @@ export default function App() {
       {route === '#platform' ? <PlatformAdmin />
         : route === '#admin' ? <AdminRoute />
         : route === '#orders' ? <OrdersPanel />
+        : route === '#crm' ? <CrmPanel />
         : route === '#stock' ? <StockPanel />
         : isLegacyRoute(route) ? <LegacyApp />
         : isOmdexaLandingHost() ? <OmdexaLanding />

@@ -224,6 +224,7 @@ const TEXT = {
     welcomeBack: (name) => `Qué gusto tenerte de vuelta, ${name}.`,
     privacyNote: 'Puedes guardar tus datos para futuros pedidos. Se guardan solo en este celular/navegador.',
     namePlaceholder: 'Nombre',
+    phonePlaceholder: 'WhatsApp',
     addressPlaceholder: 'Dirección',
     neighborhoodPlaceholder: 'Colonia / Privada',
     sectorPlaceholder: 'Sector',
@@ -239,7 +240,7 @@ const TEXT = {
     saveMyData: 'Guardar mis datos',
     clearData: 'Borrar datos',
     savedDataAlert: 'Tus datos quedaron guardados solo en este dispositivo.',
-    completeDataAlert: 'Completa nombre, tipo de entrega, forma de pago y dirección si es entrega a domicilio.',
+    completeDataAlert: 'Completa nombre, WhatsApp, tipo de entrega, forma de pago y dirección si es entrega a domicilio.',
     saveOrderError: 'No se pudo guardar el pedido. Intenta de nuevo.',
     connectionOrderError: (message) => `No se pudo guardar el pedido: ${message}`,
     total: 'Total',
@@ -323,6 +324,7 @@ const TEXT = {
     welcomeBack: (name) => `Great to have you back, ${name}.`,
     privacyNote: 'You can save your details for future orders. They are stored only on this phone/browser.',
     namePlaceholder: 'Name',
+    phonePlaceholder: 'WhatsApp',
     addressPlaceholder: 'Address',
     neighborhoodPlaceholder: 'Neighborhood / Private community',
     sectorPlaceholder: 'Sector',
@@ -338,7 +340,7 @@ const TEXT = {
     saveMyData: 'Save my details',
     clearData: 'Clear details',
     savedDataAlert: 'Your details were saved only on this device.',
-    completeDataAlert: 'Complete name, pickup/delivery, payment method, and address if delivery is selected.',
+    completeDataAlert: 'Complete name, WhatsApp, pickup/delivery, payment method, and address if delivery is selected.',
     saveOrderError: 'Could not save the order. Please try again.',
     connectionOrderError: (message) => `Could not save the order: ${message}`,
     total: 'Total',
@@ -1606,6 +1608,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const saveCustomerProfile = () => {
     const profile = {
       name: customer.name,
+      phone: customer.phone,
       address: customer.address,
       neighborhood: customer.neighborhood,
       sector: customer.sector,
@@ -1620,7 +1623,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
 
   const clearCustomerProfile = () => {
     window.localStorage.removeItem(CUSTOMER_STORAGE_KEY);
-    setCustomer((current) => ({ ...current, name: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', profileLoaded: false }));
+    setCustomer((current) => ({ ...current, name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', profileLoaded: false }));
   };
 
   const buildMessage = () => {
@@ -1638,6 +1641,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       '',
       t(lang, 'orderData'),
       `${t(lang, 'nameLabel')}: ${customer.name || ''}`,
+      customer.phone ? `WhatsApp: ${customer.phone}` : '',
       `${t(lang, 'fulfillmentLabel')}: ${customer.fulfillmentType ? optionLabel(lang, customer.fulfillmentType) : ''}`,
       `${t(lang, 'addressLabel')}: ${customer.address || ''}`,
       `${t(lang, 'neighborhoodLabel')}: ${customer.neighborhood || ''}`,
@@ -1653,7 +1657,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const sendOrder = async () => {
     if (!canSend) return;
 
-    if (!customer.name || !customer.fulfillmentType || !customer.payment || (customer.fulfillmentType === 'Entrega a domicilio' && !customer.address)) {
+    if (!customer.name || !customer.phone || !customer.fulfillmentType || !customer.payment || (customer.fulfillmentType === 'Entrega a domicilio' && !customer.address)) {
       alert(t(lang, 'completeDataAlert'));
       return;
     }
@@ -1666,8 +1670,10 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     const payload = {
       customer: {
         name: customer.name,
-        phone: '',
+        phone: customer.phone,
         address: customer.address,
+        neighborhood: customer.neighborhood,
+        sector: customer.sector,
         fulfillmentType: customer.fulfillmentType,
         paymentMethod: customer.payment,
         notes: customer.orderNote || '',
@@ -1782,6 +1788,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         {hasSavedProfile && <p className="welcome-back">{t(lang, 'welcomeBack', customer.name)}</p>}
         <p className="privacy-note">{t(lang, 'privacyNote')}</p>
         <input required value={customer.name} onChange={(e) => updateCustomer('name', e.target.value)} placeholder={t(lang, 'namePlaceholder')} />
+        <input required value={customer.phone || ''} onChange={(e) => updateCustomer('phone', e.target.value)} placeholder={t(lang, 'phonePlaceholder')} inputMode="tel" />
         <select required value={customer.fulfillmentType || ''} onChange={(e) => updateCustomer('fulfillmentType', e.target.value)}>
           <option value="">{t(lang, 'fulfillmentPlaceholder')}</option>
           <option value="Recoger">{t(lang, 'fulfillmentPickup')}</option>
@@ -1874,7 +1881,7 @@ export default function PublicApp() {
   };
 
   const [customer, setCustomer] = useState(() => {
-    const fallback = { name: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', profileLoaded: false };
+    const fallback = { name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', profileLoaded: false };
     try {
       const saved = window.localStorage.getItem(CUSTOMER_STORAGE_KEY);
       return saved ? { ...fallback, ...JSON.parse(saved), profileLoaded: true } : fallback;
@@ -2129,8 +2136,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
-
 
 
 

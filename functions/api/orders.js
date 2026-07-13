@@ -1,4 +1,5 @@
 import { requireAuth } from './_shared/auth.js';
+import { upsertCustomerFromOrder } from './_shared/crm.js';
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
@@ -313,11 +314,24 @@ export async function onRequestPost({ request, env }) {
       VALUES (?, ?, 'created', ?, ?, ?)
     `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido ${orderSource} capturado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
 
+    await upsertCustomerFromOrder(env, tenantId, {
+      customer: {
+        ...customer,
+        neighborhood: body.neighborhood || customer.neighborhood || '',
+        sector: body.sector || customer.sector || '',
+      },
+      order: {
+        id: createdOrder.id,
+        orderNumber,
+        total: Number(body.total || 0),
+        createdAtUtc: timestamps.utc,
+      },
+    });
+
     return jsonResponse({ ok: true, orderId: createdOrder.id, orderNumber, branch });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
-
 
 

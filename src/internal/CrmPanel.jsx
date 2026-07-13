@@ -9,12 +9,12 @@ const MESSAGE_TEMPLATES = [
   {
     key: 'followup',
     label: 'Seguimiento',
-    text: 'Hola {{nombre}}, gracias por tu compra. ¿Todo llegó bien?',
+    text: 'Hola {{nombre}}, gracias por tu compra. Todo llego bien?',
   },
   {
     key: 'promo',
     label: 'Promo',
-    text: 'Hola {{nombre}}, tenemos una promoción nueva por tiempo limitado. ¿Te paso el catálogo?',
+    text: 'Hola {{nombre}}, tenemos una promocion nueva por tiempo limitado. Te paso el catalogo?',
   },
   {
     key: 'payment',
@@ -149,7 +149,7 @@ export default function CrmPanel() {
               ) : customers.map((customer) => (
                 <button type="button" className={selected?.id === customer.id ? 'active' : ''} key={customer.id} onClick={() => openCustomer(customer)}>
                   <strong>{customer.name}</strong>
-                  <span>{customer.phone || 'Sin telefono'} · {customer.orderCount} pedido(s) · {currency(customer.totalSpent)}</span>
+                  <span>{customer.phone || 'Sin telefono'} - {customer.orderCount} pedido(s) - {currency(customer.totalSpent)}</span>
                   {customer.tags?.length ? <small>{customer.tags.join(', ')}</small> : null}
                 </button>
               ))}
@@ -197,7 +197,7 @@ export default function CrmPanel() {
                   {orders.length === 0 ? <p className="empty-cart">Sin historial encontrado.</p> : orders.map((order) => (
                     <article key={order.id}>
                       <strong>{order.order_number}</strong>
-                      <span>{order.status} · {order.branch_name || 'Sucursal'} · {currency(order.total)}</span>
+                      <span>{order.status} - {order.branch_name || 'Sucursal'} - {currency(order.total)}</span>
                     </article>
                   ))}
                 </section>

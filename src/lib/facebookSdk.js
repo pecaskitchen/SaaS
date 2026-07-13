@@ -7,7 +7,15 @@
 // existe": esa señal es prematura (el objeto FB puede existir antes de que
 // FB.init() termine su propio setup interno, que no es necesariamente
 // síncrono) -- eso es justo lo que producía "FB.login() called before
-// FB.init()". Solo se resuelve cuando el SDK mismo llama a fbAsyncInit.
+// FB.init()".
+//
+// Tampoco alcanza con esperar a que el propio SDK llame a fbAsyncInit y
+// llamar FB.init() ahí -- en la práctica FB.init() puede devolver el
+// control ANTES de que el SDK termine de dejar su estado interno listo
+// para FB.login() (es un problema conocido/documentado del SDK, no algo
+// que dependa de nuestro código). El patrón que sí lo garantiza es forzar
+// un round-trip con FB.getLoginStatus() antes de considerar el SDK listo
+// -- por eso solo resolvemos DESPUÉS de que ese callback se dispare.
 let sdkPromise = null;
 
 export function loadFacebookSdk(appId, graphVersion) {
@@ -16,7 +24,7 @@ export function loadFacebookSdk(appId, graphVersion) {
   sdkPromise = new Promise((resolve, reject) => {
     window.fbAsyncInit = function fbAsyncInit() {
       window.FB.init({ appId, cookie: true, xfbml: false, version: graphVersion });
-      resolve(window.FB);
+      window.FB.getLoginStatus(() => resolve(window.FB));
     };
 
     const existing = document.getElementById('facebook-jssdk');

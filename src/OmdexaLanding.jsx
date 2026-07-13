@@ -4,6 +4,8 @@ import './styles.css';
 
 const DEFAULT_CONFIG = {
   brandName: 'Omdexa',
+  pageTitle: 'Omdexa | Sistema operativo para pequenos negocios',
+  metaDescription: 'Omdexa centraliza tienda en linea, caja, pedidos, inventario y pagos para pequenos negocios con soporte mensual.',
   platformLinkLabel: 'Admin SaaS',
   topbarLabel: 'Portal de clientes',
   topbarStatus: 'Multi-tenant activo',
@@ -12,6 +14,15 @@ const DEFAULT_CONFIG = {
     { label: 'Plataforma', href: '#platform', icon: 'shield' },
     { label: 'Operacion', href: '#ops', icon: 'chart' },
   ],
+  hero: {
+    eyebrow: 'Software operativo para negocios locales',
+    title: 'Tu tienda, caja, inventario y pagos en un solo sistema.',
+    text: 'Omdexa ayuda a pequenos negocios a vender en linea, tomar pedidos por caja, controlar stock por recetas y operar con soporte mensual sin construir tecnologia desde cero.',
+    primaryActionLabel: 'Entrar a mi negocio',
+    secondaryActionLabel: 'Conocer modulos',
+    proofLabel: 'Hecho para operacion real',
+    proofItems: ['Pedidos por tienda y caja', 'Inventario por sucursal', 'Pagos conectados por cliente'],
+  },
   access: {
     eyebrow: 'Entrar al ambiente',
     title: 'Abre la tienda o el panel de tu negocio.',
@@ -44,6 +55,11 @@ function mergeConfig(config) {
   return {
     ...DEFAULT_CONFIG,
     ...(config || {}),
+    hero: {
+      ...DEFAULT_CONFIG.hero,
+      ...(config?.hero || {}),
+      proofItems: Array.isArray(config?.hero?.proofItems) ? config.hero.proofItems : DEFAULT_CONFIG.hero.proofItems,
+    },
     access: { ...DEFAULT_CONFIG.access, ...(config?.access || {}) },
     live: {
       ...DEFAULT_CONFIG.live,
@@ -87,6 +103,12 @@ export default function OmdexaLanding() {
     return () => { alive = false; };
   }, []);
 
+  React.useEffect(() => {
+    document.title = config.pageTitle || config.brandName || 'Omdexa';
+    const description = document.querySelector('meta[name="description"]');
+    if (description && config.metaDescription) description.setAttribute('content', config.metaDescription);
+  }, [config.pageTitle, config.brandName, config.metaDescription]);
+
   const resolveTenant = async (destination = 'store') => {
     const q = cleanLookup(lookup);
     if (!q) {
@@ -129,6 +151,26 @@ export default function OmdexaLanding() {
             <span>{config.topbarLabel}</span>
             <b>{config.topbarStatus}</b>
           </div>
+
+          <section className="omdexa-sales-hero" id="platform">
+            <div>
+              <span className="omdexa-eyebrow">{config.hero.eyebrow}</span>
+              <h1>{config.hero.title}</h1>
+              <p>{config.hero.text}</p>
+              <div className="omdexa-hero-actions">
+                <a className="primary" href="#access">{config.hero.primaryActionLabel}</a>
+                <a className="secondary" href="#ops">{config.hero.secondaryActionLabel}</a>
+              </div>
+            </div>
+            <aside className="omdexa-proof-card" aria-label={config.hero.proofLabel}>
+              <span>{config.hero.proofLabel}</span>
+              <ul>
+                {config.hero.proofItems.map((item, index) => (
+                  <li key={`${item}-${index}`}><CheckCircle2 size={17} /> {item}</li>
+                ))}
+              </ul>
+            </aside>
+          </section>
 
           <div className="omdexa-portal-grid">
             <section className="omdexa-access-panel" id="access">

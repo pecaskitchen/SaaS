@@ -4,6 +4,8 @@ export const OMDEXA_CONFIG_KEY = 'omdexa_landing_config';
 
 export const DEFAULT_OMDEXA_CONFIG = {
   brandName: 'Omdexa',
+  pageTitle: 'Omdexa | Sistema operativo para pequenos negocios',
+  metaDescription: 'Omdexa centraliza tienda en linea, caja, pedidos, inventario y pagos para pequenos negocios con soporte mensual.',
   platformLinkLabel: 'Admin SaaS',
   topbarLabel: 'Portal de clientes',
   topbarStatus: 'Multi-tenant activo',
@@ -12,6 +14,15 @@ export const DEFAULT_OMDEXA_CONFIG = {
     { label: 'Plataforma', href: '#platform', icon: 'shield' },
     { label: 'Operacion', href: '#ops', icon: 'chart' },
   ],
+  hero: {
+    eyebrow: 'Software operativo para negocios locales',
+    title: 'Tu tienda, caja, inventario y pagos en un solo sistema.',
+    text: 'Omdexa ayuda a pequenos negocios a vender en linea, tomar pedidos por caja, controlar stock por recetas y operar con soporte mensual sin construir tecnologia desde cero.',
+    primaryActionLabel: 'Entrar a mi negocio',
+    secondaryActionLabel: 'Conocer modulos',
+    proofLabel: 'Hecho para operacion real',
+    proofItems: ['Pedidos por tienda y caja', 'Inventario por sucursal', 'Pagos conectados por cliente'],
+  },
   access: {
     eyebrow: 'Entrar al ambiente',
     title: 'Abre la tienda o el panel de tu negocio.',
@@ -44,6 +55,11 @@ function mergeConfig(value) {
   return {
     ...DEFAULT_OMDEXA_CONFIG,
     ...(value || {}),
+    hero: {
+      ...DEFAULT_OMDEXA_CONFIG.hero,
+      ...(value?.hero || {}),
+      proofItems: Array.isArray(value?.hero?.proofItems) ? value.hero.proofItems : DEFAULT_OMDEXA_CONFIG.hero.proofItems,
+    },
     access: { ...DEFAULT_OMDEXA_CONFIG.access, ...(value?.access || {}) },
     live: {
       ...DEFAULT_OMDEXA_CONFIG.live,

@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
           <h2>1. Responsable del tratamiento de tus datos personales</h2>
           <p>
             <strong>Omdexa</strong> ("Omdexa", "nosotros"), con domicilio en
-            [COMPLETAR: domicilio fiscal/comercial], es responsable del
+            Calle Del Campo 217, Monterrey, Nuevo León, México, es responsable del
             tratamiento de tus datos personales conforme a este Aviso de
             Privacidad y a la Ley Federal de Protección de Datos Personales
             en Posesión de los Particulares (LFPDPPP) y su Reglamento.

@@ -1,6 +1,7 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
+const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
 const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
@@ -27,6 +28,15 @@ function isLegacyRoute(route) {
   return ['#super', '#cashier'].includes(route);
 }
 
+function isOmdexaLandingHost() {
+  try {
+    const host = window.location.hostname.toLowerCase();
+    return host === 'omdexa.com' || host === 'www.omdexa.com' || host.endsWith('.pages.dev');
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const [route, setRoute] = useState(currentRoute);
 
@@ -47,6 +57,7 @@ export default function App() {
         : route === '#orders' ? <OrdersPanel />
         : route === '#stock' ? <StockPanel />
         : isLegacyRoute(route) ? <LegacyApp />
+        : isOmdexaLandingHost() ? <OmdexaLanding />
         : <PublicApp />}
     </Suspense>
   );

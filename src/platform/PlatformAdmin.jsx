@@ -144,6 +144,7 @@ export default function PlatformAdmin() {
   const [draft, setDraft] = useState(emptyBusiness);
   const [password, setPassword] = useState('');
   const [customImportText, setCustomImportText] = useState('');
+  const [omdexaConfigText, setOmdexaConfigText] = useState('');
   const [authorized, setAuthorized] = useState(() => Boolean(platformToken()));
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -165,12 +166,14 @@ export default function PlatformAdmin() {
     setLoading(true);
     setStatus('Cargando negocios...');
     try {
-      const [businessData, dashboardData] = await Promise.all([
+      const [businessData, dashboardData, omdexaData] = await Promise.all([
         platformFetch('/api/platform/businesses'),
         platformFetch('/api/platform/dashboard'),
+        platformFetch('/api/platform/omdexa-config'),
       ]);
       setBusinesses(businessData.businesses || []);
       setDashboard(dashboardData);
+      setOmdexaConfigText(JSON.stringify(omdexaData.config || {}, null, 2));
       setAuthorized(true);
       setStatus('');
     } catch (error) {
@@ -302,6 +305,24 @@ export default function PlatformAdmin() {
     }
   };
 
+  const saveOmdexaConfig = async () => {
+    setLoading(true);
+    setStatus('Guardando pagina Omdexa...');
+    try {
+      const parsed = JSON.parse(omdexaConfigText || '{}');
+      const result = await platformFetch('/api/platform/omdexa-config', {
+        method: 'PATCH',
+        body: JSON.stringify({ config: parsed }),
+      });
+      setOmdexaConfigText(JSON.stringify(result.config || parsed, null, 2));
+      setStatus('Pagina Omdexa actualizada.');
+    } catch (error) {
+      setStatus(error.message || 'No se pudo guardar Omdexa.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateBusinessStatus = async (business, nextStatus) => {
     setLoading(true);
     setStatus('Actualizando negocio...');
@@ -389,6 +410,23 @@ export default function PlatformAdmin() {
             <span>Mensual activo</span>
             <strong>{moneyFromCents(monthlyPotential)}</strong>
           </article>
+        </section>
+
+        <section className="platform-panel">
+          <h2>Pagina Omdexa</h2>
+          <p>Edita el contenido publico de omdexa.com. El layout vive en el producto; textos, modulos, flujo y labels salen de esta configuracion.</p>
+          <label className="field full">
+            <span>Configuracion JSON</span>
+            <textarea
+              rows="18"
+              value={omdexaConfigText}
+              onChange={(event) => setOmdexaConfigText(event.target.value)}
+              spellCheck="false"
+            />
+          </label>
+          <button type="button" className="primary" onClick={saveOmdexaConfig} disabled={loading}>
+            <Save size={16} /> Guardar pagina Omdexa
+          </button>
         </section>
 
         <section className="platform-grid">

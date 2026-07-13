@@ -178,8 +178,45 @@ export default function PrivacyPolicy() {
           </p>
         </section>
 
+        <section id="eliminar-datos">
+          <h2>6. Eliminación de tus datos</h2>
+          <p>
+            Puedes solicitar la eliminación de tus datos personales en
+            cualquier momento, incluidos los datos que Omdexa procesa a
+            través de tu conexión con WhatsApp, Messenger o Instagram.
+          </p>
+          <p>
+            <strong>Si eres cliente final</strong> de un negocio que usa
+            Omdexa (por ejemplo, hiciste un pedido por WhatsApp,
+            Messenger o Instagram): escríbenos a{' '}
+            <a href="mailto:hola@omdexa.com">hola@omdexa.com</a> desde el
+            mismo número/cuenta con el que escribiste al negocio,
+            indicando el nombre del negocio y pidiendo la eliminación de
+            tu historial de conversación y datos de pedido. Eliminaremos
+            esos datos de nuestros sistemas dentro de los siguientes 20
+            días hábiles, salvo que debamos conservar algún registro por
+            obligación legal o fiscal.
+          </p>
+          <p>
+            <strong>Si eres dueño o administrador de un negocio</strong>{' '}
+            que usa Omdexa: puedes desconectar tu Página de
+            Facebook/Instagram o tu número de WhatsApp en cualquier
+            momento desde el panel de administración de tu negocio
+            (sección "Facebook e Instagram" / "WhatsApp Business"), lo que
+            revoca de inmediato el acceso de Omdexa a tu cuenta de Meta.
+            Para solicitar además la eliminación completa de los datos de
+            tu cuenta y negocio en Omdexa, escríbenos a{' '}
+            <a href="mailto:hola@omdexa.com">hola@omdexa.com</a>.
+          </p>
+          <p>
+            También puedes revocar el acceso de la app "Omdexa" desde tu
+            propia cuenta de Meta en cualquier momento, en Configuración →
+            Aplicaciones y sitios web.
+          </p>
+        </section>
+
         <section>
-          <h2>6. Uso de cookies y tecnologías similares</h2>
+          <h2>7. Uso de cookies y tecnologías similares</h2>
           <p>
             Usamos cookies y almacenamiento local del navegador
             estrictamente necesarios para mantener tu sesión iniciada,
@@ -189,7 +226,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2>7. Cambios a este Aviso de Privacidad</h2>
+          <h2>8. Cambios a este Aviso de Privacidad</h2>
           <p>
             Podemos actualizar este Aviso de Privacidad para reflejar
             cambios en nuestras prácticas o requisitos legales.
@@ -200,7 +237,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2>8. Contacto</h2>
+          <h2>9. Contacto</h2>
           <p>
             Correo: <a href="mailto:hola@omdexa.com">hola@omdexa.com</a>
             <br />

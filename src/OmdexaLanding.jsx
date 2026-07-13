@@ -1,34 +1,34 @@
 import React, { useState } from 'react';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, LockKeyhole, Mail, PackageCheck, Phone, ShieldCheck, Store, WalletCards } from 'lucide-react';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, LockKeyhole, Mail, Menu, MessageCircle, PackageCheck, Phone, ShieldCheck, Store, Users, WalletCards, X } from 'lucide-react';
 import './styles.css';
 
 const DEFAULT_CONFIG = {
   brandName: 'Omdexa',
-  pageTitle: 'Omdexa | Sistema operativo para pequenos negocios',
-  metaDescription: 'Omdexa centraliza tienda en linea, caja, pedidos, inventario y pagos para pequenos negocios con soporte mensual.',
+  pageTitle: 'Omdexa | Tienda, CRM, inventario y pagos para tu negocio',
+  metaDescription: 'Omdexa centraliza tienda en linea, CRM y seguimiento de clientes, caja, pedidos, inventario y pagos para pequenos negocios. Usa todo el sistema o solo el modulo que necesitas.',
   platformLinkLabel: 'Admin SaaS',
   topbarLabel: 'Portal de clientes',
   topbarStatus: 'Multi-tenant activo',
   nav: [
+    { label: 'Modulos', href: '#ops', icon: 'chart' },
+    { label: 'CRM', href: '#ops', icon: 'users' },
     { label: 'Acceso', href: '#access', icon: 'store' },
-    { label: 'Plataforma', href: '#platform', icon: 'shield' },
-    { label: 'Operacion', href: '#ops', icon: 'chart' },
     { label: 'Contacto', href: '#contact', icon: 'phone' },
   ],
   hero: {
-    eyebrow: 'Software operativo para negocios locales',
-    title: 'Tu tienda, caja, inventario y pagos en un solo sistema.',
-    text: 'Omdexa ayuda a pequenos negocios a vender en linea, tomar pedidos por caja, controlar stock por recetas y operar con soporte mensual sin construir tecnologia desde cero.',
+    eyebrow: 'Software para negocios locales',
+    title: 'Tienda, CRM, inventario y pagos — usa todo, o solo lo que necesitas.',
+    text: 'Omdexa es un sistema modular: negocios que venden en linea usan la operacion completa (tienda, caja, inventario por recetas y pagos), y negocios que solo necesitan dar seguimiento a sus clientes pueden usar unicamente el CRM. Vos eliges que prender.',
     imageUrl: '/omdexa-dashboard.svg',
-    imageAlt: 'Panel operativo de Omdexa con pedidos, inventario y pagos',
+    imageAlt: 'Panel operativo de Omdexa con pedidos, CRM, inventario y pagos',
     primaryActionLabel: 'Entrar a mi negocio',
-    secondaryActionLabel: 'Conocer modulos',
+    secondaryActionLabel: 'Ver todos los modulos',
     proofLabel: 'Hecho para operacion real',
-    proofItems: ['Pedidos por tienda y caja', 'Inventario por sucursal', 'Pagos conectados por cliente'],
+    proofItems: ['CRM y seguimiento de clientes', 'Pedidos por tienda, caja y chat', 'Control de inventario en tiempo real'],
   },
   contact: {
     title: 'Hablemos de tu operacion',
-    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio.',
+    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio — completo o solo el CRM.',
     phone: '+528113927548',
     whatsapp: '+528113927548',
     email: 'hola@omdexa.com',
@@ -50,16 +50,18 @@ const DEFAULT_CONFIG = {
     title: 'Omdexa OS',
     badge: 'Live',
     signals: [
+      { title: 'CRM', text: 'Historial, mensajes y seguimiento por cliente' },
       { title: 'Pedidos', text: 'Tienda, caja y canales externos' },
       { title: 'Inventario', text: 'Recetas, subrecetas y sucursales' },
       { title: 'Pagos', text: 'Mercado Pago por tenant' },
     ],
-    flow: ['Cliente', 'Pago', 'Orden', 'Stock'],
+    flow: ['Cliente', 'CRM', 'Pedido', 'Pago', 'Stock'],
   },
   modules: [
-    { icon: 'building', title: 'Clientes separados', text: 'Cada tenant conserva marca, datos, sucursales y configuracion propia.' },
-    { icon: 'package', title: 'Operacion completa', text: 'Catalogo, pedidos, caja, ordenes, stock y reportes en una sola base.' },
-    { icon: 'wallet', title: 'Pagos conectados', text: 'Checkout Pro por cliente y webhooks para confirmar ordenes pagadas.' },
+    { icon: 'users', title: 'CRM y seguimiento', text: 'Historial de pedidos por cliente, mensajes de seguimiento y segmentacion. Funciona solo, sin necesidad de activar el resto del sistema.' },
+    { icon: 'chat', title: 'Pedidos y tienda', text: 'Catalogo en linea, caja y pedidos por WhatsApp, Messenger e Instagram con el mismo precio siempre.' },
+    { icon: 'package', title: 'Inventario', text: 'Control de stock por receta y sub-receta, por sucursal, sincronizado con cada pedido.' },
+    { icon: 'wallet', title: 'Pagos conectados', text: 'Checkout Pro por cliente y webhooks para confirmar ordenes pagadas automaticamente.' },
   ],
 };
 
@@ -89,15 +91,17 @@ function cleanLookup(value) {
   return String(value || '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 }
 
-function iconFor(name) {
+function iconFor(name, size = 18) {
   const key = String(name || '').toLowerCase();
-  if (key === 'shield') return <ShieldCheck size={18} />;
-  if (key === 'chart') return <BarChart3 size={18} />;
-  if (key === 'building') return <Building2 size={22} />;
-  if (key === 'package') return <PackageCheck size={22} />;
-  if (key === 'wallet') return <WalletCards size={22} />;
-  if (key === 'phone') return <Phone size={18} />;
-  return <Store size={18} />;
+  if (key === 'shield') return <ShieldCheck size={size} />;
+  if (key === 'chart') return <BarChart3 size={size} />;
+  if (key === 'building') return <Building2 size={size} />;
+  if (key === 'package') return <PackageCheck size={size} />;
+  if (key === 'wallet') return <WalletCards size={size} />;
+  if (key === 'phone') return <Phone size={size} />;
+  if (key === 'users') return <Users size={size} />;
+  if (key === 'chat') return <MessageCircle size={size} />;
+  return <Store size={size} />;
 }
 
 export default function OmdexaLanding() {
@@ -105,6 +109,7 @@ export default function OmdexaLanding() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -142,122 +147,143 @@ export default function OmdexaLanding() {
     }
   };
 
+  const whatsappHref = `https://wa.me/${String(config.contact.whatsapp || config.contact.phone).replace(/\D/g, '')}`;
+
   return (
-    <main className="omdexa-page">
-      <section className="omdexa-shell">
-        <aside className="omdexa-rail">
-          <a className="omdexa-mark" href="/">
-            <span>O</span>
-            <strong>{config.brandName}</strong>
-          </a>
-          <nav>
-            {config.nav.map((item, index) => (
-              <a href={item.href || '#'} className={index === 0 ? 'active' : ''} key={`${item.label}-${index}`}>
-                {iconFor(item.icon)} {item.label}
-              </a>
-            ))}
-          </nav>
-          <a className="omdexa-platform-link" href="#platform">{config.platformLinkLabel}</a>
-        </aside>
+    <main className="odx-page">
+      <header className="odx-nav">
+        <a className="odx-logo" href="/">
+          <img src="/omdexa-mark.png" alt="" className="odx-logo-icon" />
+          <img src="/omdexa-wordmark.png" alt={config.brandName} className="odx-logo-word" />
+        </a>
 
-        <section className="omdexa-workspace">
-          <div className="omdexa-topbar">
-            <span>{config.topbarLabel}</span>
-            <div className="omdexa-topbar-actions">
-              <a href={`mailto:${config.contact.email}`}><Mail size={16} /> {config.contact.emailLabel}</a>
-              <a href={`https://wa.me/${String(config.contact.whatsapp || config.contact.phone).replace(/\D/g, '')}`}><Phone size={16} /> {config.contact.phoneLabel}</a>
-              <b>{config.topbarStatus}</b>
-            </div>
+        <nav className={`odx-nav-links ${menuOpen ? 'open' : ''}`}>
+          {config.nav.map((item, index) => (
+            <a href={item.href || '#'} key={`${item.label}-${index}`} onClick={() => setMenuOpen(false)}>
+              {item.label}
+            </a>
+          ))}
+          <a className="odx-nav-cta" href="#access" onClick={() => setMenuOpen(false)}>{config.platformLinkLabel}</a>
+        </nav>
+
+        <button type="button" className="odx-nav-toggle" onClick={() => setMenuOpen((open) => !open)} aria-label="Abrir menu">
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </header>
+
+      <section className="odx-hero" id="platform">
+        <div className="odx-hero-copy">
+          <span className="odx-eyebrow"><ShieldCheck size={14} /> {config.hero.eyebrow}</span>
+          <h1>{config.hero.title}</h1>
+          <p>{config.hero.text}</p>
+          <div className="odx-hero-actions">
+            <a className="odx-btn odx-btn-primary" href="#access">{config.hero.primaryActionLabel} <ArrowRight size={17} /></a>
+            <a className="odx-btn odx-btn-ghost" href="#ops">{config.hero.secondaryActionLabel}</a>
           </div>
-
-          <section className="omdexa-sales-hero" id="platform">
-            <div>
-              <span className="omdexa-eyebrow">{config.hero.eyebrow}</span>
-              <h1>{config.hero.title}</h1>
-              <p>{config.hero.text}</p>
-              <div className="omdexa-hero-actions">
-                <a className="primary" href="#access">{config.hero.primaryActionLabel}</a>
-                <a className="secondary" href="#ops">{config.hero.secondaryActionLabel}</a>
-              </div>
-            </div>
-            <aside className="omdexa-visual-card" aria-label={config.hero.imageAlt}>
-              {config.hero.imageUrl ? (
-                <img src={config.hero.imageUrl} alt={config.hero.imageAlt || ''} />
-              ) : null}
-              <div className="omdexa-proof-card">
-                <span>{config.hero.proofLabel}</span>
-                <ul>
-                  {config.hero.proofItems.map((item, index) => (
-                    <li key={`${item}-${index}`}><CheckCircle2 size={17} /> {item}</li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          </section>
-
-          <div className="omdexa-portal-grid">
-            <section className="omdexa-access-panel" id="access">
-              <span className="omdexa-eyebrow"><LockKeyhole size={16} /> {config.access.eyebrow}</span>
-              <h1>{config.access.title}</h1>
-              <p>{config.access.text}</p>
-
-              <form className="omdexa-access-card" onSubmit={(event) => { event.preventDefault(); resolveTenant('store'); }}>
-                <label>
-                  <span>{config.access.inputLabel}</span>
-                  <input
-                    value={lookup}
-                    onChange={(event) => setLookup(event.target.value)}
-                    placeholder={config.access.inputPlaceholder}
-                    autoComplete="organization"
-                  />
-                </label>
-                <div className="omdexa-access-actions">
-                  <button type="submit" className="primary" disabled={loading}>{config.access.storeButton}</button>
-                  <button type="button" className="ghost" onClick={() => resolveTenant('admin')} disabled={loading}>{config.access.adminButton}</button>
-                </div>
-                {status ? <p className="omdexa-status">{status}</p> : null}
-              </form>
-            </section>
-
-            <section className="omdexa-live-card" aria-label="Resumen operativo">
-              <div className="omdexa-live-head">
-                <span>{config.live.title}</span>
-                <b>{config.live.badge}</b>
-              </div>
-              <div className="omdexa-signal-list">
-                {config.live.signals.map((signal, index) => (
-                  <article key={`${signal.title}-${index}`}><CheckCircle2 size={18} /><div><strong>{signal.title}</strong><span>{signal.text}</span></div></article>
-                ))}
-              </div>
-              <div className="omdexa-flow">
-                {config.live.flow.map((step, index) => (
-                  <React.Fragment key={`${step}-${index}`}>
-                    {index > 0 ? <ArrowRight size={16} /> : null}
-                    <span>{step}</span>
-                  </React.Fragment>
-                ))}
-              </div>
-            </section>
+          <div className="odx-hero-contact">
+            <a href={`mailto:${config.contact.email}`}><Mail size={15} /> {config.contact.emailLabel}</a>
+            <a href={whatsappHref}><Phone size={15} /> {config.contact.phoneLabel}</a>
           </div>
+        </div>
 
-          <section className="omdexa-modules" id="ops">
-            {config.modules.map((module, index) => (
-              <article key={`${module.title}-${index}`}>{iconFor(module.icon)}<h3>{module.title}</h3><p>{module.text}</p></article>
-            ))}
-          </section>
-
-          <section className="omdexa-contact" id="contact">
-            <div>
-              <span className="omdexa-eyebrow">{config.contact.title}</span>
-              <p>{config.contact.text}</p>
-            </div>
-            <div className="omdexa-contact-actions">
-              <a href={`https://wa.me/${String(config.contact.whatsapp || config.contact.phone).replace(/\D/g, '')}`}><Phone size={18} /> {config.contact.phoneLabel}</a>
-              <a href={`mailto:${config.contact.email}`}><Mail size={18} /> {config.contact.emailLabel}</a>
-            </div>
-          </section>
-        </section>
+        <div className="odx-hero-visual">
+          <div className="odx-visual-frame">
+            {config.hero.imageUrl ? <img src={config.hero.imageUrl} alt={config.hero.imageAlt || ''} /> : null}
+          </div>
+          <div className="odx-proof-card">
+            <span>{config.hero.proofLabel}</span>
+            <ul>
+              {config.hero.proofItems.map((item, index) => (
+                <li key={`${item}-${index}`}><CheckCircle2 size={16} /> {item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
+
+      <section className="odx-modules" id="ops">
+        <div className="odx-section-head">
+          <span className="odx-eyebrow">Modulos</span>
+          <h2>Todo lo que opera tu negocio, en un solo lugar.</h2>
+        </div>
+        <div className="odx-modules-grid">
+          {config.modules.map((module, index) => (
+            <article key={`${module.title}-${index}`} className="odx-module-card">
+              <span className="odx-module-icon">{iconFor(module.icon, 22)}</span>
+              <h3>{module.title}</h3>
+              <p>{module.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="odx-flow-band">
+        <div className="odx-flow-head">
+          <span className="odx-eyebrow odx-eyebrow-light"><BarChart3 size={14} /> {config.live.title}</span>
+          <b className="odx-live-badge">{config.live.badge}</b>
+        </div>
+        <div className="odx-flow-grid">
+          {config.live.signals.map((signal, index) => (
+            <article key={`${signal.title}-${index}`} className="odx-flow-signal">
+              <CheckCircle2 size={18} />
+              <div><strong>{signal.title}</strong><span>{signal.text}</span></div>
+            </article>
+          ))}
+        </div>
+        <div className="odx-flow-steps">
+          {config.live.flow.map((step, index) => (
+            <React.Fragment key={`${step}-${index}`}>
+              {index > 0 ? <ArrowRight size={16} /> : null}
+              <span>{step}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      </section>
+
+      <section className="odx-access" id="access">
+        <div className="odx-access-card">
+          <span className="odx-eyebrow"><LockKeyhole size={14} /> {config.access.eyebrow}</span>
+          <h2>{config.access.title}</h2>
+          <p>{config.access.text}</p>
+
+          <form onSubmit={(event) => { event.preventDefault(); resolveTenant('store'); }}>
+            <label>
+              <span>{config.access.inputLabel}</span>
+              <input
+                value={lookup}
+                onChange={(event) => setLookup(event.target.value)}
+                placeholder={config.access.inputPlaceholder}
+                autoComplete="organization"
+              />
+            </label>
+            <div className="odx-access-actions">
+              <button type="submit" className="odx-btn odx-btn-primary" disabled={loading}>{config.access.storeButton}</button>
+              <button type="button" className="odx-btn odx-btn-ghost" onClick={() => resolveTenant('admin')} disabled={loading}>{config.access.adminButton}</button>
+            </div>
+            {status ? <p className="odx-access-status">{status}</p> : null}
+          </form>
+        </div>
+      </section>
+
+      <footer className="odx-footer" id="contact">
+        <div className="odx-footer-top">
+          <div>
+            <span className="odx-eyebrow odx-eyebrow-light">{config.contact.title}</span>
+            <p>{config.contact.text}</p>
+          </div>
+          <div className="odx-footer-actions">
+            <a href={whatsappHref}><Phone size={17} /> {config.contact.phoneLabel}</a>
+            <a href={`mailto:${config.contact.email}`}><Mail size={17} /> {config.contact.emailLabel}</a>
+          </div>
+        </div>
+        <div className="odx-footer-bottom">
+          <span>© {new Date().getFullYear()} {config.brandName}. Todos los derechos reservados.</span>
+          <div className="odx-footer-legal">
+            <a href="#privacidad">Aviso de privacidad</a>
+            <a href="#terminos">Terminos de servicio</a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

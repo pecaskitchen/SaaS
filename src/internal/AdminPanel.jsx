@@ -15,6 +15,8 @@ import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js'
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
 const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
+const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
+const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const items = [
@@ -108,7 +110,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
   const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
-  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, whatsapp: false, catalog: false, promo: true, hours: true, sections: true });
+  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
@@ -508,6 +510,24 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               {openAdminSections.whatsapp && (
                 <div className="admin-order-box">
                   <WhatsAppSettings />
+                </div>
+              )}
+            </section>
+
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('metaPage')}>Facebook e Instagram <span>{openAdminSections.metaPage ? '-' : '+'}</span></button>
+              {openAdminSections.metaPage && (
+                <div className="admin-order-box">
+                  <MetaPageSettings />
+                </div>
+              )}
+            </section>
+
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('instagramLogin')}>Instagram (conexión directa) <span>{openAdminSections.instagramLogin ? '-' : '+'}</span></button>
+              {openAdminSections.instagramLogin && (
+                <div className="admin-order-box">
+                  <InstagramLoginSettings />
                 </div>
               )}
             </section>

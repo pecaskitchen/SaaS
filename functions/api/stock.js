@@ -95,10 +95,10 @@ function safeDecodeHeader(value) {
 }
 
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6): antes
-// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contrase?as globales
+// aceptaba env.ADMIN_PASSWORD / env.KITCHEN_PASSWORD, contraseñas globales
 // para TODOS los tenants. Ahora exige un usuario admin/kitchen/platform_admin
-// v?lido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
-// esta funci?n - ver correcci?n de orden en onRequestPost m?s abajo). El PIN
+// válido para este tenant (env.__tenantId debe estar fijado ANTES de llamar
+// esta función - ver corrección de orden en onRequestPost más abajo). El PIN
 // por sucursal (branch.stockPassword) se conserva como segundo factor
 // opcional para acotar la vista a una sola sucursal; ya estaba scoped por
 // tenant_id v?a readMenuSettings(env), as? que no representa una fuga.
@@ -118,9 +118,9 @@ async function authFromValues(values, env, request = null) {
   }
 
   // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
-  // fallback aqu? - eran contrase?as globales compartidas por TODOS los
-  // tenants (hallazgo cr?tico #3). El ?nico fallback v?lido sin JWT es el
-  // PIN por sucursal de abajo, que ya est? scoped por tenant_id.
+  // fallback aquí - eran contraseñas globales compartidas por TODOS los
+  // tenants (hallazgo crítico #3). El único fallback válido sin JWT es el
+  // PIN por sucursal de abajo, que ya está scoped por tenant_id.
   try {
     const settings = await readMenuSettings(env);
     const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);
@@ -129,7 +129,7 @@ async function authFromValues(values, env, request = null) {
   } catch {
     // If menu settings are not initialized yet, fall through to invalid password.
   }
-  return { ok: false, error: 'Sesi?n inv?lida o contrase?a de sucursal incorrecta.' };
+  return { ok: false, error: 'Sesión inválida o contraseña de sucursal incorrecta.' };
 }
 
 async function auth(request, env) {
@@ -498,7 +498,7 @@ async function seedDefaults(env) {
     ['bolsa', 'Bolsa', 'count', 6],
     ['paquete', 'Paquete', 'count', 7],
     ['caja', 'Caja', 'count', 8],
-    ['porcion', 'Porci?n', 'count', 9],
+    ['porcion', 'Porción', 'count', 9],
   ];
   for (const unit of units) {
     await env.DB.prepare(
@@ -851,7 +851,7 @@ async function upsertProductOptionGroup(env, rule, sortOrder = 0) {
   ).bind(currentTenantId(env), productId, family.id).first();
 
   // Si el usuario quitó manualmente una familia del producto, queda como is_active=0.
-  // Las semillas/base no deben reactivarla. Un import CSV o edici?n manual s? puede reactivarla.
+  // Las semillas/base no deben reactivarla. Un import CSV o edición manual sí puede reactivarla.
   if (rule.fromSeed && existing?.id && Number(existing.is_active || 0) === 0) return true;
 
   const ts = getTimestamps();
@@ -1001,7 +1001,7 @@ async function validateFamilyImportRows(env, rows = []) {
     if (['option','family_option'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opci?n.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opción.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente principal.' });
       else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
       if (!optionNames.has(familyKey)) optionNames.set(familyKey, new Set());
@@ -1010,7 +1010,7 @@ async function validateFamilyImportRows(env, rows = []) {
     if (['component','family_component'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
-      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a qu? opci?n pertenece.' });
+      if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a qué opción pertenece.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente del componente.' });
       else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
       if (Number(row.quantity || 0) <= 0) errors.push({ line, field: 'quantity', message: 'La cantidad del componente debe ser mayor a 0.' });
@@ -1030,7 +1030,7 @@ async function validateFamilyImportRows(env, rows = []) {
 async function importOptionFamilies(env, rows = [], mode = 'upsert') {
   const errors = await validateFamilyImportRows(env, rows);
   if (errors.length) {
-    const error = new Error(`CSV de familias inv?lido: ${errors.length} error(es).`);
+    const error = new Error(`CSV de familias inválido: ${errors.length} error(es).`);
     error.validationErrors = errors;
     throw error;
   }
@@ -1604,7 +1604,7 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 
   const stockBefore = await getBranchStock(env, itemId, selectedBranchId);
   const qty = wholeNumber(quantity, 'Cantidad de movimiento');
-  if (!qty) throw new Error('Cantidad inv?lida.');
+  if (!qty) throw new Error('Cantidad inválida.');
   const stockAfter = stockBefore + qty;
   if (stockAfter < 0) throw new Error('No hay suficiente stock para descontar esa cantidad.');
   const ts = getTimestamps();
@@ -1672,7 +1672,7 @@ async function updateQuickItems(env, items, user, branchId) {
         itemId,
         movementType: 'ajuste_rapido',
         quantity: diff,
-        reason: 'Edici?n r?pida de inventario',
+        reason: 'Edición rápida de inventario',
         sourceType: 'quick_edit',
         user,
         approvedBy: user.name,
@@ -1755,7 +1755,7 @@ async function importItems(env, rows, mode, user, branchId) {
           itemId: existing.id,
           movementType: 'importacion_csv',
           quantity: diff,
-          reason: 'Importaci?n CSV',
+          reason: 'Importación CSV',
           sourceType: 'csv_import',
           user,
           approvedBy: user.name,
@@ -2052,7 +2052,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
 
     const ingredientName = String(row.ingredient_name || '').trim();
     const quantity = Number(row.quantity || 0);
-    // Permite recetas cascar?n descargadas desde el sistema: crean/actualizan la receta sin líneas.
+    // Permite recetas cascarón descargadas desde el sistema: crean/actualizan la receta sin líneas.
     if (!ingredientName && !quantity) continue;
     if (!ingredientName || !quantity) {
       skipped += 1;
@@ -2105,7 +2105,7 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   if (!recipe) throw new Error('Sub-receta no encontrada.');
   if (!recipe.output_item_id) throw new Error('La sub-receta necesita un ingrediente de salida.');
   const outputQty = wholeNonNegativeNumber(outputQuantity, 'Cantidad producida');
-  if (!outputQty) throw new Error('Cantidad producida inv?lida.');
+  if (!outputQty) throw new Error('Cantidad producida inválida.');
   const baseOutput = Number(recipe.output_quantity || 0);
   if (!baseOutput) throw new Error('La sub-receta necesita rendimiento base.');
   const factor = outputQty / baseOutput;
@@ -2122,9 +2122,9 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   const sourceId = `recipe:${recipe.id}:${Date.now()}`;
   for (const line of lines) {
     const needed = Number(line.quantity || 0) * factor;
-    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `Producci?n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+    await addMovement(env, { itemId: line.item_id, movementType: 'produccion_consumo', quantity: -needed, reason: note || `Producción de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
   }
-  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `Producci?n de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
+  await addMovement(env, { itemId: recipe.output_item_id, movementType: 'produccion_salida', quantity: outputQty, reason: note || `Producción de ${recipe.name}`, sourceType: 'subrecipe', sourceId, user, branchId });
 }
 
 
@@ -2384,7 +2384,7 @@ export async function onRequestPost({ request, env }) {
       const itemId = Number(body.itemId);
       const quantity = wholeNonNegativeNumber(body.quantity, 'Cantidad a descontar');
       const reason = (body.reason || '').trim();
-      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y raz?n.' }, 400);
+      if (!itemId || !quantity || !reason) return jsonResponse({ ok: false, error: 'La merma necesita ingrediente, cantidad y razón.' }, 400);
 
       if (user.role === 'admin') {
         await addMovement(env, {
@@ -2443,7 +2443,7 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: true });
     }
 
-    return jsonResponse({ ok: false, error: 'Acci?n inv?lida.' }, 400);
+    return jsonResponse({ ok: false, error: 'Acción inválida.' }, 400);
   } catch (error) {
     return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }

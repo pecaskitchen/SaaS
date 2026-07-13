@@ -1,6 +1,20 @@
 import { jsonResponse, requireDb } from './_shared/http.js';
-import { ensurePlatformTables, sanitizeTenant } from './_shared/platform.js';
+import { ensurePlatformTables } from './_shared/platform.js';
 import { ensureTenantDomainTable } from './_shared/tenant.js';
+
+function publicTenantSummary(row) {
+  if (!row) return null;
+  let brand = {};
+  try { brand = JSON.parse(row.brand_json || '{}'); } catch { brand = {}; }
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    domain: row.domain || '',
+    subdomain: row.subdomain || '',
+    brand,
+  };
+}
 
 function normalizeLookup(value) {
   return String(value || '')
@@ -69,7 +83,7 @@ export async function onRequestGet({ request, env }) {
 
     return jsonResponse({
       ok: true,
-      business: sanitizeTenant(resolvedTenant),
+      business: publicTenantSummary(resolvedTenant),
       url: target,
       adminUrl: `${target.replace(/\/+$/, '')}/admin`,
     });

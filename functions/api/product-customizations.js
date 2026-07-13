@@ -25,11 +25,11 @@ function pushUnique(list, item) {
   list.push(item);
 }
 
-// CORREGIDO: este endpoint es pÃºblico (lo consume el cliente final en el
-// menÃº) pero antes no filtraba por tenant_id en NINGUNA consulta, por lo
-// que devolvÃ­a recetas, insumos, marcas y precios de TODOS los negocios de
+// CORREGIDO: este endpoint es público (lo consume el cliente final en el
+// menú) pero antes no filtraba por tenant_id en NINGUNA consulta, por lo
+// que devolvía recetas, insumos, marcas y precios de TODOS los negocios de
 // la plataforma a cualquier visitante de cualquier subdominio. Ahora se
-// resuelve el tenant de la peticiÃ³n y se agrega a cada WHERE/JOIN.
+// resuelve el tenant de la petición y se agrega a cada WHERE/JOIN.
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);

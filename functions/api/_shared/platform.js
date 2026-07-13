@@ -2,6 +2,7 @@
 
 export const TENANT_STATUSES = ['trial', 'active', 'past_due', 'paused', 'cancelled'];
 export const PLANS = ['starter', 'growth', 'pro'];
+export const THEME_PRESETS = ['neutral', 'gastro', 'floral', 'boutique', 'premium'];
 
 export function slugify(value, fallback = 'negocio') {
   return String(value || fallback)
@@ -144,8 +145,11 @@ export async function createTenant(env, input = {}) {
   const tenantId = makeId('biz');
   const subscriptionId = makeId('sub');
   const inputBrand = input.brand || {};
+  const themePreset = THEME_PRESETS.includes(inputBrand.themePreset || input.themePreset) ? (inputBrand.themePreset || input.themePreset) : 'neutral';
   const brand = {
+    themePreset,
     logoUrl: String(inputBrand.logoUrl ?? input.logoUrl ?? '').trim(),
+    heroImageUrl: String(inputBrand.heroImageUrl ?? input.heroImageUrl ?? '').trim(),
     displayName: String(inputBrand.displayName ?? input.displayName ?? name).trim(),
     tagline: String(inputBrand.tagline ?? input.tagline ?? '').trim(),
     heroEyebrow: String(inputBrand.heroEyebrow ?? input.heroEyebrow ?? '').trim(),
@@ -236,9 +240,10 @@ export async function updateTenant(env, tenantId, input = {}) {
     ...currentBrand,
     ...inputBrand,
   };
-  for (const key of ['logoUrl', 'displayName', 'tagline', 'heroEyebrow', 'heroTitle', 'heroText', 'primaryActionLabel', 'secondaryActionLabel', 'orderMessageIntro', 'menuEyebrow', 'menuTitle', 'emptyCatalogTitle', 'emptyCatalogText', 'primaryColor', 'accentColor']) {
+  for (const key of ['themePreset', 'logoUrl', 'heroImageUrl', 'displayName', 'tagline', 'heroEyebrow', 'heroTitle', 'heroText', 'primaryActionLabel', 'secondaryActionLabel', 'orderMessageIntro', 'menuEyebrow', 'menuTitle', 'emptyCatalogTitle', 'emptyCatalogText', 'primaryColor', 'accentColor']) {
     if (Object.prototype.hasOwnProperty.call(input, key)) brand[key] = String(input[key] || '').trim();
   }
+  if (!THEME_PRESETS.includes(brand.themePreset)) brand.themePreset = 'neutral';
   const settings = {
     ...safeJson(current.settings_json, {}),
     ...(input.settings || {}),

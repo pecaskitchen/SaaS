@@ -15,9 +15,11 @@ const emptyBusiness = {
   domain: '',
   subdomain: '',
   whatsappNumber: '',
+  themePreset: 'neutral',
   displayName: '',
   tagline: '',
   logoUrl: '',
+  heroImageUrl: '',
   heroEyebrow: '',
   heroTitle: '',
   heroText: '',
@@ -28,8 +30,18 @@ const emptyBusiness = {
   menuTitle: '',
   emptyCatalogTitle: '',
   emptyCatalogText: '',
+  primaryColor: '',
+  accentColor: '',
   notes: '',
 };
+
+const THEME_PRESETS = [
+  { value: 'neutral', label: 'Neutro / limpio' },
+  { value: 'gastro', label: 'Gastronomia' },
+  { value: 'floral', label: 'Floral' },
+  { value: 'boutique', label: 'Boutique / regalos' },
+  { value: 'premium', label: 'Premium / profesional' },
+];
 
 const CUSTOM_BRAND_ALIASES = {
   nombre: 'displayName',
@@ -39,6 +51,11 @@ const CUSTOM_BRAND_ALIASES = {
   tagline: 'tagline',
   logo: 'logoUrl',
   logoUrl: 'logoUrl',
+  imagen: 'heroImageUrl',
+  imagen_portada: 'heroImageUrl',
+  heroImageUrl: 'heroImageUrl',
+  estilo: 'themePreset',
+  themePreset: 'themePreset',
   eyebrow: 'heroEyebrow',
   heroEyebrow: 'heroEyebrow',
   titulo: 'heroTitle',
@@ -249,9 +266,11 @@ export default function PlatformAdmin() {
       domain: business.domain || '',
       subdomain: business.subdomain || '',
       whatsappNumber: business.settings?.whatsappNumber || '',
+      themePreset: business.brand?.themePreset || 'neutral',
       displayName: business.brand?.displayName || business.name || '',
       tagline: business.brand?.tagline || '',
       logoUrl: business.brand?.logoUrl || '',
+      heroImageUrl: business.brand?.heroImageUrl || '',
       heroEyebrow: business.brand?.heroEyebrow || '',
       heroTitle: business.brand?.heroTitle || business.name || '',
       heroText: business.brand?.heroText || '',
@@ -262,6 +281,8 @@ export default function PlatformAdmin() {
       menuTitle: business.brand?.menuTitle || '',
       emptyCatalogTitle: business.brand?.emptyCatalogTitle || '',
       emptyCatalogText: business.brand?.emptyCatalogText || '',
+      primaryColor: business.brand?.primaryColor || '',
+      accentColor: business.brand?.accentColor || '',
       notes: business.notes || '',
     });
     setStatus(`Editando ${business.name}`);
@@ -444,9 +465,13 @@ export default function PlatformAdmin() {
               <label className="field"><span>Precio mensual</span><input type="number" value={draft.monthlyPriceCents / 100} onChange={(e) => updateDraft('monthlyPriceCents', Number(e.target.value || 0) * 100)} /></label>
               <label className="field"><span>Dominio</span><input value={draft.domain} onChange={(e) => updateDraft('domain', e.target.value)} placeholder="negocio.mx" /></label>
               <label className="field"><span>Subdominio</span><input value={draft.subdomain} onChange={(e) => updateDraft('subdomain', e.target.value)} placeholder="filians" /></label>
+              <label className="field"><span>Estilo visual</span><select value={draft.themePreset} onChange={(e) => updateDraft('themePreset', e.target.value)}>{THEME_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></label>
               <label className="field"><span>Nombre visible</span><input value={draft.displayName} onChange={(e) => updateDraft('displayName', e.target.value)} placeholder="Floreria Lilians" /></label>
               <label className="field"><span>Tagline</span><input value={draft.tagline} onChange={(e) => updateDraft('tagline', e.target.value)} placeholder="Flores y detalles" /></label>
               <label className="field full"><span>Logo URL</span><input value={draft.logoUrl} onChange={(e) => updateDraft('logoUrl', e.target.value)} placeholder="https://.../logo.png" /></label>
+              <label className="field full"><span>Imagen portada URL</span><input value={draft.heroImageUrl} onChange={(e) => updateDraft('heroImageUrl', e.target.value)} placeholder="https://.../portada.jpg" /></label>
+              <label className="field"><span>Color principal</span><input value={draft.primaryColor} onChange={(e) => updateDraft('primaryColor', e.target.value)} placeholder="#111827" /></label>
+              <label className="field"><span>Color acento</span><input value={draft.accentColor} onChange={(e) => updateDraft('accentColor', e.target.value)} placeholder="#f15a24" /></label>
               <label className="field"><span>Eyebrow portada</span><input value={draft.heroEyebrow} onChange={(e) => updateDraft('heroEyebrow', e.target.value)} placeholder="Pedidos en linea" /></label>
               <label className="field"><span>Titulo portada</span><input value={draft.heroTitle} onChange={(e) => updateDraft('heroTitle', e.target.value)} placeholder="Arreglos florales para hoy" /></label>
               <label className="field full"><span>Texto portada</span><textarea value={draft.heroText} onChange={(e) => updateDraft('heroText', e.target.value)} placeholder="Elige tu producto y mandanos tu pedido por WhatsApp." /></label>

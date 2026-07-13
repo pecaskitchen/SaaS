@@ -28,9 +28,11 @@ import {
 const currency = (amount) => `$${amount}`;
 
 const DEFAULT_PUBLIC_BRAND = {
+  themePreset: 'neutral',
   displayName: 'Tu negocio',
   tagline: '',
   logoUrl: '',
+  heroImageUrl: '',
   heroEyebrow: 'Pedidos en linea',
   heroTitle: 'Catalogo en preparacion',
   heroText: 'Este negocio todavia no tiene productos publicados.',
@@ -43,11 +45,83 @@ const DEFAULT_PUBLIC_BRAND = {
   emptyCatalogText: 'Este negocio todavia no tiene productos publicados.',
 };
 
+const PUBLIC_THEME_PRESETS = {
+  neutral: {
+    primaryColor: '#111827',
+    accentColor: '#0f766e',
+    warmColor: '#f97316',
+    surfaceColor: '#f8fafc',
+    surfaceAltColor: '#e5e7eb',
+    mutedColor: '#64748b',
+    pageClass: 'theme-neutral',
+  },
+  gastro: {
+    primaryColor: '#3b1f0f',
+    accentColor: '#f15a24',
+    warmColor: '#f9a91f',
+    surfaceColor: '#fff7ea',
+    surfaceAltColor: '#f7e8cf',
+    mutedColor: '#7b6658',
+    pageClass: 'theme-gastro',
+  },
+  floral: {
+    primaryColor: '#274c3a',
+    accentColor: '#d9467c',
+    warmColor: '#f4a7b9',
+    surfaceColor: '#fff5f8',
+    surfaceAltColor: '#f8dfe8',
+    mutedColor: '#6d5b64',
+    pageClass: 'theme-floral',
+  },
+  boutique: {
+    primaryColor: '#1f2937',
+    accentColor: '#b45309',
+    warmColor: '#d6a86a',
+    surfaceColor: '#fbfaf7',
+    surfaceAltColor: '#ece7dd',
+    mutedColor: '#6b6258',
+    pageClass: 'theme-boutique',
+  },
+  premium: {
+    primaryColor: '#111827',
+    accentColor: '#2563eb',
+    warmColor: '#22c55e',
+    surfaceColor: '#f6f8fb',
+    surfaceAltColor: '#dbe4ef',
+    mutedColor: '#566274',
+    pageClass: 'theme-premium',
+  },
+};
+
+function normalizeThemePreset(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return PUBLIC_THEME_PRESETS[key] ? key : DEFAULT_PUBLIC_BRAND.themePreset;
+}
+
+function publicThemeStyle(brand) {
+  const preset = PUBLIC_THEME_PRESETS[normalizeThemePreset(brand.themePreset)] || PUBLIC_THEME_PRESETS.neutral;
+  const primaryColor = String(brand.primaryColor || preset.primaryColor).trim();
+  const accentColor = String(brand.accentColor || preset.accentColor).trim();
+  return {
+    '--brown': primaryColor,
+    '--brown-2': primaryColor,
+    '--orange': accentColor,
+    '--yellow': preset.warmColor,
+    '--cream': preset.surfaceColor,
+    '--cream-2': preset.surfaceAltColor,
+    '--beige': preset.surfaceAltColor,
+    '--ink': primaryColor,
+    '--muted': preset.mutedColor,
+    '--white': '#ffffff',
+  };
+}
+
 function normalizePublicBrand(tenant) {
   const brand = { ...DEFAULT_PUBLIC_BRAND, ...(tenant?.brand || {}) };
   const displayName = String(brand.displayName || tenant?.name || DEFAULT_PUBLIC_BRAND.displayName).trim();
   return {
     ...brand,
+    themePreset: normalizeThemePreset(brand.themePreset),
     displayName,
     heroTitle: String(brand.heroTitle || displayName || DEFAULT_PUBLIC_BRAND.heroTitle).trim(),
     orderMessageIntro: String(brand.orderMessageIntro || `Hola ${displayName}, quiero hacer un pedido:`).trim(),
@@ -1937,7 +2011,7 @@ export default function PublicApp() {
 
 
   return (
-    <main>
+    <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'}`} style={publicThemeStyle(publicBrand)}>
       <EmployeeLoginModal open={employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} brandName={publicBrand.displayName} />
       <section className="hero">
         <nav className="nav">
@@ -1988,7 +2062,11 @@ export default function PublicApp() {
           </div>
 
           <div className="hero-card">
-            {publicBrand.logoUrl ? <img src={publicBrand.logoUrl} alt={publicBrand.displayName} /> : <div className="hero-card-placeholder"><strong>{publicBrand.displayName}</strong><span>{publicBrand.tagline || publicBrand.heroEyebrow}</span></div>}
+            {publicBrand.heroImageUrl || publicBrand.logoUrl ? (
+              <img src={publicBrand.heroImageUrl || publicBrand.logoUrl} alt={publicBrand.displayName} />
+            ) : (
+              <div className="hero-card-placeholder"><strong>{publicBrand.displayName}</strong><span>{publicBrand.tagline || publicBrand.heroEyebrow}</span></div>
+            )}
           </div>
         </div>
       </section>
@@ -2051,7 +2129,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
 
 
 

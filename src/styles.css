@@ -3727,11 +3727,27 @@ textarea { resize: vertical; min-height: 48px; }
 .omdexa-topbar {
   min-height: 54px;
   justify-content: space-between;
+  gap: 14px;
   padding: 0 18px;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   background: #fff;
   color: #4b5563;
+}
+.omdexa-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.omdexa-topbar-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
 }
 .omdexa-topbar b {
   color: #047857;
@@ -3788,13 +3804,29 @@ textarea { resize: vertical; min-height: 48px; }
   background: #fff;
   color: #111827;
 }
-.omdexa-proof-card {
+.omdexa-visual-card {
   align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.omdexa-visual-card img {
+  width: 100%;
+  min-height: 260px;
+  max-height: 360px;
+  display: block;
+  object-fit: cover;
+  border: 1px solid #dfe5ec;
+  border-radius: 18px;
+  background: #111827;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, .1);
+}
+.omdexa-proof-card {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 16px;
-  padding: 22px;
+  padding: 20px;
   border: 1px solid rgba(15, 118, 110, .16);
   border-radius: 18px;
   background: #f7fffb;
@@ -3978,6 +4010,47 @@ textarea { resize: vertical; min-height: 48px; }
   margin: 14px 0 8px;
   color: #111827;
 }
+.omdexa-contact {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 22px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #111827;
+  color: #fff;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .08);
+}
+.omdexa-contact p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: rgba(248,250,252,.72);
+  line-height: 1.55;
+}
+.omdexa-contact .omdexa-eyebrow {
+  color: #6ee7b7;
+}
+.omdexa-contact-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.omdexa-contact-actions a {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
+  font-weight: 950;
+}
 
 @media (max-width: 980px) {
   .omdexa-shell {
@@ -4000,6 +4073,7 @@ textarea { resize: vertical; min-height: 48px; }
   }
   .omdexa-portal-grid,
   .omdexa-sales-hero,
+  .omdexa-contact,
   .omdexa-modules {
     grid-template-columns: 1fr;
   }
@@ -4019,6 +4093,15 @@ textarea { resize: vertical; min-height: 48px; }
     align-items: flex-start;
     flex-direction: column;
     padding: 12px;
+  }
+  .omdexa-topbar-actions,
+  .omdexa-contact-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .omdexa-topbar-actions a,
+  .omdexa-contact-actions a {
+    width: 100%;
   }
   .omdexa-access-actions {
     flex-direction: column;

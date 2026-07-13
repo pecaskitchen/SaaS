@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, BarChart3, Building2, CheckCircle2, LockKeyhole, PackageCheck, ShieldCheck, Store, WalletCards } from 'lucide-react';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, LockKeyhole, Mail, PackageCheck, Phone, ShieldCheck, Store, WalletCards } from 'lucide-react';
 import './styles.css';
 
 const DEFAULT_CONFIG = {
@@ -13,15 +13,27 @@ const DEFAULT_CONFIG = {
     { label: 'Acceso', href: '#access', icon: 'store' },
     { label: 'Plataforma', href: '#platform', icon: 'shield' },
     { label: 'Operacion', href: '#ops', icon: 'chart' },
+    { label: 'Contacto', href: '#contact', icon: 'phone' },
   ],
   hero: {
     eyebrow: 'Software operativo para negocios locales',
     title: 'Tu tienda, caja, inventario y pagos en un solo sistema.',
     text: 'Omdexa ayuda a pequenos negocios a vender en linea, tomar pedidos por caja, controlar stock por recetas y operar con soporte mensual sin construir tecnologia desde cero.',
+    imageUrl: '/omdexa-dashboard.svg',
+    imageAlt: 'Panel operativo de Omdexa con pedidos, inventario y pagos',
     primaryActionLabel: 'Entrar a mi negocio',
     secondaryActionLabel: 'Conocer modulos',
     proofLabel: 'Hecho para operacion real',
     proofItems: ['Pedidos por tienda y caja', 'Inventario por sucursal', 'Pagos conectados por cliente'],
+  },
+  contact: {
+    title: 'Hablemos de tu operacion',
+    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio.',
+    phone: '+528113927548',
+    whatsapp: '+528113927548',
+    email: 'hola@omdexa.com',
+    phoneLabel: '+52 811 392 7548',
+    emailLabel: 'hola@omdexa.com',
   },
   access: {
     eyebrow: 'Entrar al ambiente',
@@ -60,6 +72,7 @@ function mergeConfig(config) {
       ...(config?.hero || {}),
       proofItems: Array.isArray(config?.hero?.proofItems) ? config.hero.proofItems : DEFAULT_CONFIG.hero.proofItems,
     },
+    contact: { ...DEFAULT_CONFIG.contact, ...(config?.contact || {}) },
     access: { ...DEFAULT_CONFIG.access, ...(config?.access || {}) },
     live: {
       ...DEFAULT_CONFIG.live,
@@ -83,6 +96,7 @@ function iconFor(name) {
   if (key === 'building') return <Building2 size={22} />;
   if (key === 'package') return <PackageCheck size={22} />;
   if (key === 'wallet') return <WalletCards size={22} />;
+  if (key === 'phone') return <Phone size={18} />;
   return <Store size={18} />;
 }
 
@@ -149,7 +163,11 @@ export default function OmdexaLanding() {
         <section className="omdexa-workspace">
           <div className="omdexa-topbar">
             <span>{config.topbarLabel}</span>
-            <b>{config.topbarStatus}</b>
+            <div className="omdexa-topbar-actions">
+              <a href={`mailto:${config.contact.email}`}><Mail size={16} /> {config.contact.emailLabel}</a>
+              <a href={`https://wa.me/${String(config.contact.whatsapp || config.contact.phone).replace(/\D/g, '')}`}><Phone size={16} /> {config.contact.phoneLabel}</a>
+              <b>{config.topbarStatus}</b>
+            </div>
           </div>
 
           <section className="omdexa-sales-hero" id="platform">
@@ -162,13 +180,18 @@ export default function OmdexaLanding() {
                 <a className="secondary" href="#ops">{config.hero.secondaryActionLabel}</a>
               </div>
             </div>
-            <aside className="omdexa-proof-card" aria-label={config.hero.proofLabel}>
-              <span>{config.hero.proofLabel}</span>
-              <ul>
-                {config.hero.proofItems.map((item, index) => (
-                  <li key={`${item}-${index}`}><CheckCircle2 size={17} /> {item}</li>
-                ))}
-              </ul>
+            <aside className="omdexa-visual-card" aria-label={config.hero.imageAlt}>
+              {config.hero.imageUrl ? (
+                <img src={config.hero.imageUrl} alt={config.hero.imageAlt || ''} />
+              ) : null}
+              <div className="omdexa-proof-card">
+                <span>{config.hero.proofLabel}</span>
+                <ul>
+                  {config.hero.proofItems.map((item, index) => (
+                    <li key={`${item}-${index}`}><CheckCircle2 size={17} /> {item}</li>
+                  ))}
+                </ul>
+              </div>
             </aside>
           </section>
 
@@ -221,6 +244,17 @@ export default function OmdexaLanding() {
             {config.modules.map((module, index) => (
               <article key={`${module.title}-${index}`}>{iconFor(module.icon)}<h3>{module.title}</h3><p>{module.text}</p></article>
             ))}
+          </section>
+
+          <section className="omdexa-contact" id="contact">
+            <div>
+              <span className="omdexa-eyebrow">{config.contact.title}</span>
+              <p>{config.contact.text}</p>
+            </div>
+            <div className="omdexa-contact-actions">
+              <a href={`https://wa.me/${String(config.contact.whatsapp || config.contact.phone).replace(/\D/g, '')}`}><Phone size={18} /> {config.contact.phoneLabel}</a>
+              <a href={`mailto:${config.contact.email}`}><Mail size={18} /> {config.contact.emailLabel}</a>
+            </div>
           </section>
         </section>
       </section>

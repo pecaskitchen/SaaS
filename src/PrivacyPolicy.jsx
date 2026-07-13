@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
     <main className="privacy-page">
       <div className="privacy-page-inner">
         <h1>Aviso de Privacidad</h1>
-        <p className="privacy-updated">Última actualización: [COMPLETAR: fecha de publicación]</p>
+        <p className="privacy-updated">Última actualización: 13 de julio de 2026</p>
 
         <section>
           <h2>1. Responsable del tratamiento de tus datos personales</h2>

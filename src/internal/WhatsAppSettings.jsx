@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../lib/apiClient.js';
+import { loadFacebookSdk } from '../lib/facebookSdk.js';
 
 const STATUS_LABELS = {
   connected: 'Conectado',
@@ -8,34 +9,6 @@ const STATUS_LABELS = {
   expired: 'Token expirado, reconecta',
   error: 'Error de conexion, reconecta',
 };
-
-function loadFacebookSdk(appId, graphVersion) {
-  return new Promise((resolve, reject) => {
-    // window.FB puede existir (el script lo define apenas se ejecuta) ANTES
-    // de que FB.init() haya corrido -- si resolvemos solo por esa
-    // existencia, FB.login() se dispara antes de tiempo ("FB.login()
-    // called before FB.init()"). FB.init() es seguro de llamar de nuevo,
-    // así que lo forzamos acá también en vez de asumir que ya corrió.
-    if (window.FB) {
-      window.FB.init({ appId, cookie: true, xfbml: false, version: graphVersion });
-      resolve(window.FB);
-      return;
-    }
-    window.fbAsyncInit = function fbAsyncInit() {
-      window.FB.init({ appId, cookie: true, xfbml: false, version: graphVersion });
-      resolve(window.FB);
-    };
-    const existing = document.getElementById('facebook-jssdk');
-    if (existing) return;
-    const script = document.createElement('script');
-    script.id = 'facebook-jssdk';
-    script.src = 'https://connect.facebook.net/es_LA/sdk.js';
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => reject(new Error('No se pudo cargar el SDK de Facebook.'));
-    document.body.appendChild(script);
-  });
-}
 
 // Uso: importar en AdminPanel.jsx y renderizar <WhatsAppSettings /> donde
 // quieras que aparezca la tarjeta. No necesita props.

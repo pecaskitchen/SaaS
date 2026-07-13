@@ -11,7 +11,16 @@ const STATUS_LABELS = {
 
 function loadFacebookSdk(appId, graphVersion) {
   return new Promise((resolve, reject) => {
-    if (window.FB) { resolve(window.FB); return; }
+    // window.FB puede existir (el script lo define apenas se ejecuta) ANTES
+    // de que FB.init() haya corrido -- si resolvemos solo por esa
+    // existencia, FB.login() se dispara antes de tiempo ("FB.login()
+    // called before FB.init()"). FB.init() es seguro de llamar de nuevo,
+    // así que lo forzamos acá también en vez de asumir que ya corrió.
+    if (window.FB) {
+      window.FB.init({ appId, cookie: true, xfbml: false, version: graphVersion });
+      resolve(window.FB);
+      return;
+    }
     window.fbAsyncInit = function fbAsyncInit() {
       window.FB.init({ appId, cookie: true, xfbml: false, version: graphVersion });
       resolve(window.FB);

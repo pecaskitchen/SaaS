@@ -1,5 +1,3 @@
-import { WHATSAPP_NUMBER } from '../data/menu.js';
-
 export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 export const DEFAULT_BUSINESS_HOURS = {
@@ -34,9 +32,9 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ],
 };
 
-export const BRANCH_STORAGE_KEY = 'pecas_selected_branch';
+export const BRANCH_STORAGE_KEY = 'saas_selected_branch';
 
-export function normalizeWhatsAppNumber(value, fallback = WHATSAPP_NUMBER) {
+export function normalizeWhatsAppNumber(value, fallback = '') {
   const raw = String(value || fallback || '').trim();
   const digits = raw.replace(/[^0-9]/g, '');
   return digits || String(fallback || '').replace(/[^0-9]/g, '');

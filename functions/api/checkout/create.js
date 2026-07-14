@@ -2,23 +2,12 @@ import { jsonResponse, readJson, requireDb, nowIso } from '../_shared/http.js';
 import { resolveTenantId, tenantSettingKey, ensureTenantColumns } from '../_shared/tenant.js';
 import { normalizeSavedMenu, readEffectiveCatalog } from '../_shared/menuCatalog.js';
 import { ensurePaymentTables, getValidAccessToken } from '../_shared/payments.js';
+import { upsertCustomerFromOrder } from '../_shared/crm.js';
 import { ensureSchema } from '../orders.js';
 
-// -----------------------------------------------------------------------
-// LIMITACIÓN CONOCIDA (léela antes de usar esto en productos con
-// modificadores): este endpoint recalcula el precio de cada línea contra
-// el precio BASE del producto (catálogo + overrides + extraProducts del
-// tenant). NO valida el costo extra de modificadores/opciones (aderezos,
-// tamaños, extras facturables de stock_product_option_groups) — esos se
-// aceptan tal cual los mande el cliente. Para productos simples (sin
-// opciones) esto ya cierra el hueco de "cambiar el total en el navegador".
-// Para productos CON opciones con costo extra, falta un siguiente paso
-// que traiga también stock_product_option_groups/stock_option_family_items
-// y sume su extra_price real. Ver auditoria-saas-multitenant.md.
-//
-// Tampoco valida delivery_fee contra una tarifa de sucursal — se acepta
-// como venga (mismo comportamiento que ya tenía /api/orders hoy).
-// -----------------------------------------------------------------------
+// Recalcula el total completo del lado servidor: precio base, extras de
+// familias/opciones, extras de receta legacy y entrega. El navegador solo
+// manda la intencion del cliente; el importe cobrado sale de D1.
 
 async function loadTenantPriceList(env, tenantId) {
   await ensureTenantColumns(env, ['app_settings']);
@@ -32,7 +21,7 @@ async function loadTenantPriceList(env, tenantId) {
     const override = saved.overrides?.[product.id];
     const price = Number(override?.price ?? product.price ?? 0);
     const unavailable = Boolean(override?.unavailable ?? product.unavailable);
-    priceById.set(product.id, { price, unavailable, name: override?.name || product.name, category: product.category || 'general' });
+    priceById.set(product.id, { id: product.id, price, unavailable, name: override?.name || product.name, category: product.category || 'general', type: product.type || 'custom', recipeId: product.recipeId || null });
   }
   return priceById;
 }
@@ -41,6 +30,128 @@ function getTimestamps() {
   const utc = nowIso();
   const monterrey = new Date().toLocaleString('sv-SE', { timeZone: 'America/Monterrey' }).replace(' ', 'T');
   return { utc, monterrey };
+}
+
+function normalizeName(value) {
+  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function cleanSelectionArray(value) {
+  const list = Array.isArray(value) ? value : [value];
+  return list.map((item) => String(item || '').trim()).filter((item) => {
+    const clean = normalizeName(item);
+    return clean && !['n/a', 'ninguno', 'sin jarabe', 'sin aderezo'].includes(clean);
+  });
+}
+
+async function loadProductOptionGroups(env, tenantId, productId) {
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT pg.product_id, pg.family_id, pg.label, pg.min_select, pg.max_included, pg.max_total, pg.default_option_name,
+             pg.extra_price AS group_extra_price, pg.is_required, f.family_key,
+             oi.option_name, oi.extra_price AS option_extra_price
+      FROM stock_product_option_groups pg
+      JOIN stock_option_families f ON f.id = pg.family_id AND f.tenant_id = pg.tenant_id
+      JOIN stock_option_family_items oi ON oi.family_id = f.id AND oi.tenant_id = pg.tenant_id
+      WHERE pg.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.is_active = 1 AND oi.is_active = 1
+      ORDER BY pg.sort_order ASC, oi.sort_order ASC, oi.id ASC
+    `).bind(tenantId, productId).all();
+    const groups = new Map();
+    for (const row of rows.results || []) {
+      if (!groups.has(row.family_key)) {
+        groups.set(row.family_key, {
+          familyKey: row.family_key,
+          minSelect: Number(row.min_select || 0),
+          maxIncluded: Number(row.max_included || 0),
+          maxTotal: Number(row.max_total || 0),
+          extraPrice: Number(row.group_extra_price || 0),
+          required: Number(row.is_required || 0) === 1,
+          options: new Map(),
+        });
+      }
+      groups.get(row.family_key).options.set(normalizeName(row.option_name), { name: row.option_name, extraPrice: Number(row.option_extra_price || 0) });
+    }
+    return groups;
+  } catch {
+    return new Map();
+  }
+}
+
+function computeOptionGroupExtra(groups, selections = {}) {
+  let total = 0;
+  const usedFamilyKeys = new Set(groups.keys());
+  for (const [familyKey, raw] of Object.entries(selections || {})) {
+    const selected = cleanSelectionArray(raw);
+    if (!selected.length) continue;
+    const group = groups.get(familyKey);
+    if (!group) throw Object.assign(new Error(`La familia de opciones "${familyKey}" no existe para este producto.`), { status: 400 });
+    if (group.maxTotal > 0 && selected.length > group.maxTotal) throw Object.assign(new Error(`${familyKey}: demasiadas opciones seleccionadas.`), { status: 400 });
+    for (let index = 0; index < selected.length; index += 1) {
+      const option = group.options.get(normalizeName(selected[index]));
+      if (!option) throw Object.assign(new Error(`${familyKey}: opcion invalida "${selected[index]}".`), { status: 400 });
+      if (index >= group.maxIncluded) total += Number(option.extraPrice || group.extraPrice || 0);
+    }
+  }
+  for (const group of groups.values()) {
+    const selected = cleanSelectionArray(selections?.[group.familyKey]);
+    if ((group.required || group.minSelect > 0) && selected.length < Math.max(1, group.minSelect)) throw Object.assign(new Error(`${group.familyKey}: faltan opciones obligatorias.`), { status: 400 });
+  }
+  return { total, usedFamilyKeys };
+}
+
+async function computeRecipeExtraPrice(env, tenantId, productId, recipeId, selectedExtras = []) {
+  const selected = cleanSelectionArray(selectedExtras);
+  if (!selected.length) return 0;
+  const rows = await env.DB.prepare(`
+    SELECT i.name, l.extra_price
+    FROM menu_products p
+    JOIN recipes r ON r.tenant_id = p.tenant_id AND r.id = COALESCE(p.recipe_id, ?)
+    JOIN recipe_lines l ON l.tenant_id = r.tenant_id AND l.recipe_id = r.id
+    JOIN items i ON i.tenant_id = l.tenant_id AND i.id = l.item_id
+    WHERE p.tenant_id = ? AND p.product_key = ? AND l.is_extra_billable = 1
+  `).bind(Number(recipeId || 0), tenantId, productId).all().then((result) => result.results || []).catch(() => []);
+  const byName = new Map(rows.map((row) => [normalizeName(row.name), Number(row.extra_price || 0)]));
+  let total = 0;
+  for (const extra of selected) {
+    const key = normalizeName(extra);
+    if (!byName.has(key)) throw Object.assign(new Error(`Extra no valido para este producto: ${extra}`), { status: 400 });
+    total += byName.get(key);
+  }
+  return total;
+}
+
+function computeLegacyExtraPrice(product, options = {}, familyKeys = new Set()) {
+  let total = 0;
+  if ((product.type === 'panini' || product.type === 'wrap' || product.type === 'salad') && !familyKeys.has('aderezos-acompanamiento') && cleanSelectionArray(options.extraDressing).length) total += 10;
+  if (product.type === 'crepe' && !familyKeys.has('toppings-dulces')) total += cleanSelectionArray(options.extraToppings || []).length * 10;
+  if (product.type === 'coffee' && !familyKeys.has('jarabes') && cleanSelectionArray(options.syrup).length) total += 10;
+  if (product.id === 'frappe' && options.whippedCream) total += 10;
+  return total;
+}
+
+async function recalculateLineItem(env, tenantId, requested, catalogEntry) {
+  const quantity = Math.max(1, Math.floor(Number(requested.quantity || 1)));
+  const options = requested.options || {};
+  const groups = await loadProductOptionGroups(env, tenantId, catalogEntry.id);
+  const groupPrice = computeOptionGroupExtra(groups, options.optionGroups || {});
+  const recipeExtraPrice = await computeRecipeExtraPrice(env, tenantId, catalogEntry.id, catalogEntry.recipeId, options.recipeExtras || []);
+  const legacyExtraPrice = computeLegacyExtraPrice(catalogEntry, options, groupPrice.usedFamilyKeys);
+  const unitPrice = Math.max(0, Math.round(Number(catalogEntry.price || 0) + groupPrice.total + recipeExtraPrice + legacyExtraPrice));
+  return {
+    product_id: catalogEntry.id,
+    product_name: catalogEntry.name,
+    category: catalogEntry.category,
+    quantity,
+    unit_price: unitPrice,
+    line_total: unitPrice * quantity,
+    options,
+    notes: String(requested.notes || ''),
+  };
+}
+
+function resolveDeliveryFee(body, fulfillmentType) {
+  if (fulfillmentType !== 'Entrega a domicilio') return 0;
+  return Math.max(0, Math.round(Number(body.serverDeliveryFee || 0)));
 }
 
 export async function onRequestPost({ request, env }) {
@@ -70,38 +181,21 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: false, error: 'Este negocio no tiene pagos en linea habilitados.' }, 409);
     }
 
-    // 2) Recalcular precios contra el catalogo real del tenant — nunca
-    //    confiar en unit_price/total que mande el navegador.
+    // 2) Recalcular precios contra el catalogo real del tenant, incluyendo extras.
     const priceList = await loadTenantPriceList(env, tenantId);
     const lineItems = [];
     let subtotal = 0;
     for (const requested of requestedItems) {
       const productId = String(requested.product_id || requested.id || '').trim();
-      const quantity = Math.max(1, Math.floor(Number(requested.quantity || 1)));
       const catalogEntry = priceList.get(productId);
       if (!catalogEntry) return jsonResponse({ ok: false, error: `Producto no encontrado: ${productId}` }, 400);
       if (catalogEntry.unavailable) return jsonResponse({ ok: false, error: `${catalogEntry.name} no esta disponible.` }, 409);
-
-      const unitPrice = Math.max(0, Math.round(catalogEntry.price));
-      const lineTotal = unitPrice * quantity;
-      subtotal += lineTotal;
-      lineItems.push({
-        product_id: productId,
-        product_name: catalogEntry.name,
-        category: catalogEntry.category,
-        quantity,
-        unit_price: unitPrice,
-        line_total: lineTotal,
-        // Se guardan tal cual las mando el cliente -- no afecta el precio
-        // (ya recalculado arriba desde el catalogo), pero sin esto
-        // deductOrderStock() no sabe que opcion/familia eligio y no
-        // descuenta esos ingredientes del inventario.
-        options: requested.options || {},
-        notes: String(requested.notes || ''),
-      });
+      const lineItem = await recalculateLineItem(env, tenantId, requested, catalogEntry);
+      subtotal += lineItem.line_total;
+      lineItems.push(lineItem);
     }
 
-    const deliveryFee = Math.max(0, Math.round(Number(body.deliveryFee || 0)));
+    const deliveryFee = resolveDeliveryFee(body, fulfillmentType);
     const total = subtotal + deliveryFee;
     if (total <= 0) return jsonResponse({ ok: false, error: 'El total del pedido debe ser mayor a cero.' }, 400);
 
@@ -138,6 +232,17 @@ export async function onRequestPost({ request, env }) {
     ).run();
 
     const orderId = inserted.meta.last_row_id;
+
+    await upsertCustomerFromOrder(env, tenantId, {
+      customer: {
+        name: customer.name,
+        phone: customer.phone,
+        address: customer.address,
+        neighborhood: customer.neighborhood || body.neighborhood || '',
+        sector: customer.sector || body.sector || '',
+      },
+      order: { id: orderId, orderNumber, total, createdAtUtc: timestamps.utc },
+    });
 
     const orderItemsStmt = env.DB.prepare(`
       INSERT INTO order_items (tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey)

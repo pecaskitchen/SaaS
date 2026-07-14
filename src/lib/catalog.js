@@ -1,4 +1,5 @@
-﻿import { categories, products as baseProducts } from '../data/menu.js';
+﻿const categories = [];
+const baseProducts = [];
 
 export const EXTRA_MENU_PRODUCTS = [];
 

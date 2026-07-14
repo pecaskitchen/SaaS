@@ -5,7 +5,7 @@ export function normalizePhone(value) {
   return String(value || '').replace(/[^0-9]/g, '');
 }
 
-function customerKey(customer = {}) {
+function customerKey(customer = {}, order = {}) {
   const phone = normalizePhone(customer.phone || customer.whatsapp || customer.customer_phone);
   if (phone) return `phone:${phone}`;
   const name = String(customer.name || customer.customer_name || 'cliente')
@@ -15,7 +15,10 @@ function customerKey(customer = {}) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'cliente';
-  return `name:${name}`;
+  const orderId = String(order.id || order.orderId || '').trim();
+  const orderNumber = String(order.orderNumber || order.order_number || '').trim();
+  if (orderId || orderNumber) return `order:${orderId || orderNumber}`;
+  return `anon:${name}:${Date.now()}`;
 }
 
 export async function ensureCrmSchema(env) {
@@ -50,7 +53,7 @@ export async function upsertCustomerFromOrder(env, tenantId, { customer = {}, or
   await ensureCrmSchema(env);
   const db = requireDb(env);
   const timestamp = nowIso();
-  const key = customerKey(customer);
+  const key = customerKey(customer, order);
   const phone = normalizePhone(customer.phone || customer.whatsapp || customer.customer_phone);
   const name = String(customer.name || customer.customer_name || 'Cliente').trim() || 'Cliente';
   const address = String(customer.address || customer.customer_address || '').trim();

@@ -11,8 +11,8 @@ import {
   selectedBranchFrom,
 } from '../lib/business.js';
 
-const STOCK_SESSION_STORAGE_KEY = 'pecas_stock_session';
-const STOCK_BRANCH_STORAGE_KEY = 'pecas_stock_branch';
+const STOCK_SESSION_STORAGE_KEY = 'saas_stock_session';
+const STOCK_BRANCH_STORAGE_KEY = 'saas_stock_branch';
 
 function Logo() {
   return (
@@ -341,7 +341,7 @@ function csvTemplateText() {
 }
 
 function downloadStockCsvTemplate() {
-  downloadTextFile('pecas-stock-template.csv', csvTemplateText());
+  downloadTextFile('saas-stock-template.csv', csvTemplateText());
 }
 
 
@@ -397,7 +397,7 @@ function recipeCsvTemplateText() {
 }
 
 function downloadRecipeCsvTemplate() {
-  downloadTextFile('pecas-recipes-template.csv', recipeCsvTemplateText());
+  downloadTextFile('saas-recipes-template.csv', recipeCsvTemplateText());
 }
 
 const FAMILY_CSV_COLUMNS = [
@@ -440,7 +440,7 @@ function familyCsvTemplateText() {
 }
 
 function downloadFamilyCsvTemplate() {
-  downloadTextFile('pecas-familias-template.csv', familyCsvTemplateText());
+  downloadTextFile('saas-familias-template.csv', familyCsvTemplateText());
 }
 
 function parseFamilyCsv(text) {
@@ -1265,23 +1265,23 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const downloadCurrentData = () => {
     if (importKind === 'items') {
-      downloadTextFile('pecas-ingredientes-actuales.csv', rowsToCsv(STOCK_CSV_COLUMNS, stockRowsFromCurrent(data.items)));
+      downloadTextFile('saas-ingredientes-actuales.csv', rowsToCsv(STOCK_CSV_COLUMNS, stockRowsFromCurrent(data.items)));
       return;
     }
     if (importKind === 'recipes') {
-      downloadTextFile('pecas-recetas-actuales.csv', rowsToCsv(RECIPE_CSV_COLUMNS, recipeRowsFromCurrent(data.recipes, 'product', data.items)));
+      downloadTextFile('saas-recetas-actuales.csv', rowsToCsv(RECIPE_CSV_COLUMNS, recipeRowsFromCurrent(data.recipes, 'product', data.items)));
       return;
     }
     if (importKind === 'subrecipes') {
-      downloadTextFile('pecas-subrecetas-actuales.csv', rowsToCsv(RECIPE_CSV_COLUMNS, recipeRowsFromCurrent(data.recipes, 'subrecipe', data.items)));
+      downloadTextFile('saas-subrecetas-actuales.csv', rowsToCsv(RECIPE_CSV_COLUMNS, recipeRowsFromCurrent(data.recipes, 'subrecipe', data.items)));
       return;
     }
     if (importKind === 'families') {
-      downloadTextFile('pecas-familias-actuales.csv', rowsToCsv(FAMILY_CSV_COLUMNS, familyRowsFromCurrent(data.optionFamilies)));
+      downloadTextFile('saas-familias-actuales.csv', rowsToCsv(FAMILY_CSV_COLUMNS, familyRowsFromCurrent(data.optionFamilies)));
       return;
     }
     const all = allCurrentRows(data.items, data.recipes, data.optionFamilies);
-    downloadTextFile('pecas-stock-recetas-familias-actuales.csv', rowsToCsv(all.columns, all.rows));
+    downloadTextFile('saas-stock-recetas-familias-actuales.csv', rowsToCsv(all.columns, all.rows));
   };
 
   const downloadEmptyTemplate = () => {
@@ -1289,7 +1289,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     else if (importKind === 'families') downloadFamilyCsvTemplate();
     else if (importKind === 'all') {
       const all = allCurrentRows([], [], []);
-      downloadTextFile('pecas-todo-template.csv', rowsToCsv(all.columns, []));
+      downloadTextFile('saas-todo-template.csv', rowsToCsv(all.columns, []));
     } else downloadRecipeCsvTemplate();
   };
 

@@ -11,7 +11,7 @@ import {
 import { getSessionToken } from '../lib/apiClient.js';
 
 const currency = (amount) => `$${amount}`;
-const ORDERS_PASSWORD_STORAGE_KEY = 'pecas_orders_password';
+const ORDERS_PASSWORD_STORAGE_KEY = 'saas_orders_password';
 
 // Si hay sesión de personal (login por email/password), se manda como
 // Bearer y el backend la prioriza sobre el PIN de sucursal (ver

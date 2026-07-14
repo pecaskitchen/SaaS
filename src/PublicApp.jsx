@@ -1,29 +1,12 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils, Lock, Save } from 'lucide-react';
-import './styles.css';
-import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from './lib/csv.js';
-import { CATALOG_PRODUCTS, categoryMeta, makeDefaultPromotion, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
-import {
-  BRANCH_STORAGE_KEY,
-  DEFAULT_BRANCH_SETTINGS,
-  DEFAULT_BUSINESS_HOURS,
-  activeBranches,
-  businessStatus,
-  normalizeBranchSettings,
-  normalizeBusinessHours,
-  normalizeWhatsAppNumber,
-  selectedBranchFrom,
-} from './lib/business.js';
-import {
-  WHATSAPP_NUMBER,
-  categories,
-  dressingSides,
-  saladDressings,
-  syrups,
-  milkTypes,
-  crepeFlavors,
-  savoryCrepeFlavors,
-} from './data/menu.js';
+const WHATSAPP_NUMBER = '';
+const categories = [];
+const dressingSides = [];
+const saladDressings = [];
+const syrups = [];
+const milkTypes = [];
+const crepeFlavors = [];
+const savoryCrepeFlavors = [];
 
 const currency = (amount) => `$${amount}`;
 
@@ -1001,7 +984,7 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
             lang={lang}
           />
         )}
-        {!hasFamily('aderezos-acompanamiento') && <OptionSelect
+        {!hasFamily('aderezos-acompanamiento') && dressingSides.length > 0 && <OptionSelect
           label={t(lang, 'sideDressing')}
           value={state.sideDressing}
           onChange={(value) => update('sideDressing', value)}
@@ -1010,7 +993,7 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
           hint={t(lang, 'sideDressingHint')}
           lang={lang}
         />}
-        {!hasFamily('aderezos-acompanamiento') && <OptionSelect
+        {!hasFamily('aderezos-acompanamiento') && dressingSides.length > 0 && <OptionSelect
           label={t(lang, 'extraDressing')}
           value={state.extraDressing}
           onChange={(value) => update('extraDressing', value)}
@@ -1036,14 +1019,14 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
     return (
       <div className="options-grid">
         <OptionFamilyControls state={state} update={update} customization={customization} />
-        {!hasFamily('aderezos-acompanamiento') && <OptionSelect
+        {!hasFamily('aderezos-acompanamiento') && saladDressings.length > 0 && <OptionSelect
           label={t(lang, 'dressing')}
           value={state.saladDressing}
           onChange={(value) => update('saladDressing', value)}
           options={saladDressings}
           lang={lang}
         />}
-        {!hasFamily('aderezos-acompanamiento') && <OptionSelect
+        {!hasFamily('aderezos-acompanamiento') && saladDressings.length > 0 && <OptionSelect
           label={t(lang, 'extraDressing')}
           value={state.extraDressing}
           onChange={(value) => update('extraDressing', value)}
@@ -1073,8 +1056,8 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
     return (
       <div className="options-grid">
         <OptionFamilyControls state={state} update={update} customization={customization} />
-        {!hasFamily('toppings-dulces') && <CrepeFlavorPicker selected={state.flavors} setSelected={(value) => update('flavors', value)} options={getCrepeOptions(product)} lang={lang} />}
-        {!hasFamily('toppings-dulces') && <ExtraToppingsPicker selected={state.extraToppings} setSelected={(value) => update('extraToppings', value)} options={getCrepeOptions(product)} lang={lang} />}
+        {!hasFamily('toppings-dulces') && getCrepeOptions(product).length > 0 && <CrepeFlavorPicker selected={state.flavors} setSelected={(value) => update('flavors', value)} options={getCrepeOptions(product)} lang={lang} />}
+        {!hasFamily('toppings-dulces') && getCrepeOptions(product).length > 0 && <ExtraToppingsPicker selected={state.extraToppings} setSelected={(value) => update('extraToppings', value)} options={getCrepeOptions(product)} lang={lang} />}
         <label className="check-row full">
           <input type="checkbox" checked={state.cutlery} onChange={(e) => update('cutlery', e.target.checked)} />
           <span>{t(lang, 'addCutlery')}</span>
@@ -1105,7 +1088,7 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
           options={['Helado', 'Caliente']}
           lang={lang}
         />
-{(product.id === 'latte' || product.id === 'frappe') && !hasFamily('leches') && (
+{(product.id === 'latte' || product.id === 'frappe') && !hasFamily('leches') && milkTypes.length > 0 && (
           <OptionSelect
             label={t(lang, 'milkType')}
             value={state.milk}
@@ -1116,7 +1099,7 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
             lang={lang}
           />
         )}
-        {!hasFamily('jarabes') && <OptionSelect
+        {!hasFamily('jarabes') && syrups.length > 0 && <OptionSelect
           label={t(lang, 'syrup')}
           value={state.syrup}
           onChange={(value) => update('syrup', value)}
@@ -1308,17 +1291,17 @@ function ProductCard({ product, onAdd, lang = 'es', customization }) {
 
   const handleAdd = () => {
     const familyKeys = new Set((normalizeCustomization(customization).optionGroups || []).map((group) => group.familyKey));
-    if ((product.type === 'panini' || product.type === 'wrap') && !familyKeys.has('aderezos-acompanamiento') && !options.sideDressing) {
+    if ((product.type === 'panini' || product.type === 'wrap') && dressingSides.length > 0 && !familyKeys.has('aderezos-acompanamiento') && !options.sideDressing) {
       alert(t(lang, 'chooseSideDressingAlert'));
       setExpanded(true);
       return;
     }
-    if (product.type === 'crepe' && !familyKeys.has('toppings-dulces') && options.flavors.length < 1) {
+    if (product.type === 'crepe' && getCrepeOptions(product).length > 0 && !familyKeys.has('toppings-dulces') && options.flavors.length < 1) {
       alert(t(lang, 'chooseCrepeFlavorAlert'));
       setExpanded(true);
       return;
     }
-    if ((product.id === 'latte' || product.id === 'frappe') && !familyKeys.has('leches') && !options.milk) {
+    if ((product.id === 'latte' || product.id === 'frappe') && milkTypes.length > 0 && !familyKeys.has('leches') && !options.milk) {
       alert(t(lang, 'chooseMilkAlert'));
       setExpanded(true);
       return;
@@ -1367,7 +1350,7 @@ function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
   if (product.type === 'crepe') {
     return (
       <div className="options-grid promo-options">
-        <ExtraToppingsPicker selected={state.extraToppings || []} setSelected={(value) => update('extraToppings', value)} options={getCrepeOptions(product)} lang={lang} />
+        {getCrepeOptions(product).length > 0 && <ExtraToppingsPicker selected={state.extraToppings || []} setSelected={(value) => update('extraToppings', value)} options={getCrepeOptions(product)} lang={lang} />}
         <label className="check-row full">
           <input type="checkbox" checked={Boolean(state.cutlery)} onChange={(e) => update('cutlery', e.target.checked)} />
           <span>{t(lang, 'addCutlery')}</span>
@@ -1380,13 +1363,13 @@ function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
   if (product.type === 'panini' || product.type === 'wrap') {
     return (
       <div className="options-grid promo-options">
-        <OptionSelect
+        {dressingSides.length > 0 && <OptionSelect
           label={t(lang, 'extraDressing')}
           value={state.extraDressing || 'Ninguno'}
           onChange={(value) => update('extraDressing', value)}
           options={['Ninguno', ...dressingSides.filter((item) => item !== 'Sin aderezo')]}
           lang={lang}
-        />
+        />}
         <Notes value={state.note || ''} onChange={(value) => update('note', value)} lang={lang} />
       </div>
     );
@@ -1395,13 +1378,13 @@ function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
   if (product.type === 'salad') {
     return (
       <div className="options-grid promo-options">
-        <OptionSelect
+        {saladDressings.length > 0 && <OptionSelect
           label={t(lang, 'extraDressing')}
           value={state.extraDressing || 'Ninguno'}
           onChange={(value) => update('extraDressing', value)}
           options={['Ninguno', ...saladDressings]}
           lang={lang}
-        />
+        />}
         <label className="check-row full">
           <input type="checkbox" checked={Boolean(state.cutlery)} onChange={(e) => update('cutlery', e.target.checked)} />
           <span>{t(lang, 'addCutlery')}</span>
@@ -1414,7 +1397,7 @@ function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
   if (product.type === 'coffee') {
     return (
       <div className="options-grid promo-options">
-        {!hasFamily('jarabes') && <OptionSelect
+        {syrups.length > 0 && <OptionSelect
           label={t(lang, 'syrup')}
           value={state.syrup || 'Sin jarabe'}
           onChange={(value) => update('syrup', value)}

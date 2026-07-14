@@ -6,13 +6,23 @@ function publicTenantSummary(row) {
   if (!row) return null;
   let brand = {};
   try { brand = JSON.parse(row.brand_json || '{}'); } catch { brand = {}; }
+  const publicBrand = {};
+  for (const key of [
+    'themePreset', 'displayName', 'tagline', 'logoUrl', 'heroImageUrl',
+    'heroEyebrow', 'heroTitle', 'heroText', 'primaryActionLabel',
+    'secondaryActionLabel', 'orderMessageIntro', 'menuEyebrow',
+    'menuTitle', 'emptyCatalogTitle', 'emptyCatalogText',
+    'primaryColor', 'accentColor',
+  ]) {
+    if (brand[key] !== undefined && brand[key] !== null) publicBrand[key] = String(brand[key]);
+  }
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     domain: row.domain || '',
     subdomain: row.subdomain || '',
-    brand,
+    brand: publicBrand,
   };
 }
 

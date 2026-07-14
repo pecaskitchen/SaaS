@@ -1,5 +1,7 @@
 import { requireDb, nowIso } from './http.js';
 import { ensureSchema } from '../orders.js';
+import { ensurePaymentTables } from './payments.js';
+import { upsertCustomerFromOrder } from './crm.js';
 import { loadTenantCatalog, cartTotal, cartSummaryText } from './conversationalCommerce.js';
 import {
   sendInteractiveList,
@@ -201,6 +203,7 @@ export async function handleIncomingMessage(env, { connection, accessToken, from
 // -----------------------------------------------------------------------
 async function createOrderFromConversation(env, tenantId, customerPhone, conversation, products) {
   await ensureSchema(env);
+  await ensurePaymentTables(env);
   const { __customerName, __customerAddress, ...items } = conversation.cart;
 
   let subtotal = 0;
@@ -237,6 +240,11 @@ async function createOrderFromConversation(env, tenantId, customerPhone, convers
   await env.DB.batch(lineItems.map((item) => orderItemsStmt.bind(
     tenantId, orderId, item.product_id, item.product_name, item.category, item.quantity, item.unit_price, item.line_total, timestamps.utc, timestamps.monterrey
   )));
+
+  await upsertCustomerFromOrder(env, tenantId, {
+    customer: { name: __customerName || 'Cliente WhatsApp', phone: customerPhone, address: __customerAddress || '' },
+    order: { id: orderId, orderNumber, total: subtotal, createdAtUtc: timestamps.utc },
+  });
 
   return orderId;
 }

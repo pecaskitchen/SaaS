@@ -157,7 +157,7 @@ export async function exchangePageLoginCode(env, code) {
   const response = await fetch(url.toString());
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudo intercambiar el code de Facebook Login.'), { code: 'CODE_EXCHANGE_FAILED', status: 502 });
+    throw Object.assign(new Error(data.error?.message || 'No se pudo intercambiar el code de Facebook Login.'), { code: 'CODE_EXCHANGE_FAILED', status: 400 });
   }
   return data; // { access_token, token_type, expires_in? } -- token de usuario
 }
@@ -172,7 +172,7 @@ export async function fetchManagedPages(env, userAccessToken) {
   const response = await fetch(url.toString());
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudieron leer las páginas de Facebook del usuario.'), { code: 'FETCH_PAGES_FAILED', status: 502 });
+    throw Object.assign(new Error(data.error?.message || 'No se pudieron leer las páginas de Facebook del usuario.'), { code: 'FETCH_PAGES_FAILED', status: 400 });
   }
   return data.data || []; // [{ id, name, access_token }, ...]
 }
@@ -204,7 +204,7 @@ export async function subscribePageToApp(env, pageId, pageAccessToken, fields = 
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success !== true) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudo suscribir el webhook a la página.'), { code: 'SUBSCRIBE_FAILED', status: 502 });
+    throw Object.assign(new Error(data.error?.message || 'No se pudo suscribir el webhook a la página.'), { code: 'SUBSCRIBE_FAILED', status: 400 });
   }
   return data;
 }
@@ -230,7 +230,7 @@ export async function exchangeInstagramLoginCode(env, code, redirectUri) {
   const response = await fetch('https://api.instagram.com/oauth/access_token', { method: 'POST', body });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {
-    throw Object.assign(new Error(data.error_message || 'No se pudo intercambiar el code de Instagram Login.'), { code: 'IG_CODE_EXCHANGE_FAILED', status: 502 });
+    throw Object.assign(new Error(data.error_message || 'No se pudo intercambiar el code de Instagram Login.'), { code: 'IG_CODE_EXCHANGE_FAILED', status: 400 });
   }
   return data; // { access_token, user_id } -- token de corta duración
 }
@@ -246,7 +246,7 @@ export async function exchangeInstagramLongLivedToken(env, shortLivedToken) {
   const response = await fetch(url.toString());
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudo generar el token de larga duración de Instagram.'), { code: 'IG_LONG_LIVED_FAILED', status: 502 });
+    throw Object.assign(new Error(data.error?.message || 'No se pudo generar el token de larga duración de Instagram.'), { code: 'IG_LONG_LIVED_FAILED', status: 400 });
   }
   return data; // { access_token, expires_in }
 }
@@ -299,7 +299,7 @@ async function callSendMessage(env, endpointId, accessToken, payload) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudo enviar el mensaje.'), { code: 'SEND_FAILED', status: 502, detail: data.error });
+    throw Object.assign(new Error(data.error?.message || 'No se pudo enviar el mensaje.'), { code: 'SEND_FAILED', status: 400, detail: data.error });
   }
   return data;
 }

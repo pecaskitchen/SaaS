@@ -90,7 +90,10 @@ export async function onRequestGet({ request, env }) {
         quantity: Number(line.quantity || 0),
         unit: line.unit_code || '',
         role: line.line_role || 'ingrediente',
-        extraPrice: Number(line.extra_price || 10),
+        // CORREGIDO: "|| 10" convertia un precio explicito de $0 en $10 --
+        // la columna extra_price es NOT NULL DEFAULT 0, asi que confiar
+        // en el valor real de la DB es siempre correcto aqui.
+        extraPrice: Number(line.extra_price ?? 0),
       };
 
       if (Number(line.client_visible || 0) === 1 && Number(line.client_removable || 0) === 1) {

@@ -2,33 +2,42 @@ import { requireDb, nowIso } from './http.js';
 
 export const OMDEXA_CONFIG_KEY = 'omdexa_landing_config';
 
+// CORREGIDO: este objeto es el que REALMENTE se sirve en produccion --
+// OmdexaLanding.jsx trae su propio DEFAULT_CONFIG (usado como estado
+// inicial antes de que cargue la red), pero SIEMPRE lo sobreescribe con
+// lo que devuelve GET /api/omdexa-config (ver mergeConfig() en
+// OmdexaLanding.jsx), y este archivo es la fuente de ese endpoint. El
+// rediseno "Tienda, CRM, inventario y pagos" (commit cb308a3) actualizo
+// el DEFAULT_CONFIG del frontend pero nunca este archivo -- asi que en
+// vivo se seguia viendo el copy viejo sin CRM. Mantener ambos objetos
+// sincronizados a mano hasta que se unifiquen en un solo lugar.
 export const DEFAULT_OMDEXA_CONFIG = {
   brandName: 'Omdexa',
-  pageTitle: 'Omdexa | Sistema operativo para pequenos negocios',
-  metaDescription: 'Omdexa centraliza tienda en linea, caja, pedidos, inventario y pagos para pequenos negocios con soporte mensual.',
+  pageTitle: 'Omdexa | Tienda, CRM, inventario y pagos para tu negocio',
+  metaDescription: 'Omdexa centraliza tienda en linea, CRM y seguimiento de clientes, caja, pedidos, inventario y pagos para pequenos negocios. Usa todo el sistema o solo el modulo que necesitas.',
   platformLinkLabel: 'Admin SaaS',
   topbarLabel: 'Portal de clientes',
   topbarStatus: 'Multi-tenant activo',
   nav: [
+    { label: 'Modulos', href: '#ops', icon: 'chart' },
+    { label: 'CRM', href: '#ops', icon: 'users' },
     { label: 'Acceso', href: '#access', icon: 'store' },
-    { label: 'Plataforma', href: '#platform', icon: 'shield' },
-    { label: 'Operacion', href: '#ops', icon: 'chart' },
     { label: 'Contacto', href: '#contact', icon: 'phone' },
   ],
   hero: {
-    eyebrow: 'Software operativo para negocios locales',
-    title: 'Tu tienda, caja, inventario y pagos en un solo sistema.',
-    text: 'Omdexa ayuda a pequenos negocios a vender en linea, tomar pedidos por caja, controlar stock por recetas y operar con soporte mensual sin construir tecnologia desde cero.',
+    eyebrow: 'Software para negocios locales',
+    title: 'Tienda, CRM, inventario y pagos — usa todo, o solo lo que necesitas.',
+    text: 'Omdexa es un sistema modular: negocios que venden en linea usan la operacion completa (tienda, caja, inventario por recetas y pagos), y negocios que solo necesitan dar seguimiento a sus clientes pueden usar unicamente el CRM. Tu eliges que prender.',
     imageUrl: '/omdexa-dashboard.svg',
-    imageAlt: 'Panel operativo de Omdexa con pedidos, inventario y pagos',
+    imageAlt: 'Panel operativo de Omdexa con pedidos, CRM, inventario y pagos',
     primaryActionLabel: 'Entrar a mi negocio',
-    secondaryActionLabel: 'Conocer modulos',
+    secondaryActionLabel: 'Ver todos los modulos',
     proofLabel: 'Hecho para operacion real',
-    proofItems: ['Pedidos por tienda y caja', 'Inventario por sucursal', 'Pagos conectados por cliente'],
+    proofItems: ['CRM y seguimiento de clientes', 'Pedidos por tienda, caja y chat', 'Control de inventario en tiempo real'],
   },
   contact: {
     title: 'Hablemos de tu operacion',
-    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio.',
+    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio — completo o solo el CRM.',
     phone: '+528113927548',
     whatsapp: '+528113927548',
     email: 'hola@omdexa.com',
@@ -50,16 +59,18 @@ export const DEFAULT_OMDEXA_CONFIG = {
     title: 'Omdexa OS',
     badge: 'Live',
     signals: [
+      { title: 'CRM', text: 'Historial, mensajes y seguimiento por cliente' },
       { title: 'Pedidos', text: 'Tienda, caja y canales externos' },
       { title: 'Inventario', text: 'Recetas, subrecetas y sucursales' },
       { title: 'Pagos', text: 'Mercado Pago por tenant' },
     ],
-    flow: ['Cliente', 'Pago', 'Orden', 'Stock'],
+    flow: ['Cliente', 'CRM', 'Pedido', 'Pago', 'Stock'],
   },
   modules: [
-    { icon: 'building', title: 'Clientes separados', text: 'Cada tenant conserva marca, datos, sucursales y configuracion propia.' },
-    { icon: 'package', title: 'Operacion completa', text: 'Catalogo, pedidos, caja, ordenes, stock y reportes en una sola base.' },
-    { icon: 'wallet', title: 'Pagos conectados', text: 'Checkout Pro por cliente y webhooks para confirmar ordenes pagadas.' },
+    { icon: 'users', title: 'CRM y seguimiento', text: 'Historial de pedidos por cliente, mensajes de seguimiento y segmentacion. Funciona solo, sin necesidad de activar el resto del sistema.' },
+    { icon: 'chat', title: 'Pedidos y tienda', text: 'Catalogo en linea, caja y pedidos por WhatsApp, Messenger e Instagram con el mismo precio siempre.' },
+    { icon: 'package', title: 'Inventario', text: 'Control de stock por receta y sub-receta, por sucursal, sincronizado con cada pedido.' },
+    { icon: 'wallet', title: 'Pagos conectados', text: 'Checkout Pro por cliente y webhooks para confirmar ordenes pagadas automaticamente.' },
   ],
 };
 

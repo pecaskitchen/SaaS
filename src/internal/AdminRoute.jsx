@@ -40,6 +40,16 @@ export default function AdminRoute() {
   const [promotion, setPromotion] = useState(null);
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
+  // CORREGIDO: si /api/admin/menu fallaba (blip de red, token vencido,
+  // etc.) esto vaciaba TODO el estado local -- incluido extraProducts.
+  // Si el admin le daba a "Guardar cambios" sin darse cuenta de que el
+  // catalogo se veia vacio, se sobreescribia el catalogo real (guardado
+  // en tablas) con un extraProducts=[] en el blob legacy que lee el panel
+  // de Stock, mostrando todas las recetas como "sin producto publicado".
+  // Ahora un fallo NO borra el ultimo estado bueno conocido -- solo
+  // avisa con loadError y bloquea el guardado hasta recargar bien.
+  const [loadError, setLoadError] = useState('');
+  const hasLoadedOnce = React.useRef(false);
 
   const loadMenu = useCallback(async () => {
     try {
@@ -59,16 +69,21 @@ export default function AdminRoute() {
       setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
       setBusinessHours(normalizeBusinessHours(result.businessHours));
       setBranchSettings(normalizeBranchSettings(result.branchSettings));
-    } catch {
-      setMenuOverrides({});
-      setExtraCategories([]);
-      setExtraProducts([]);
-      setCategoryOrder([]);
-      setProductOrder([]);
-      setCategoryHidden({});
-      setPromotion(null);
-      setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
-      setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
+      setLoadError('');
+      hasLoadedOnce.current = true;
+    } catch (error) {
+      if (!hasLoadedOnce.current) {
+        setMenuOverrides({});
+        setExtraCategories([]);
+        setExtraProducts([]);
+        setCategoryOrder([]);
+        setProductOrder([]);
+        setCategoryHidden({});
+        setPromotion(null);
+        setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
+        setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
+      }
+      setLoadError(error?.message || 'No se pudo cargar el catalogo.');
     }
   }, []);
 
@@ -96,6 +111,7 @@ export default function AdminRoute() {
       businessHours={businessHours}
       branchSettings={branchSettings}
       reloadMenu={loadMenu}
+      loadError={loadError}
     />
   );
 }

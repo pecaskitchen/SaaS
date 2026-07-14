@@ -1592,6 +1592,13 @@ function normalizeRecipeLineFlags(line) {
   const isExtra = boolNum(line.is_extra_billable);
   const isOptional = boolNum(line.is_optional || line.is_extra_billable);
   const clientVisible = boolNum(line.client_visible || line.is_optional || line.is_extra_billable || line.client_removable || line.client_changeable);
+  // CORREGIDO: "extra_price || (isExtra ? 10 : 0)" trataba un precio
+  // explicito de $0 (gratis) igual que "nunca se configuro", y lo
+  // pisaba a $10 en CADA guardado de la receta -- un admin no podia
+  // dejar un extra en $0 ni bajarlo de $10 de forma permanente. El
+  // default de $10 ahora solo aplica cuando el campo realmente viene
+  // vacio (undefined/null/''), no cuando vale 0.
+  const hasExplicitPrice = line.extra_price !== undefined && line.extra_price !== null && line.extra_price !== '';
   return {
     lineRole: cleanRecipeLineRole(line.line_role),
     clientVisible,
@@ -1600,7 +1607,7 @@ function normalizeRecipeLineFlags(line) {
     isDefault: boolNum(line.is_default),
     isOptional,
     isExtraBillable: isExtra,
-    extraPrice: Number(line.extra_price || (isExtra ? 10 : 0)),
+    extraPrice: hasExplicitPrice ? Number(line.extra_price) : (isExtra ? 10 : 0),
   };
 }
 

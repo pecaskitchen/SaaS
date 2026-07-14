@@ -96,7 +96,7 @@ function parseMenuCsv(text) {
   return { categories: [...categoriesById.values()], products };
 }
 
-export default function AdminPanel({ products, categoriesList = categories, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu }) {
+export default function AdminPanel({ products, categoriesList = categories, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu, loadError = '' }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [unlocked, setUnlocked] = useState(false);
@@ -404,6 +404,19 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   }, []);
 
   const saveMenu = async () => {
+    // CORREGIDO: si la carga del catalogo fallo (ver AdminRoute.jsx) o
+    // si por alguna otra razon los productos llegaron vacios, no dejar
+    // que "Guardar cambios" sobreescriba el catalogo real con una lista
+    // vacia -- eso fue justo lo que provoco que todas las recetas
+    // aparecieran como "sin producto publicado" en el panel de Stock.
+    if (loadError) {
+      setStatus('No se puede guardar: el catálogo no cargó bien. Recarga la página e intenta de nuevo.');
+      return;
+    }
+    if (drafts.length === 0 && categoryItems.length > 0) {
+      setStatus('No se guardó: no se detectó ningún producto cargado (esto borraría tu catálogo). Recarga la página e intenta de nuevo.');
+      return;
+    }
     setStatus('Guardando...');
     const overrides = {};
     for (const product of drafts) {
@@ -493,8 +506,13 @@ export default function AdminPanel({ products, categoriesList = categories, cate
         ) : (
           <>
             <BackofficeNav current="admin" />
+            {loadError && (
+              <p className="admin-status" style={{ color: '#b91c1c' }}>
+                No se pudo cargar el catálogo ({loadError}). No guardes cambios hasta recargar la página o podrías borrar tu catálogo.
+              </p>
+            )}
             <div className="admin-toolbar sticky-actions">
-              <button type="button" className="primary" onClick={saveMenu}><Save size={16} /> Guardar cambios</button>
+              <button type="button" className="primary" onClick={saveMenu} disabled={Boolean(loadError)}><Save size={16} /> Guardar cambios</button>
               {status && <p className="admin-status">{status}</p>}
             </div>
             <section className="admin-collapse">

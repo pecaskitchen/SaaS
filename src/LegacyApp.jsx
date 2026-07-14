@@ -449,7 +449,8 @@ function selectedRecipeExtraPrice(product, customization, selectedExtras = []) {
   return (customization.extraBillables || []).reduce((sum, extra) => {
     if (!selected.has(normalizeName(extra.name))) return sum;
     if (optionMatchesProductOption(product, extra.name)) return sum;
-    return sum + Number(extra.extraPrice || 10);
+    // CORREGIDO: "|| 10" pisaba un precio explicito de $0 con $10.
+    return sum + Number(extra.extraPrice ?? 0);
   }, 0);
 }
 
@@ -865,7 +866,7 @@ function RecipeCustomizationControls({ product, state, customization, toggleRemo
                   className={`pill ${active ? 'active' : ''}`}
                   onClick={() => toggleRecipeExtra(item.name)}
                 >
-                  {item.name} +${Number(item.extraPrice || 10)}
+                  {item.name} +${Number(item.extraPrice ?? 0)}
                 </button>
               );
             })}

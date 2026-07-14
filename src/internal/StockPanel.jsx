@@ -2034,7 +2034,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                                 <td><b>{item?.name || line.item_name || 'Ingrediente'}</b><span>{item?.brand || line.item_brand || ''}</span></td>
                                 <td>{formatStockQuantity(line.quantity, item?.unit_code || line.unit_code)}</td>
                                 <td>{line.line_role}</td>
-                                <td>{line.client_visible ? 'Visible' : 'Interno'} {line.client_removable ? '· Quitable' : ''} {line.client_changeable ? '· Cambiable' : ''} {line.is_optional ? '· Opcional' : ''} {line.is_extra_billable ? `· Extra $${line.extra_price || 10}` : ''}</td>
+                                <td>{line.client_visible ? 'Visible' : 'Interno'} {line.client_removable ? '· Quitable' : ''} {line.client_changeable ? '· Cambiable' : ''} {line.is_optional ? '· Opcional' : ''} {line.is_extra_billable ? `· Extra $${line.extra_price ?? 0}` : ''}</td>
                                 <td><button type="button" className="ghost danger-text" onClick={() => removeRecipeLine(index)}>Quitar</button></td>
                               </tr>
                             );
@@ -2233,7 +2233,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                         <td>{row.ingredient_name}</td>
                         <td>{row.quantity}</td>
                         <td>{row.line_role || 'ingrediente'}</td>
-                        <td>{String(row.is_extra_billable || '').trim() === '1' ? `$${row.extra_price || 10}` : 'No'}</td>
+                        <td>{String(row.is_extra_billable || '').trim() === '1' ? `$${row.extra_price ?? 10}` : 'No'}</td>
                       </tr>
                     ))}
                   </tbody>

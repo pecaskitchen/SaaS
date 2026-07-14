@@ -28,8 +28,8 @@ async function resolveOrdersAccess(request, env, tenantId) {
     const password = getPassword(request);
     const branchSettings = await readBranchSettings(env, tenantId);
     const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
-    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy' };
+    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings };
+    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy', branchSettings };
   }
 
   // Sin JWT: unico camino valido es el PIN de sucursal (personal sin cuenta
@@ -38,7 +38,7 @@ async function resolveOrdersAccess(request, env, tenantId) {
   if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
   const branchSettings = await readBranchSettings(env, tenantId);
   const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-  if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch' };
+  if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings };
   return { ok: false, error: 'No autorizado.', response: auth.response };
 }
 
@@ -155,7 +155,14 @@ function getBusinessWindowMonterrey() {
 }
 
 
+// Cacheados a nivel de modulo -- ambos corren en cada request de
+// pedidos/dashboard; una vez verificados en este isolate no hace falta
+// repetir los CREATE TABLE/PRAGMA/ALTER en cada request.
+let stockBranchColumnsEnsured = false;
+let orderStockColumnsEnsured = false;
+
 async function ensureStockBranchColumns(env) {
+  if (stockBranchColumnsEnsured) return;
   try {
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS inventory_branch_stock (
       tenant_id TEXT NOT NULL DEFAULT 'default',
@@ -170,12 +177,14 @@ async function ensureStockBranchColumns(env) {
     const columns = new Set((info.results || []).map((row) => row.name));
     if (!columns.has('branch_id')) await env.DB.prepare(`ALTER TABLE stock_movements ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'dominio'`).run();
     if (!columns.has('branch_name')) await env.DB.prepare(`ALTER TABLE stock_movements ADD COLUMN branch_name TEXT`).run();
+    stockBranchColumnsEnsured = true;
   } catch {
     // Stock schema may not be initialized yet. The insert will surface a useful error if needed.
   }
 }
 
 async function ensureOrderStockColumns(env) {
+  if (orderStockColumnsEnsured) return;
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,6 +275,7 @@ async function ensureOrderStockColumns(env) {
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
+  orderStockColumnsEnsured = true;
 }
 
 function parseOptions(value) {
@@ -356,8 +366,24 @@ function shouldUseRecipeLine(line, options = {}) {
 }
 
 async function getRecipeLinesForProduct(env, productId, productName = '', tenantId) {
-  const candidates = recipeKeyCandidates(productId, productName);
   let recipe = null;
+
+  // Fuente de verdad real: menu_products.recipe_id, el link que ya guarda
+  // el catalogo entre producto y receta. Antes esto se ignoraba y se
+  // adivinaba por recipe_key/nombre mas abajo -- si dos recetas
+  // compartian nombre, podia descontar la receta equivocada sin error.
+  if (productId) {
+    const linked = await env.DB.prepare(
+      `SELECT r.id FROM menu_products p
+       JOIN stock_recipes r ON r.tenant_id = p.tenant_id AND r.id = p.recipe_id
+       WHERE p.tenant_id = ? AND p.product_key = ? AND r.recipe_type = 'product' AND r.is_active = 1`
+    ).bind(tenantId, productId).first();
+    if (linked?.id) recipe = linked;
+  }
+
+  // Fallback para productos que todavia no tienen recipe_id enlazado en
+  // el catalogo (legado) -- mismo comportamiento que antes.
+  const candidates = recipe?.id ? [] : recipeKeyCandidates(productId, productName);
   for (const recipeKey of candidates) {
     recipe = await env.DB.prepare(
       `SELECT id FROM stock_recipes WHERE tenant_id = ? AND lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
@@ -371,15 +397,27 @@ async function getRecipeLinesForProduct(env, productId, productName = '', tenant
   }
   if (!recipe?.id) return [];
 
+  // LEFT JOIN (no INNER) para poder detectar lineas de receta cuyo
+  // ingrediente ya no existe -- con INNER JOIN esas lineas simplemente
+  // desaparecian del resultado sin avisar, subestimando el consumo real
+  // sin que nadie se entere.
   const result = await env.DB.prepare(
     `SELECT l.*, i.name AS item_name, i.current_stock, i.deducts_inventory, u.code AS unit_code
      FROM stock_recipe_lines l
-     JOIN inventory_items i ON i.id = l.item_id
+     LEFT JOIN inventory_items i ON i.id = l.item_id AND i.tenant_id = ?
      LEFT JOIN stock_units u ON u.id = i.unit_id
-     WHERE l.tenant_id = ? AND i.tenant_id = ? AND l.recipe_id = ?
+     WHERE l.tenant_id = ? AND l.recipe_id = ?
      ORDER BY l.sort_order ASC, l.id ASC`
   ).bind(tenantId, tenantId, recipe.id).all();
-  return result.results || [];
+  const lines = [];
+  for (const row of result.results || []) {
+    if (!row.item_name) {
+      console.warn(`[stock] receta ${recipe.id} (tenant ${tenantId}) referencia item_id ${row.item_id} que no existe -- linea ignorada en el descuento de inventario.`);
+      continue;
+    }
+    lines.push(row);
+  }
+  return lines;
 }
 
 async function getSelectedFamilyComponents(env, productId, options = {}, tenantId) {
@@ -396,28 +434,46 @@ async function getSelectedFamilyComponents(env, productId, options = {}, tenantI
   const rows = [];
   for (const pair of selectedPairs) {
     try {
+      // LEFT JOIN a inventory_items (no INNER) para poder detectar
+      // items borrados en vez de que la fila desaparezca en silencio.
       const result = await env.DB.prepare(
         `SELECT oi.item_id, oi.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
          FROM stock_product_option_groups pg
          JOIN stock_option_families f ON f.id = pg.family_id
          JOIN stock_option_family_items oi ON oi.family_id = f.id
-         JOIN inventory_items i ON i.id = oi.item_id
+         LEFT JOIN inventory_items i ON i.id = oi.item_id AND i.tenant_id = ?
          LEFT JOIN stock_units u ON u.id = i.unit_id
-         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND i.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
+         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
         UNION ALL
         SELECT c.item_id, c.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
          FROM stock_product_option_groups pg
          JOIN stock_option_families f ON f.id = pg.family_id
          JOIN stock_option_family_items oi ON oi.family_id = f.id
          JOIN stock_option_family_item_components c ON c.option_item_id = oi.id
-         JOIN inventory_items i ON i.id = c.item_id
+         LEFT JOIN inventory_items i ON i.id = c.item_id AND i.tenant_id = ?
          LEFT JOIN stock_units u ON u.id = i.unit_id
-         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND c.tenant_id = ? AND i.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
+         WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND c.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
       ).bind(
         tenantId, tenantId, tenantId, tenantId, productId, pair.familyKey, pair.optionName,
         tenantId, tenantId, tenantId, tenantId, tenantId, productId, pair.familyKey, pair.optionName
       ).all();
-      rows.push(...(result.results || []));
+      // El primer SELECT trae el item propio de la opcion, el segundo
+      // (UNION ALL) trae sus componentes -- son aditivos por diseno
+      // (ej. "Sandwich de pollo" = pechuga + pan + mayo). Pero si un
+      // admin carga por error el MISMO item tambien como componente de
+      // su propia opcion, se descontaria dos veces. Se deduplica por
+      // item_id dentro de esta misma opcion (se queda con la primera
+      // fila, que es siempre la del item propio por el orden del UNION).
+      const seenItemIds = new Set();
+      for (const row of result.results || []) {
+        if (!row.item_name) {
+          console.warn(`[stock] opcion "${pair.optionName}" de familia "${pair.familyKey}" (producto ${productId}, tenant ${tenantId}) referencia item_id ${row.item_id} que no existe -- linea ignorada en el descuento de inventario.`);
+          continue;
+        }
+        if (seenItemIds.has(row.item_id)) continue;
+        seenItemIds.add(row.item_id);
+        rows.push(row);
+      }
     } catch { /* components table may not exist before first stock load */ }
   }
   return rows;
@@ -429,6 +485,25 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
   ).bind(tenantId, orderId).all();
 
   const orderItems = itemsResult.results || [];
+
+  // Memoizacion por request: un pedido con varias lineas del mismo
+  // producto (o un combo/promo que repite productos) antes recalculaba
+  // el lookup completo de receta/familia por cada linea repetida.
+  const recipeLinesCache = new Map();
+  const getRecipeLinesCached = async (productId, productName) => {
+    if (recipeLinesCache.has(productId)) return recipeLinesCache.get(productId);
+    const lines = await getRecipeLinesForProduct(env, productId, productName, tenantId);
+    recipeLinesCache.set(productId, lines);
+    return lines;
+  };
+  const familyComponentsCache = new Map();
+  const getFamilyComponentsCached = async (productId, options) => {
+    const cacheKey = `${productId}:${JSON.stringify(options?.optionGroups || {})}`;
+    if (familyComponentsCache.has(cacheKey)) return familyComponentsCache.get(cacheKey);
+    const components = await getSelectedFamilyComponents(env, productId, options, tenantId);
+    familyComponentsCache.set(cacheKey, components);
+    return components;
+  };
   const consumption = new Map();
   const missingRecipes = [];
   const stats = {
@@ -467,7 +542,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
       for (const promoItem of options.promoItems) {
         const productId = promoItem.productId;
         const multiplier = Number(promoItem.quantity || 1) * Number(orderItem.quantity || 1);
-        const lines = await getRecipeLinesForProduct(env, productId, promoItem.productName, tenantId);
+        const lines = await getRecipeLinesCached(productId, promoItem.productName);
         if (lines.length === 0) missingRecipes.push(promoItem.productName || productId);
         stats.recipeLineCount += lines.length;
         const promoOptions = options.extrasByProductId?.[productId] || {};
@@ -479,7 +554,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
             stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
           }
         }
-        const familyComponents = await getSelectedFamilyComponents(env, productId, promoOptions, tenantId);
+        const familyComponents = await getFamilyComponentsCached(productId, promoOptions);
         stats.recipeLineCount += familyComponents.length;
         for (const component of familyComponents) addLine(component, multiplier);
       }
@@ -487,7 +562,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
     }
 
     const productId = orderItem.product_id || orderItem.productId || orderItem.id;
-    const lines = await getRecipeLinesForProduct(env, productId, orderItem.product_name, tenantId);
+    const lines = await getRecipeLinesCached(productId, orderItem.product_name);
     if (lines.length === 0) missingRecipes.push(orderItem.product_name || productId);
     stats.recipeLineCount += lines.length;
     const multiplier = Number(orderItem.quantity || 1);
@@ -499,7 +574,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
         stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
       }
     }
-    const familyComponents = await getSelectedFamilyComponents(env, productId, options, tenantId);
+    const familyComponents = await getFamilyComponentsCached(productId, options);
     stats.recipeLineCount += familyComponents.length;
     for (const component of familyComponents) addLine(component, multiplier);
   }
@@ -508,7 +583,17 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
 }
 
 
+// getBranchStock() llama a esto por cada linea de consumo de un pedido
+// -- se cachea por (tenant, branch) a nivel de modulo para no repetir
+// el CREATE TABLE/COUNT/INSERT set-based en cada linea del mismo
+// pedido/isolate. El backfill se retoma solo en el proximo cold start,
+// lo cual es seguro: getBranchStock/setBranchStock ya manejan por su
+// cuenta el caso de una fila de branch_stock todavia inexistente.
+const branchStockEnsuredCache = new Set();
+
 async function ensureBranchStock(env, branchId, tenantId) {
+  const cacheKey = `${tenantId}:${branchId}`;
+  if (branchStockEnsuredCache.has(cacheKey)) return;
   const ts = getTimestamps();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS inventory_branch_stock (
     tenant_id TEXT NOT NULL DEFAULT 'default',
@@ -521,13 +606,18 @@ async function ensureBranchStock(env, branchId, tenantId) {
   await ensureTenantColumns(env, ['inventory_branch_stock']);
   const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branchId).first();
   const count = Number(countRow?.count || 0);
-  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ?`).bind(tenantId).all()).results || [];
-  for (const item of items) {
-    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, item.id, branchId).first();
-    if (existing) continue;
-    const initialStock = count === 0 ? Number(item.current_stock || 0) : 0;
-    await env.DB.prepare(`INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?, ?)`).bind(tenantId, item.id, branchId, initialStock, ts.utc).run();
-  }
+  // Backfill set-based en vez de un SELECT+INSERT por item -- con
+  // cientos de ingredientes esto pasaba de cientos de round trips a 1.
+  // INSERT OR IGNORE ya respeta el PRIMARY KEY (tenant_id, item_id,
+  // branch_id), asi que reemplaza el "if (existing) continue" anterior
+  // sin cambiar el comportamiento.
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
+    SELECT tenant_id, id, ?, CASE WHEN ? = 0 THEN current_stock ELSE 0 END, ?
+    FROM inventory_items
+    WHERE tenant_id = ?
+  `).bind(branchId, count, ts.utc, tenantId).run();
+  branchStockEnsuredCache.add(cacheKey);
 }
 
 async function getBranchStock(env, itemId, branchId, tenantId) {
@@ -568,9 +658,16 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
     throw new Error('No hay consumo de stock para este pedido.');
   }
 
+  const branchId = order.branch_id || 'dominio';
   const shortages = [];
+  // Se guarda el stock "current" leido acá para reusarlo en el loop de
+  // abajo -- antes se volvía a leer con un segundo getBranchStock por
+  // línea, una llamada redundante ya que nada mas modifica el stock
+  // entre estos dos loops dentro del mismo request.
+  const currentStockByItem = new Map();
   for (const line of consumption) {
-    const current = await getBranchStock(env, line.item_id, order.branch_id || 'dominio', tenantId);
+    const current = await getBranchStock(env, line.item_id, branchId, tenantId);
+    currentStockByItem.set(line.item_id, current);
     if (current < Number(line.quantity || 0)) {
       shortages.push(`${line.item_name}: tienes ${current} ${line.unit_code || ''}, se necesitan ${line.quantity} ${line.unit_code || ''}`.trim());
     }
@@ -581,7 +678,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
 
   const ts = getTimestamps();
   for (const line of consumption) {
-    const before = await getBranchStock(env, line.item_id, order.branch_id || 'dominio', tenantId);
+    const before = currentStockByItem.get(line.item_id);
     const qty = -Math.abs(Number(line.quantity || 0));
     const after = before + qty;
     await setBranchStock(env, line.item_id, order.branch_id || 'dominio', after, tenantId);
@@ -640,19 +737,40 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all', tenantId
 
   const ordersResult = await env.DB.prepare(ordersQuery).bind(...binds).all();
   const orders = ordersResult.results || [];
-  const fullOrders = [];
+  if (!orders.length) return { businessWindow, orders: [] };
 
-  for (const order of orders) {
-    const itemsResult = await env.DB.prepare(
-      `SELECT id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes
-       FROM order_items WHERE tenant_id = ? AND order_id = ? ORDER BY id ASC`
-    ).bind(tenantId, order.id).all();
-    const eventsResult = await env.DB.prepare(
-      `SELECT id, event_type, event_note, created_at_utc, created_at_monterrey
-       FROM order_events WHERE tenant_id = ? AND order_id = ? ORDER BY id ASC`
-    ).bind(tenantId, order.id).all();
-    fullOrders.push({ ...order, items: itemsResult.results || [], events: eventsResult.results || [] });
+  // Antes: 2 queries POR pedido (hasta 200 round trips con el limite
+  // por defecto de 100). Ahora: 2 queries totales con WHERE order_id IN
+  // (...), agrupadas en JS por order_id.
+  const orderIds = orders.map((order) => order.id);
+  const placeholders = orderIds.map(() => '?').join(',');
+  const [itemsResult, eventsResult] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes
+       FROM order_items WHERE tenant_id = ? AND order_id IN (${placeholders}) ORDER BY id ASC`
+    ).bind(tenantId, ...orderIds).all(),
+    env.DB.prepare(
+      `SELECT id, order_id, event_type, event_note, created_at_utc, created_at_monterrey
+       FROM order_events WHERE tenant_id = ? AND order_id IN (${placeholders}) ORDER BY id ASC`
+    ).bind(tenantId, ...orderIds).all(),
+  ]);
+
+  const itemsByOrderId = new Map();
+  for (const item of itemsResult.results || []) {
+    if (!itemsByOrderId.has(item.order_id)) itemsByOrderId.set(item.order_id, []);
+    itemsByOrderId.get(item.order_id).push(item);
   }
+  const eventsByOrderId = new Map();
+  for (const event of eventsResult.results || []) {
+    if (!eventsByOrderId.has(event.order_id)) eventsByOrderId.set(event.order_id, []);
+    eventsByOrderId.get(event.order_id).push(event);
+  }
+
+  const fullOrders = orders.map((order) => ({
+    ...order,
+    items: itemsByOrderId.get(order.id) || [],
+    events: eventsByOrderId.get(order.id) || [],
+  }));
   return { businessWindow, orders: fullOrders };
 }
 
@@ -666,9 +784,14 @@ export async function onRequestGet(context) {
     await ensureOrderStockColumns(env);
     const url = new URL(request.url);
     const status = url.searchParams.get('status') || 'all';
-    const limit = Number(url.searchParams.get('limit') || 100);
+    // Acotado a 500 -- sin tope, un limit gigante generaria un WHERE
+    // order_id IN (...) con miles de parametros en loadFullOrders.
+    const limit = Math.min(Number(url.searchParams.get('limit') || 100) || 100, 500);
     const requestedBranchFilter = url.searchParams.get('branch') || 'all';
-    const branchSettings = await readBranchSettings(env, tenantId);
+    // resolveOrdersAccess ya trae branchSettings salvo en el camino
+    // rapido de admin (no lo necesita para autorizar) -- se reusa en
+    // vez de volver a leerlo.
+    const branchSettings = access.branchSettings || await readBranchSettings(env, tenantId);
     const branchFilter = access.accessScope === 'branch' ? access.branchFilter : requestedBranchFilter;
     const data = await loadFullOrders(env, status, limit, branchFilter, tenantId);
     return jsonResponse({ ok: true, role: access.role, accessScope: access.accessScope, lockedBranchId: access.accessScope === 'branch' ? access.branchFilter : null, branchSettings: access.role === 'admin' ? branchSettings : hideBranchPasswords(branchSettings), ...data });

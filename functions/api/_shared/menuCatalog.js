@@ -118,8 +118,15 @@ export function emptySavedMenu() {
   };
 }
 
+// Cacheado a nivel de modulo -- functions/api/menu.js (el endpoint mas
+// visitado de toda la app, el menu publico) llama a esto en cada visita
+// de cliente. Una vez verificado en este isolate no hace falta repetir
+// los CREATE TABLE/INDEX en cada request.
+let menuCatalogTablesEnsured = false;
+
 export async function ensureMenuCatalogTables(env) {
   if (!env.DB) return false;
+  if (menuCatalogTablesEnsured) return true;
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS menu_categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id TEXT NOT NULL,
@@ -169,6 +176,7 @@ export async function ensureMenuCatalogTables(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_categories_tenant_active ON menu_categories(tenant_id, is_active, is_visible, sort_order)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_products_tenant_category ON menu_products(tenant_id, category_key, is_active, is_published, sort_order)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_products_recipe ON menu_products(tenant_id, recipe_id)`).run();
+  menuCatalogTablesEnsured = true;
   return true;
 }
 

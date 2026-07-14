@@ -1,7 +1,6 @@
 import { requireDb, nowIso } from './http.js';
-import { tenantSettingKey, ensureTenantColumns } from './tenant.js';
-import { normalizeSavedMenu, readEffectiveCatalog, cleanPublicOverrides } from './menuCatalog.js';
 import { ensureSchema } from '../orders.js';
+import { loadTenantCatalog, cartTotal, cartSummaryText } from './conversationalCommerce.js';
 import {
   sendInteractiveList,
   sendInteractiveButtons,
@@ -9,27 +8,6 @@ import {
 } from './whatsapp.js';
 
 const MAX_LIST_ROWS = 10; // límite de WhatsApp para listas interactivas
-
-// -----------------------------------------------------------------------
-// Catálogo — MISMA fuente que checkout/create.js (readEffectiveCatalog),
-// para que el precio que ve el cliente en WhatsApp sea siempre el mismo
-// que se cobra al confirmar. No dupliques esta lógica en otro lado.
-// -----------------------------------------------------------------------
-async function loadTenantCatalog(env, tenantId) {
-  await ensureTenantColumns(env, ['app_settings']);
-  const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
-  const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
-  const saved = normalizeSavedMenu(row?.value_json || '');
-  const cleanedOverrides = cleanPublicOverrides(saved.overrides || {});
-  const effective = await readEffectiveCatalog(env, tenantId, { ...saved, overrides: cleanedOverrides }, { overrides: cleanedOverrides });
-
-  const products = (effective.extraProducts || []).filter((p) => !p.unavailable);
-  const categories = effective.extraCategories || [];
-  const categoryHidden = effective.categoryHidden || {};
-  const visibleCategories = categories.filter((c) => !categoryHidden[c.id] && products.some((p) => p.category === c.id));
-
-  return { products, categories: visibleCategories };
-}
 
 // -----------------------------------------------------------------------
 // Conversación (estado por tenant + teléfono del cliente)
@@ -50,24 +28,6 @@ async function saveConversation(env, conversation) {
       state = excluded.state, cart_json = excluded.cart_json, order_id = excluded.order_id,
       last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
   `).bind(crypto.randomUUID(), conversation.tenant_id, conversation.customer_phone, conversation.state, JSON.stringify(conversation.cart || {}), conversation.order_id || null).run();
-}
-
-function cartTotal(cart, products) {
-  let total = 0;
-  for (const [productId, qty] of Object.entries(cart)) {
-    const product = products.find((p) => p.id === productId);
-    if (product) total += Math.round(product.price) * qty;
-  }
-  return total;
-}
-
-function cartSummaryText(cart, products) {
-  const lines = Object.entries(cart).map(([productId, qty]) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return null;
-    return `${qty}x ${product.name} — $${Math.round(product.price) * qty}`;
-  }).filter(Boolean);
-  return lines.length ? `${lines.join('\n')}\n\nTotal: $${cartTotal(cart, products)}` : 'Tu carrito está vacío.';
 }
 
 // -----------------------------------------------------------------------
@@ -270,12 +230,13 @@ async function createOrderFromConversation(env, tenantId, customerPhone, convers
   ).run();
 
   const orderId = inserted.meta.last_row_id;
-  for (const item of lineItems) {
-    await env.DB.prepare(`
-      INSERT INTO order_items (tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, created_at_utc, created_at_monterrey)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(tenantId, orderId, item.product_id, item.product_name, item.category, item.quantity, item.unit_price, item.line_total, timestamps.utc, timestamps.monterrey).run();
-  }
+  const orderItemsStmt = env.DB.prepare(`
+    INSERT INTO order_items (tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, created_at_utc, created_at_monterrey)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  await env.DB.batch(lineItems.map((item) => orderItemsStmt.bind(
+    tenantId, orderId, item.product_id, item.product_name, item.category, item.quantity, item.unit_price, item.line_total, timestamps.utc, timestamps.monterrey
+  )));
 
   return orderId;
 }

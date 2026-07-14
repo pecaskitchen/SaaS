@@ -98,7 +98,13 @@ function getTimestamps() {
   return { utc: now.toISOString(), monterrey: monterreyTime };
 }
 
+// Cacheado a nivel de modulo -- se llama en cada creacion/lectura de
+// pedido; una vez verificado en este isolate no hace falta repetir los
+// CREATE TABLE/INDEX/ALTER en cada request.
+let ordersSchemaEnsured = false;
+
 export async function ensureSchema(env) {
+  if (ordersSchemaEnsured) return;
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,11 +170,21 @@ export async function ensureSchema(env) {
     )
   `).run();
 
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS branch_order_counters (
+      tenant_id TEXT NOT NULL,
+      branch_id TEXT NOT NULL,
+      next_number INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (tenant_id, branch_id)
+    )
+  `).run();
+
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_branch_id ON orders(branch_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_created_at_monterrey ON orders(created_at_monterrey)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_tenant_status ON orders(tenant_id, status, created_at_monterrey)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_orders_tenant_created ON orders(tenant_id, created_at_monterrey)`).run();
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS ux_orders_tenant_order_number ON orders(tenant_id, order_number)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_items_tenant_order ON order_items(tenant_id, order_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_order_events_tenant_order ON order_events(tenant_id, order_id)`).run();
@@ -189,12 +205,24 @@ export async function ensureSchema(env) {
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
+  ordersSchemaEnsured = true;
 }
 
 async function nextOrderNumber(env, branch, tenantId) {
   const prefix = String(branch?.id || 'pecas').slice(0, 3).toUpperCase();
-  const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM orders WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branch.id).first();
-  return `${prefix}-${String(Number(row?.count || 0) + 1).padStart(4, '0')}`;
+  // UPSERT atomico -- un SELECT COUNT(*) + 1 previo podia devolver el
+  // mismo numero a dos pedidos creados al mismo tiempo (el INSERT de
+  // abajo lo detectaba via el indice UNIQUE y reintentaba con un
+  // formato de respaldo, pero el numero "lindo" secuencial se perdia).
+  // INSERT ... ON CONFLICT ... RETURNING es una sola sentencia atomica,
+  // sin ventana de carrera entre leer y escribir el contador.
+  const row = await env.DB.prepare(`
+    INSERT INTO branch_order_counters (tenant_id, branch_id, next_number)
+    VALUES (?, ?, 1)
+    ON CONFLICT(tenant_id, branch_id) DO UPDATE SET next_number = next_number + 1
+    RETURNING next_number
+  `).bind(tenantId, branch.id).first();
+  return `${prefix}-${String(Number(row?.next_number || 1)).padStart(4, '0')}`;
 }
 
 
@@ -288,26 +316,25 @@ export async function onRequestPost({ request, env }) {
 
     if (!createdOrder?.id) return jsonResponse({ ok: false, error: 'No se pudo crear el pedido.' }, 500);
 
-    for (const item of items) {
-      await env.DB.prepare(`
-        INSERT INTO order_items (
-          tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        tenantId,
-        createdOrder.id,
-        String(item.id || item.productId || ''),
-        String(item.name || 'Producto'),
-        String(item.category || 'Sin categoría'),
-        Number(item.quantity || 1),
-        Number(item.price || item.unitPrice || 0),
-        Number(item.lineTotal || (Number(item.price || item.unitPrice || 0) * Number(item.quantity || 1))),
-        JSON.stringify(item.options || {}),
-        String(item.notes || ''),
-        timestamps.utc,
-        timestamps.monterrey
-      ).run();
-    }
+    const orderItemsStmt = env.DB.prepare(`
+      INSERT INTO order_items (
+        tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    await env.DB.batch(items.map((item) => orderItemsStmt.bind(
+      tenantId,
+      createdOrder.id,
+      String(item.id || item.productId || ''),
+      String(item.name || 'Producto'),
+      String(item.category || 'Sin categoría'),
+      Number(item.quantity || 1),
+      Number(item.price || item.unitPrice || 0),
+      Number(item.lineTotal || (Number(item.price || item.unitPrice || 0) * Number(item.quantity || 1))),
+      JSON.stringify(item.options || {}),
+      String(item.notes || ''),
+      timestamps.utc,
+      timestamps.monterrey
+    )));
 
     await env.DB.prepare(`
       INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)

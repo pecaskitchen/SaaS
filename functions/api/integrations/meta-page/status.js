@@ -1,5 +1,6 @@
 import { jsonResponse } from '../../_shared/http.js';
 import { requireAuth } from '../../_shared/auth.js';
+import { resolveIntegrationTenantIdFromQuery } from '../../_shared/integrationAuth.js';
 import { ensureMetaMessagingTables, getMetaPageConnection } from '../../_shared/metaMessaging.js';
 
 export async function onRequestGet({ request, env }) {
@@ -7,11 +8,7 @@ export async function onRequestGet({ request, env }) {
     const auth = await requireAuth(request, env, ['admin', 'platform_admin']);
     if (!auth.ok) return auth.response;
 
-    let tenantId = auth.session.tenantId;
-    if (auth.session.role === 'platform_admin') {
-      const url = new URL(request.url);
-      tenantId = url.searchParams.get('tenantId') || tenantId;
-    }
+    const tenantId = resolveIntegrationTenantIdFromQuery(auth, request);
     if (!tenantId) return jsonResponse({ ok: false, error: 'Falta tenantId.' }, 400);
 
     await ensureMetaMessagingTables(env);

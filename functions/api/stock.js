@@ -144,7 +144,14 @@ function requireAdmin(user) {
   return user.role === 'admin';
 }
 
+// Cacheado a nivel de modulo -- esta funcion corre ~30 CREATE
+// TABLE/INDEX + PRAGMA table_info/ALTER TABLE en cada request. Una vez
+// verificado en este isolate (se resetea solo en un cold start, que es
+// exactamente cuando SI hace falta re-verificar), se puede saltar.
+let stockSchemaEnsured = false;
+
 async function ensureSchema(env) {
+  if (stockSchemaEnsured) return;
   const statements = [
     `CREATE TABLE IF NOT EXISTS stock_units (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -442,6 +449,7 @@ async function ensureSchema(env) {
       // column already exists
     }
   }
+  stockSchemaEnsured = true;
 }
 
 async function getLookupId(env, table, column, value) {
@@ -700,20 +708,30 @@ async function resolveBranch(env, requestedBranchId) {
   return { branchSettings, branchId: branch.id, branchName: branch.name };
 }
 
+// getBranchStock() llama a esto por cada linea de consumo de un pedido
+// -- se cachea por (tenant, branch) a nivel de modulo para no repetir
+// el COUNT+INSERT set-based en cada linea del mismo pedido/isolate.
+const branchStockEnsuredCache = new Set();
+
 async function ensureBranchStock(env, branchId) {
   const tenantId = currentTenantId(env);
+  const cacheKey = `${tenantId}:${branchId}`;
+  if (branchStockEnsuredCache.has(cacheKey)) return;
   const ts = getTimestamps();
   const countRow = await env.DB.prepare(`SELECT COUNT(*) AS count FROM inventory_branch_stock WHERE tenant_id = ? AND branch_id = ?`).bind(tenantId, branchId).first();
   const count = Number(countRow?.count || 0);
-  const items = (await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ?`).bind(tenantId).all()).results || [];
-  for (const item of items) {
-    const existing = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, item.id, branchId).first();
-    if (existing) continue;
-    const initialStock = count === 0 ? Number(item.current_stock || 0) : 0;
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc) VALUES (?, ?, ?, ?, ?)`
-    ).bind(tenantId, item.id, branchId, initialStock, ts.utc).run();
-  }
+  // Backfill set-based en vez de un SELECT+INSERT por item -- con
+  // cientos de ingredientes esto pasaba de cientos de round trips a 2.
+  // INSERT OR IGNORE ya respeta el PRIMARY KEY (tenant_id, item_id,
+  // branch_id), asi que reemplaza el "if (existing) continue" anterior
+  // sin cambiar el comportamiento.
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
+    SELECT tenant_id, id, ?, CASE WHEN ? = 0 THEN current_stock ELSE 0 END, ?
+    FROM inventory_items
+    WHERE tenant_id = ?
+  `).bind(branchId, count, ts.utc, tenantId).run();
+  branchStockEnsuredCache.add(cacheKey);
 }
 
 async function getBranchStock(env, itemId, branchId) {

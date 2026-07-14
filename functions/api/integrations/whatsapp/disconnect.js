@@ -1,22 +1,17 @@
 import { jsonResponse, readJson, requireDb } from '../../_shared/http.js';
 import { requireAuth } from '../../_shared/auth.js';
+import { resolveIntegrationTenantIdFromBody } from '../../_shared/integrationAuth.js';
 import { decryptSecret } from '../../_shared/payments.js';
 import { ensureWhatsappTables, getWhatsappConnection } from '../../_shared/whatsapp.js';
-
-function graphUrl(env, path) {
-  return `https://graph.facebook.com/${env.META_GRAPH_API_VERSION || 'v22.0'}/${path}`;
-}
+import { graphUrl } from '../../_shared/metaGraphApi.js';
 
 export async function onRequestPost({ request, env }) {
   try {
     const auth = await requireAuth(request, env, ['admin', 'platform_admin']);
     if (!auth.ok) return auth.response;
 
-    let tenantId = auth.session.tenantId;
-    if (auth.session.role === 'platform_admin') {
-      const body = await readJson(request);
-      tenantId = String(body.tenantId || tenantId || '').trim();
-    }
+    const body = await readJson(request);
+    const tenantId = resolveIntegrationTenantIdFromBody(auth, body);
     if (!tenantId) return jsonResponse({ ok: false, error: 'Falta tenantId.' }, 400);
 
     const db = requireDb(env);

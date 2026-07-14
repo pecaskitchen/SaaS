@@ -92,6 +92,12 @@ export async function onRequestPost({ request, env }) {
         quantity,
         unit_price: unitPrice,
         line_total: lineTotal,
+        // Se guardan tal cual las mando el cliente -- no afecta el precio
+        // (ya recalculado arriba desde el catalogo), pero sin esto
+        // deductOrderStock() no sabe que opcion/familia eligio y no
+        // descuenta esos ingredientes del inventario.
+        options: requested.options || {},
+        notes: String(requested.notes || ''),
       });
     }
 
@@ -133,12 +139,13 @@ export async function onRequestPost({ request, env }) {
 
     const orderId = inserted.meta.last_row_id;
 
-    for (const item of lineItems) {
-      await env.DB.prepare(`
-        INSERT INTO order_items (tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, created_at_utc, created_at_monterrey)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(tenantId, orderId, item.product_id, item.product_name, item.category, item.quantity, item.unit_price, item.line_total, timestamps.utc, timestamps.monterrey).run();
-    }
+    const orderItemsStmt = env.DB.prepare(`
+      INSERT INTO order_items (tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    await env.DB.batch(lineItems.map((item) => orderItemsStmt.bind(
+      tenantId, orderId, item.product_id, item.product_name, item.category, item.quantity, item.unit_price, item.line_total, JSON.stringify(item.options || {}), item.notes || '', timestamps.utc, timestamps.monterrey
+    )));
 
     // 4) Crear la preferencia con el token OAuth del tenant (nunca uno
     //    global) — esta es la diferencia central frente a un solo negocio.

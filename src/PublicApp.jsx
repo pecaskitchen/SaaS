@@ -1969,7 +1969,13 @@ export default function PublicApp() {
     return sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
   }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
-  const effectiveBusinessHours = useMemo(() => normalizeBusinessHours((branchSettings.multiBranchEnabled && selectedBranch?.businessHours) ? selectedBranch.businessHours : businessHours), [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
+  // CORREGIDO: antes solo usaba el horario de la sucursal cuando
+  // multiBranchEnabled estaba activo. El panel Super (unico lugar donde
+  // se edita el horario hoy) siempre guarda en branches[].businessHours,
+  // nunca en el campo "global" -- con multiBranchEnabled apagado (caso
+  // real de Pecas, una sola sucursal) el cliente seguia viendo el
+  // horario viejo/default sin importar lo que el negocio editara.
+  const effectiveBusinessHours = useMemo(() => normalizeBusinessHours(selectedBranch?.businessHours || businessHours), [selectedBranch, businessHours]);
   const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
   const currentProductsForBranch = useMemo(() => currentProducts.map((product) => ({
     ...product,

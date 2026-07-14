@@ -131,15 +131,37 @@ export function formatHour(value) {
   return `${displayHour}:${String(mm).padStart(2, '0')} ${suffix}`;
 }
 
+// CORREGIDO: antes usaba new Date().getDay()/getHours() -- la hora LOCAL
+// del dispositivo del cliente, no la de la tienda. Si el celular del
+// cliente tiene otra zona horaria (o el reloj mal puesto), el estado
+// abierto/cerrado quedaba mal sin importar el horario configurado. El
+// backend siempre calcula todo en America/Monterrey (ver
+// getBusinessWindowMonterrey en orders-dashboard.js); aqui hacemos lo
+// mismo del lado del cliente.
+const WEEKDAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+function monterreyNow() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Monterrey',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  let hour = Number(map.hour);
+  if (hour === 24) hour = 0; // algunos motores formatean medianoche como "24"
+  return { day: WEEKDAY_INDEX[map.weekday], minutes: hour * 60 + Number(map.minute) };
+}
+
 export function businessStatus(hours = DEFAULT_BUSINESS_HOURS) {
   const normalized = normalizeBusinessHours(hours);
-  const now = new Date();
-  const today = normalized.days.find((day) => day.day === now.getDay());
+  const { day: currentDay, minutes: current } = monterreyNow();
+  const today = normalized.days.find((day) => day.day === currentDay);
   if (!today?.active) return { open: false, label: 'Cerrado hoy' };
   const open = timeToMinutes(today.open);
   const close = timeToMinutes(today.close);
   if (open === null || close === null) return { open: false, label: 'Horario no configurado' };
-  const current = now.getHours() * 60 + now.getMinutes();
   const isOpen = close > open ? current >= open && current < close : current >= open || current < close;
   return {
     open: isOpen,

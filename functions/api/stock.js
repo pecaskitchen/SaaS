@@ -1,5 +1,6 @@
 ﻿import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
+import { ensureMenuCatalogTables, ensureProductItemLink } from './_shared/menuCatalog.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -150,8 +151,31 @@ function requireAdmin(user) {
 // exactamente cuando SI hace falta re-verificar), se puede saltar.
 let stockSchemaEnsured = false;
 
+// Fase 1 (motor de items/recetas/costeo): rename directo de
+// inventory_items->items, stock_recipes->recipes,
+// stock_recipe_lines->recipe_lines -- ver migrations/011_items_recipes_fase1.sql.
+// En produccion el rename ya lo aplica ese archivo antes del deploy; esto
+// es la auto-reparacion en runtime para cualquier otro entorno (dev local,
+// un tenant nuevo, un isolate que arranco antes del corte) que todavia
+// tenga los nombres viejos -- sin esto, `CREATE TABLE IF NOT EXISTS items`
+// de abajo crearia una tabla `items` vacia en paralelo a la `inventory_items`
+// existente en vez de heredar sus datos.
+async function renameTableIfExists(env, oldName, newName) {
+  const exists = await env.DB.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`
+  ).bind(oldName).first();
+  if (exists) {
+    await env.DB.prepare(`ALTER TABLE ${oldName} RENAME TO ${newName}`).run();
+  }
+}
+
 async function ensureSchema(env) {
   if (stockSchemaEnsured) return;
+
+  await renameTableIfExists(env, 'inventory_items', 'items');
+  await renameTableIfExists(env, 'stock_recipes', 'recipes');
+  await renameTableIfExists(env, 'stock_recipe_lines', 'recipe_lines');
+
   const statements = [
     `CREATE TABLE IF NOT EXISTS stock_units (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,12 +206,19 @@ async function ensureSchema(env) {
       created_at_utc TEXT NOT NULL,
       updated_at_utc TEXT NOT NULL
     )`,
-    `CREATE TABLE IF NOT EXISTS inventory_items (
+    // Fase 1: antes "inventory_items". Columnas type/family_id/sku/
+    // is_sellable/is_purchasable/is_producible/is_modifier son nuevas --
+    // ver migrations/011_items_recipes_fase1.sql para el backfill sobre
+    // datos existentes.
+    `CREATE TABLE IF NOT EXISTS items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL,
       brand TEXT,
       item_type TEXT NOT NULL DEFAULT 'Ingrediente comprado',
+      type TEXT,
+      family_id INTEGER,
+      sku TEXT,
       unit_id INTEGER NOT NULL,
       current_stock REAL NOT NULL DEFAULT 0,
       min_stock REAL NOT NULL DEFAULT 0,
@@ -209,9 +240,31 @@ async function ensureSchema(env) {
       is_internal_dressing INTEGER NOT NULL DEFAULT 0,
       is_side_dressing INTEGER NOT NULL DEFAULT 0,
       is_sellable_extra INTEGER NOT NULL DEFAULT 0,
+      is_sellable INTEGER NOT NULL DEFAULT 0,
+      is_purchasable INTEGER NOT NULL DEFAULT 1,
+      is_producible INTEGER NOT NULL DEFAULT 0,
+      is_modifier INTEGER NOT NULL DEFAULT 0,
       created_at_utc TEXT NOT NULL,
       updated_at_utc TEXT NOT NULL,
       FOREIGN KEY (unit_id) REFERENCES stock_units(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS families (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
+      name TEXT NOT NULL,
+      description TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1
+    )`,
+    // Estructural para Fase 2 -- no se usa todavia en costeo/consumo de
+    // Fase 1 (ver recipeEngine.js).
+    `CREATE TABLE IF NOT EXISTS unit_conversions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL DEFAULT 'default',
+      item_id INTEGER,
+      from_unit TEXT NOT NULL,
+      to_unit TEXT NOT NULL,
+      factor REAL NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_branch_stock (
       tenant_id TEXT NOT NULL DEFAULT 'default',
@@ -220,7 +273,7 @@ async function ensureSchema(env) {
       current_stock REAL NOT NULL DEFAULT 0,
       updated_at_utc TEXT NOT NULL,
       PRIMARY KEY (item_id, branch_id),
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS stock_movements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -241,7 +294,7 @@ async function ensureSchema(env) {
       branch_name TEXT,
       created_at_utc TEXT NOT NULL,
       created_at_monterrey TEXT NOT NULL,
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS waste_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -260,7 +313,7 @@ async function ensureSchema(env) {
       created_at_monterrey TEXT NOT NULL,
       updated_at_utc TEXT NOT NULL,
       updated_at_monterrey TEXT NOT NULL,
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_count_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -281,9 +334,11 @@ async function ensureSchema(env) {
       created_at_monterrey TEXT NOT NULL,
       updated_at_utc TEXT NOT NULL,
       updated_at_monterrey TEXT NOT NULL,
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
-    `CREATE TABLE IF NOT EXISTS stock_recipes (
+    // Fase 1: antes "stock_recipes". item_id/version/status/waste_percent
+    // son nuevas -- ver migrations/011_items_recipes_fase1.sql.
+    `CREATE TABLE IF NOT EXISTS recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
       recipe_key TEXT NOT NULL,
@@ -291,13 +346,19 @@ async function ensureSchema(env) {
       name TEXT NOT NULL,
       output_item_id INTEGER,
       output_quantity REAL NOT NULL DEFAULT 0,
+      item_id INTEGER,
+      version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'active',
+      waste_percent REAL NOT NULL DEFAULT 0,
       notes TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at_utc TEXT NOT NULL,
       updated_at_utc TEXT NOT NULL,
-      FOREIGN KEY (output_item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (output_item_id) REFERENCES items(id),
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
-    `CREATE TABLE IF NOT EXISTS stock_recipe_lines (
+    // Fase 1: antes "stock_recipe_lines". notes/waste_percent son nuevas.
+    `CREATE TABLE IF NOT EXISTS recipe_lines (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id TEXT NOT NULL DEFAULT 'default',
       recipe_id INTEGER NOT NULL,
@@ -311,9 +372,11 @@ async function ensureSchema(env) {
       is_optional INTEGER NOT NULL DEFAULT 0,
       is_extra_billable INTEGER NOT NULL DEFAULT 0,
       extra_price REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      waste_percent REAL NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY (recipe_id) REFERENCES stock_recipes(id),
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (recipe_id) REFERENCES recipes(id),
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS stock_option_families (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -341,7 +404,7 @@ async function ensureSchema(env) {
       updated_at_utc TEXT NOT NULL,
       UNIQUE(family_id, option_name),
       FOREIGN KEY (family_id) REFERENCES stock_option_families(id),
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS stock_option_family_item_components (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -354,7 +417,7 @@ async function ensureSchema(env) {
       updated_at_utc TEXT NOT NULL,
       UNIQUE(option_item_id, item_id),
       FOREIGN KEY (option_item_id) REFERENCES stock_option_family_items(id),
-      FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+      FOREIGN KEY (item_id) REFERENCES items(id)
     )`,
     `CREATE TABLE IF NOT EXISTS stock_product_option_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -375,23 +438,26 @@ async function ensureSchema(env) {
       UNIQUE(product_id, family_id),
       FOREIGN KEY (family_id) REFERENCES stock_option_families(id)
     )`,
-    `CREATE INDEX IF NOT EXISTS idx_stock_recipes_type ON stock_recipes(recipe_type, is_active)`,
-    `CREATE INDEX IF NOT EXISTS idx_stock_recipes_tenant_type ON stock_recipes(tenant_id, recipe_type, is_active)`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_recipes_tenant_key ON stock_recipes(tenant_id, recipe_key)`,
+    `CREATE INDEX IF NOT EXISTS idx_stock_recipes_type ON recipes(recipe_type, is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_stock_recipes_tenant_type ON recipes(tenant_id, recipe_type, is_active)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_recipes_tenant_key ON recipes(tenant_id, recipe_key)`,
+    `CREATE INDEX IF NOT EXISTS idx_recipes_item ON recipes(item_id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_families_tenant_name ON families(tenant_id, name)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_option_families_tenant_key ON stock_option_families(tenant_id, family_key)`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_items_tenant_name ON inventory_items(tenant_id, name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_items_tenant_name ON items(tenant_id, name)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_purchase_categories_tenant_name ON stock_purchase_categories(tenant_id, name)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_suppliers_tenant_name ON stock_suppliers(tenant_id, name)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_option_family_items_tenant_family_name ON stock_option_family_items(tenant_id, family_id, option_name)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_product_option_groups_tenant_product_family ON stock_product_option_groups(tenant_id, product_id, family_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_stock_recipe_lines_recipe ON stock_recipe_lines(recipe_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_stock_recipe_lines_recipe ON recipe_lines(recipe_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_families_key ON stock_option_families(family_key)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_family_items_family ON stock_option_family_items(family_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_option_components_option ON stock_option_family_item_components(option_item_id)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_product_option_groups_product ON stock_product_option_groups(product_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_inventory_items_name ON inventory_items(name)`,
-    `CREATE INDEX IF NOT EXISTS idx_inventory_items_active ON inventory_items(is_active)`,
-    `CREATE INDEX IF NOT EXISTS idx_inventory_items_tenant_active ON inventory_items(tenant_id, is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_inventory_items_name ON items(name)`,
+    `CREATE INDEX IF NOT EXISTS idx_inventory_items_active ON items(is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_inventory_items_tenant_active ON items(tenant_id, is_active)`,
+    `CREATE INDEX IF NOT EXISTS idx_items_tenant_type ON items(tenant_id, type)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_movements_item ON stock_movements(item_id, created_at_utc)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_movements_branch ON stock_movements(branch_id, created_at_utc)`,
     `CREATE INDEX IF NOT EXISTS idx_stock_movements_tenant_branch ON stock_movements(tenant_id, branch_id, created_at_utc)`,
@@ -417,13 +483,15 @@ async function ensureSchema(env) {
     'stock_purchase_categories',
     'stock_suppliers',
     'stock_branches',
-    'inventory_items',
+    'items',
+    'families',
+    'unit_conversions',
     'inventory_branch_stock',
     'stock_movements',
     'waste_requests',
     'inventory_count_requests',
-    'stock_recipes',
-    'stock_recipe_lines',
+    'recipes',
+    'recipe_lines',
     'stock_option_families',
     'stock_option_family_items',
     'stock_option_family_item_components',
@@ -431,15 +499,28 @@ async function ensureSchema(env) {
   ]);
 
   const migrations = [
-    `ALTER TABLE stock_recipe_lines ADD COLUMN is_optional INTEGER NOT NULL DEFAULT 0`,
-    `ALTER TABLE stock_recipe_lines ADD COLUMN is_extra_billable INTEGER NOT NULL DEFAULT 0`,
-    `ALTER TABLE stock_recipe_lines ADD COLUMN extra_price REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE recipe_lines ADD COLUMN is_optional INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE recipe_lines ADD COLUMN is_extra_billable INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE recipe_lines ADD COLUMN extra_price REAL NOT NULL DEFAULT 0`,
+    `ALTER TABLE recipe_lines ADD COLUMN notes TEXT`,
+    `ALTER TABLE recipe_lines ADD COLUMN waste_percent REAL NOT NULL DEFAULT 0`,
     `ALTER TABLE stock_movements ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'dominio'`,
     `ALTER TABLE stock_movements ADD COLUMN branch_name TEXT`,
     `ALTER TABLE waste_requests ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'dominio'`,
     `ALTER TABLE waste_requests ADD COLUMN branch_name TEXT`,
     `ALTER TABLE inventory_count_requests ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'dominio'`,
     `ALTER TABLE inventory_count_requests ADD COLUMN branch_name TEXT`,
+    `ALTER TABLE items ADD COLUMN type TEXT`,
+    `ALTER TABLE items ADD COLUMN family_id INTEGER`,
+    `ALTER TABLE items ADD COLUMN sku TEXT`,
+    `ALTER TABLE items ADD COLUMN is_sellable INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE items ADD COLUMN is_purchasable INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE items ADD COLUMN is_producible INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE items ADD COLUMN is_modifier INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE recipes ADD COLUMN item_id INTEGER`,
+    `ALTER TABLE recipes ADD COLUMN version INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE recipes ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`,
+    `ALTER TABLE recipes ADD COLUMN waste_percent REAL NOT NULL DEFAULT 0`,
   ];
 
   for (const sql of migrations) {
@@ -449,6 +530,30 @@ async function ensureSchema(env) {
       // column already exists
     }
   }
+
+  // Backfill idempotente de items.type -- mismo criterio que
+  // migrations/011_items_recipes_fase1.sql, solo toca filas type IS NULL
+  // (o sea, nunca reescribe una clasificacion ya hecha manualmente desde
+  // la UI nueva de items/recetas).
+  try {
+    await env.DB.prepare(`
+      UPDATE items SET type = 'subrecipe'
+      WHERE type IS NULL AND id IN (
+        SELECT output_item_id FROM recipes WHERE recipe_type = 'subrecipe' AND output_item_id IS NOT NULL
+      )
+    `).run();
+    await env.DB.prepare(`UPDATE items SET type = 'packaging' WHERE type IS NULL AND is_packaging = 1`).run();
+    await env.DB.prepare(`UPDATE items SET type = 'modifier' WHERE type IS NULL AND is_sellable_extra = 1 AND deducts_inventory = 0`).run();
+    await env.DB.prepare(`UPDATE items SET type = 'ingredient' WHERE type IS NULL`).run();
+    await env.DB.prepare(`UPDATE items SET is_producible = 1 WHERE type = 'subrecipe' AND is_producible = 0`).run();
+    await env.DB.prepare(`
+      UPDATE recipes SET item_id = output_item_id
+      WHERE recipe_type = 'subrecipe' AND item_id IS NULL AND output_item_id IS NOT NULL
+    `).run();
+  } catch {
+    // Tablas recien creadas y todavia vacias en un tenant nuevo -- nada que backfillear.
+  }
+
   stockSchemaEnsured = true;
 }
 
@@ -583,7 +688,7 @@ async function seedDefaults(env) {
 
   for (const item of defaults) {
     await env.DB.prepare(
-      `INSERT OR IGNORE INTO inventory_items (
+      `INSERT OR IGNORE INTO items (
         name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
         primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
         purchase_unit_quantity, purchase_price, is_active, client_visible, client_removable,
@@ -682,7 +787,7 @@ async function archiveRecipe(env, recipeId, archived = true) {
   const tenantId = currentTenantId(env);
   const id = Number(recipeId || 0);
   if (!id) throw new Error('Falta receta.');
-  await env.DB.prepare(`UPDATE stock_recipes SET is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(archived ? 0 : 1, new Date().toISOString(), tenantId, id).run();
+  await env.DB.prepare(`UPDATE recipes SET is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(archived ? 0 : 1, new Date().toISOString(), tenantId, id).run();
 }
 
 
@@ -728,7 +833,7 @@ async function ensureBranchStock(env, branchId) {
   await env.DB.prepare(`
     INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
     SELECT tenant_id, id, ?, CASE WHEN ? = 0 THEN current_stock ELSE 0 END, ?
-    FROM inventory_items
+    FROM items
     WHERE tenant_id = ?
   `).bind(branchId, count, ts.utc, tenantId).run();
   branchStockEnsuredCache.add(cacheKey);
@@ -739,7 +844,7 @@ async function getBranchStock(env, itemId, branchId) {
   await ensureBranchStock(env, branchId);
   const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, itemId, branchId).first();
   if (row) return Number(row.current_stock || 0);
-  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
+  const item = await env.DB.prepare(`SELECT current_stock FROM items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   return Number(item?.current_stock || 0);
 }
 
@@ -788,7 +893,7 @@ async function setProductSoldOut(env, productId, soldOut, branchId = null) {
 
 
 async function getItemByName(env, name) {
-  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?) LIMIT 1`).bind(currentTenantId(env), name).first();
+  const row = await env.DB.prepare(`SELECT id FROM items WHERE tenant_id = ? AND lower(name) = lower(?) LIMIT 1`).bind(currentTenantId(env), name).first();
   return row || null;
 }
 
@@ -800,7 +905,7 @@ async function ensureNoneOptionItem(env) {
   const unitId = await getOrCreateUnit(env, 'pieza');
   if (!unitId) throw new Error('No se pudo crear la unidad base para Ninguno.');
   await env.DB.prepare(
-    `INSERT INTO inventory_items (
+    `INSERT INTO items (
       tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
       primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
       purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
@@ -997,7 +1102,7 @@ function normalizeImportedBool(value, defaultValue = false) {
 
 async function validateFamilyImportRows(env, rows = []) {
   const errors = [];
-  const knownItems = new Set(((await env.DB.prepare(`SELECT lower(name) AS name FROM inventory_items WHERE tenant_id = ?`).bind(currentTenantId(env)).all()).results || []).map((row) => row.name));
+  const knownItems = new Set(((await env.DB.prepare(`SELECT lower(name) AS name FROM items WHERE tenant_id = ?`).bind(currentTenantId(env)).all()).results || []).map((row) => row.name));
   const optionNames = new Map();
   const existingOptions = (await env.DB.prepare(
     `SELECT f.family_key, lower(oi.option_name) AS option_name
@@ -1206,7 +1311,7 @@ async function listData(env, requestedBranchId = null) {
         ps.name AS supplier_name,
         alt.name AS alt_supplier_name,
         pc.name AS purchase_category_name
-       FROM inventory_items i
+       FROM items i
        LEFT JOIN inventory_branch_stock bs ON bs.tenant_id = i.tenant_id AND bs.item_id = i.id AND bs.branch_id = ?
        LEFT JOIN stock_units u ON u.id = i.unit_id
        LEFT JOIN stock_suppliers ps ON ps.id = i.primary_supplier_id
@@ -1221,7 +1326,7 @@ async function listData(env, requestedBranchId = null) {
     env.DB.prepare(
       `SELECT m.*, i.name AS item_name, u.code AS unit_code
        FROM stock_movements m
-       LEFT JOIN inventory_items i ON i.tenant_id = m.tenant_id AND i.id = m.item_id
+       LEFT JOIN items i ON i.tenant_id = m.tenant_id AND i.id = m.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE m.tenant_id = ? AND COALESCE(m.branch_id, 'dominio') = ?
        ORDER BY m.created_at_utc DESC
@@ -1230,7 +1335,7 @@ async function listData(env, requestedBranchId = null) {
     env.DB.prepare(
       `SELECT w.*, i.name AS item_name, u.code AS unit_code
        FROM waste_requests w
-       LEFT JOIN inventory_items i ON i.tenant_id = w.tenant_id AND i.id = w.item_id
+       LEFT JOIN items i ON i.tenant_id = w.tenant_id AND i.id = w.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE w.tenant_id = ? AND COALESCE(w.branch_id, 'dominio') = ?
        ORDER BY w.created_at_utc DESC
@@ -1239,7 +1344,7 @@ async function listData(env, requestedBranchId = null) {
     env.DB.prepare(
       `SELECT c.*, i.name AS item_name, u.code AS unit_code
        FROM inventory_count_requests c
-       LEFT JOIN inventory_items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
+       LEFT JOIN items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE c.tenant_id = ? AND COALESCE(c.branch_id, 'dominio') = ?
        ORDER BY c.created_at_utc DESC
@@ -1247,16 +1352,16 @@ async function listData(env, requestedBranchId = null) {
     ).bind(tenantId, branchContext.branchId).all(),
     env.DB.prepare(
       `SELECT r.*, i.name AS output_item_name, u.code AS output_unit_code
-       FROM stock_recipes r
-       LEFT JOIN inventory_items i ON i.tenant_id = r.tenant_id AND i.id = r.output_item_id
+       FROM recipes r
+       LEFT JOIN items i ON i.tenant_id = r.tenant_id AND i.id = r.output_item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE r.tenant_id = ?
        ORDER BY r.recipe_type ASC, r.name ASC`
     ).bind(tenantId).all(),
     env.DB.prepare(
       `SELECT l.*, i.name AS item_name, i.brand AS item_brand, u.code AS unit_code
-       FROM stock_recipe_lines l
-       LEFT JOIN inventory_items i ON i.tenant_id = l.tenant_id AND i.id = l.item_id
+       FROM recipe_lines l
+       LEFT JOIN items i ON i.tenant_id = l.tenant_id AND i.id = l.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE l.tenant_id = ?
        ORDER BY l.recipe_id ASC, l.sort_order ASC, l.id ASC`
@@ -1266,7 +1371,7 @@ async function listData(env, requestedBranchId = null) {
       `SELECT oi.*, f.family_key, i.name AS item_name, i.brand AS item_brand, u.code AS unit_code
        FROM stock_option_family_items oi
        JOIN stock_option_families f ON f.tenant_id = oi.tenant_id AND f.id = oi.family_id
-       JOIN inventory_items i ON i.tenant_id = oi.tenant_id AND i.id = oi.item_id
+       JOIN items i ON i.tenant_id = oi.tenant_id AND i.id = oi.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE oi.tenant_id = ?
        ORDER BY oi.family_id ASC, oi.sort_order ASC, oi.id ASC`
@@ -1275,7 +1380,7 @@ async function listData(env, requestedBranchId = null) {
       `SELECT c.*, oi.family_id, oi.option_name, i.name AS item_name, u.code AS unit_code
        FROM stock_option_family_item_components c
        JOIN stock_option_family_items oi ON oi.tenant_id = c.tenant_id AND oi.id = c.option_item_id
-       JOIN inventory_items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
+       JOIN items i ON i.tenant_id = c.tenant_id AND i.id = c.item_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE c.tenant_id = ?
        ORDER BY c.option_item_id ASC, c.sort_order ASC, c.id ASC`
@@ -1590,7 +1695,7 @@ async function saveItem(env, item) {
 
   if (item.id) {
     await env.DB.prepare(
-      `UPDATE inventory_items SET
+      `UPDATE items SET
         name = ?, brand = ?, item_type = ?, unit_id = ?, current_stock = ?, min_stock = ?, max_stock = ?,
         accuracy_target = ?, primary_supplier_id = ?, alt_supplier_id = ?, purchase_category_id = ?,
         purchase_unit_label = ?, purchase_unit_quantity = ?, purchase_price = ?, expiry_date = ?,
@@ -1602,7 +1707,7 @@ async function saveItem(env, item) {
   }
 
   await env.DB.prepare(
-    `INSERT INTO inventory_items (
+    `INSERT INTO items (
       tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
       primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
       purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
@@ -1617,7 +1722,7 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
   const branchContext = await resolveBranch(env, branchId);
   const selectedBranchId = branchContext.branchId;
   const selectedBranchName = branchName || branchContext.branchName;
-  const item = await env.DB.prepare(`SELECT id, current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
+  const item = await env.DB.prepare(`SELECT id, current_stock FROM items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   if (!item) throw new Error('Ingrediente no encontrado.');
 
   const stockBefore = await getBranchStock(env, itemId, selectedBranchId);
@@ -1631,9 +1736,9 @@ async function addMovement(env, { itemId, movementType, quantity, reason, source
 
   // Mantiene current_stock como espejo de la sucursal default para compatibilidad con vistas/exports viejos.
   if (selectedBranchId === branchContext.branchSettings.defaultBranchId) {
-    await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(stockAfter, ts.utc, tenantId, itemId).run();
+    await env.DB.prepare(`UPDATE items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(stockAfter, ts.utc, tenantId, itemId).run();
   } else {
-    await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, itemId).run();
+    await env.DB.prepare(`UPDATE items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, itemId).run();
   }
 
   await env.DB.prepare(
@@ -1668,7 +1773,7 @@ async function updateQuickItems(env, items, user, branchId) {
   for (const item of items || []) {
     const itemId = Number(item.id);
     if (!itemId) continue;
-    const existing = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
+    const existing = await env.DB.prepare(`SELECT id FROM items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
     if (!existing) continue;
 
     const nextStock = wholeNonNegativeNumber(item.current_stock, 'Stock actual');
@@ -1680,7 +1785,7 @@ async function updateQuickItems(env, items, user, branchId) {
     const diff = nextStock - currentStock;
 
     await env.DB.prepare(
-      `UPDATE inventory_items
+      `UPDATE items
        SET min_stock = ?, max_stock = ?, purchase_price = ?, expiry_date = ?, updated_at_utc = ?
        WHERE tenant_id = ? AND id = ?`
     ).bind(minStock, maxStock, purchasePrice, expiryDate, ts.utc, tenantId, itemId).run();
@@ -1701,7 +1806,7 @@ async function updateQuickItems(env, items, user, branchId) {
 }
 
 async function itemByName(env, name) {
-  return env.DB.prepare(`SELECT * FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
+  return env.DB.prepare(`SELECT * FROM items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
 }
 
 async function importItems(env, rows, mode, user, branchId) {
@@ -1743,7 +1848,7 @@ async function importItems(env, rows, mode, user, branchId) {
 
     if (existing) {
       await env.DB.prepare(
-        `UPDATE inventory_items SET
+        `UPDATE items SET
           brand = ?, item_type = ?, unit_id = ?, min_stock = ?, max_stock = ?, accuracy_target = ?,
           primary_supplier_id = ?, alt_supplier_id = ?, purchase_category_id = ?, purchase_unit_label = ?,
           purchase_unit_quantity = ?, purchase_price = ?, expiry_date = ?, updated_at_utc = ?
@@ -1785,7 +1890,7 @@ async function importItems(env, rows, mode, user, branchId) {
     }
 
     const insert = await env.DB.prepare(
-      `INSERT INTO inventory_items (
+      `INSERT INTO items (
         tenant_id, name, brand, item_type, unit_id, current_stock, min_stock, max_stock, accuracy_target,
         primary_supplier_id, alt_supplier_id, purchase_category_id, purchase_unit_label,
         purchase_unit_quantity, purchase_price, expiry_date, is_active, client_visible, client_removable,
@@ -1833,7 +1938,7 @@ async function importItems(env, rows, mode, user, branchId) {
 
 
 async function getItemIdByName(env, name) {
-  const row = await env.DB.prepare(`SELECT id FROM inventory_items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
+  const row = await env.DB.prepare(`SELECT id FROM items WHERE tenant_id = ? AND lower(name) = lower(?)`).bind(currentTenantId(env), name).first();
   return row?.id || null;
 }
 
@@ -1849,24 +1954,24 @@ async function saveRecipe(env, recipe) {
   const lines = Array.isArray(recipe.lines) ? recipe.lines : [];
 
   let recipeId = recipe.id ? Number(recipe.id) : null;
-  const existing = recipeId ? await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND id = ?`).bind(tenantId, recipeId).first() : null;
+  const existing = recipeId ? await env.DB.prepare(`SELECT id FROM recipes WHERE tenant_id = ? AND id = ?`).bind(tenantId, recipeId).first() : null;
 
   if (existing?.id) {
     await env.DB.prepare(
-      `UPDATE stock_recipes SET recipe_key = ?, recipe_type = ?, name = ?, output_item_id = ?, output_quantity = ?, notes = ?, is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`
+      `UPDATE recipes SET recipe_key = ?, recipe_type = ?, name = ?, output_item_id = ?, output_quantity = ?, notes = ?, is_active = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`
     ).bind(recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, tenantId, recipeId).run();
   } else {
     await env.DB.prepare(
-      `INSERT INTO stock_recipes (tenant_id, recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
+      `INSERT INTO recipes (tenant_id, recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(tenant_id, recipe_key) DO UPDATE SET recipe_type = excluded.recipe_type, name = excluded.name, output_item_id = excluded.output_item_id, output_quantity = excluded.output_quantity, notes = excluded.notes, is_active = excluded.is_active, updated_at_utc = excluded.updated_at_utc`
     ).bind(tenantId, recipeKey, recipeType, name, outputItemId, outputQuantity, recipe.notes || '', boolNum(recipe.is_active !== false), now, now).run();
-    const row = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
+    const row = await env.DB.prepare(`SELECT id FROM recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
     recipeId = row?.id;
   }
 
   if (!recipeId) throw new Error('No se pudo guardar la receta.');
-  await env.DB.prepare(`DELETE FROM stock_recipe_lines WHERE tenant_id = ? AND recipe_id = ?`).bind(tenantId, recipeId).run();
+  await env.DB.prepare(`DELETE FROM recipe_lines WHERE tenant_id = ? AND recipe_id = ?`).bind(tenantId, recipeId).run();
 
   let sort = 1;
   for (const line of lines) {
@@ -1875,7 +1980,7 @@ async function saveRecipe(env, recipe) {
     if (!itemId || !quantity) continue;
     const normalizedLine = normalizeRecipeLineFlags(line);
     await env.DB.prepare(
-      `INSERT INTO stock_recipe_lines (
+      `INSERT INTO recipe_lines (
         tenant_id, recipe_id, item_id, quantity, line_role, client_visible, client_removable,
         client_changeable, is_default, is_optional, is_extra_billable, extra_price, sort_order
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -1931,16 +2036,16 @@ async function ensureProductRecipeShells(env) {
   let created = 0;
   let existing = 0;
   for (const [recipeKey, name] of PRODUCT_RECIPE_SHELLS) {
-    const found = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
+    const found = await env.DB.prepare(`SELECT id FROM recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(tenantId, recipeKey).first();
     if (found?.id) {
       existing += 1;
       await env.DB.prepare(
-        `UPDATE stock_recipes SET recipe_type = 'product', name = ?, is_active = 1, updated_at_utc = ? WHERE tenant_id = ? AND recipe_key = ?`
+        `UPDATE recipes SET recipe_type = 'product', name = ?, is_active = 1, updated_at_utc = ? WHERE tenant_id = ? AND recipe_key = ?`
       ).bind(name, now, tenantId, recipeKey).run();
       continue;
     }
     await env.DB.prepare(
-      `INSERT INTO stock_recipes (recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
+      `INSERT INTO recipes (recipe_key, recipe_type, name, output_item_id, output_quantity, notes, is_active, created_at_utc, updated_at_utc)
        VALUES (?, 'product', ?, NULL, 0, ?, 1, ?, ?)`
     ).bind(recipeKey, name, 'Receta base pendiente de completar. Se cre? para que aparezca en la descarga de CSV.', now, now).run();
     created += 1;
@@ -2095,7 +2200,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
   let updated = 0;
 
   for (const recipe of grouped.values()) {
-    const existing = await env.DB.prepare(`SELECT id FROM stock_recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(currentTenantId(env), recipe.recipe_key).first();
+    const existing = await env.DB.prepare(`SELECT id FROM recipes WHERE tenant_id = ? AND recipe_key = ?`).bind(currentTenantId(env), recipe.recipe_key).first();
     if (!existing && mode === 'updateOnly') {
       skipped += 1;
       continue;
@@ -2119,7 +2224,7 @@ async function importRecipes(env, rows, mode = 'upsert') {
 }
 
 async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId }, user) {
-  const recipe = await env.DB.prepare(`SELECT * FROM stock_recipes WHERE tenant_id = ? AND id = ? AND recipe_type = 'subrecipe'`).bind(currentTenantId(env), Number(recipeId)).first();
+  const recipe = await env.DB.prepare(`SELECT * FROM recipes WHERE tenant_id = ? AND id = ? AND recipe_type = 'subrecipe'`).bind(currentTenantId(env), Number(recipeId)).first();
   if (!recipe) throw new Error('Sub-receta no encontrada.');
   if (!recipe.output_item_id) throw new Error('La sub-receta necesita un ingrediente de salida.');
   const outputQty = wholeNonNegativeNumber(outputQuantity, 'Cantidad producida');
@@ -2127,11 +2232,11 @@ async function produceSubRecipe(env, { recipeId, outputQuantity, note, branchId 
   const baseOutput = Number(recipe.output_quantity || 0);
   if (!baseOutput) throw new Error('La sub-receta necesita rendimiento base.');
   const factor = outputQty / baseOutput;
-  const lines = (await env.DB.prepare(`SELECT * FROM stock_recipe_lines WHERE recipe_id = ? ORDER BY sort_order ASC`).bind(recipe.id).all()).results || [];
+  const lines = (await env.DB.prepare(`SELECT * FROM recipe_lines WHERE recipe_id = ? ORDER BY sort_order ASC`).bind(recipe.id).all()).results || [];
 
   for (const line of lines) {
     const needed = Number(line.quantity || 0) * factor;
-    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), line.item_id).first();
+    const item = await env.DB.prepare(`SELECT id, name FROM items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), line.item_id).first();
     if (!item) throw new Error('Ingrediente de receta no encontrado.');
     const available = await getBranchStock(env, line.item_id, branchId);
     if (available - needed < 0) throw new Error(`No hay suficiente stock de ${item.name}.`);
@@ -2152,7 +2257,7 @@ async function submitInventoryCounts(env, rows, reason, user, branchId) {
     const itemId = Number(row.itemId || row.id || 0);
     const requestedStock = wholeNonNegativeNumber(row.current_stock, 'Conteo de inventario');
     if (!itemId || !Number.isFinite(requestedStock) || requestedStock < 0) continue;
-    const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), itemId).first();
+    const item = await env.DB.prepare(`SELECT id, name FROM items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), itemId).first();
     if (!item) continue;
     const currentStock = await getBranchStock(env, itemId, branchId);
     const diff = requestedStock - currentStock;
@@ -2206,7 +2311,7 @@ async function resolveInventoryCount(env, requestId, approve, adminUser) {
     return;
   }
 
-  const item = await env.DB.prepare(`SELECT id, name FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), request.item_id).first();
+  const item = await env.DB.prepare(`SELECT id, name FROM items WHERE tenant_id = ? AND id = ?`).bind(currentTenantId(env), request.item_id).first();
   if (!item) throw new Error('Ingrediente no encontrado.');
   const currentStock = await getBranchStock(env, request.item_id, request.branch_id || 'dominio');
   const requestedStock = wholeNonNegativeNumber(request.requested_stock, 'Conteo de inventario');
@@ -2230,6 +2335,67 @@ async function resolveInventoryCount(env, requestId, approve, adminUser) {
   ).bind(adminUser.name, ts.utc, ts.monterrey, currentTenantId(env), requestId).run();
 }
 
+
+// Fase 1 (motor de items/recetas/costeo), Checkpoint 3: backfill de los
+// productos que ya existian ANTES de esta migracion -- los productos
+// nuevos de aqui en adelante ya se enlazan solos desde
+// menuCatalog.js's saveCatalogTables. Idempotente (WHERE item_id IS
+// NULL en cada paso), asi que correrlo de nuevo por accidente no
+// duplica nada. Devuelve un reporte para poder confirmar los numeros
+// antes de seguir.
+async function runFase1Backfill(env, tenantId) {
+  await ensureMenuCatalogTables(env);
+
+  const products = (await env.DB.prepare(
+    `SELECT product_key, name FROM menu_products WHERE tenant_id = ? AND item_id IS NULL`
+  ).bind(tenantId).all()).results || [];
+
+  let itemsCreated = 0;
+  const warnings = [];
+  for (const product of products) {
+    const itemId = await ensureProductItemLink(env, tenantId, product.product_key, product.name);
+    if (itemId) {
+      itemsCreated += 1;
+    } else {
+      warnings.push(`No se pudo crear item para "${product.name}" (${product.product_key}) -- revisa que exista la unidad "pieza" en stock_units.`);
+    }
+  }
+
+  // Set-based: enlaza recipes.item_id para recetas de producto via el
+  // menu_products.item_id que se acaba de rellenar arriba. El lado de
+  // subrecetas ya lo resuelve migrations/011_items_recipes_fase1.sql
+  // (usa output_item_id directamente), pero se repite aqui tambien --
+  // es idempotente (WHERE item_id IS NULL) y cubre el caso de una
+  // subreceta creada despues de la migracion.
+  const recipesLinkedResult = await env.DB.prepare(`
+    UPDATE recipes SET item_id = (
+      SELECT p.item_id FROM menu_products p
+      WHERE p.tenant_id = recipes.tenant_id AND p.recipe_id = recipes.id
+    )
+    WHERE tenant_id = ? AND recipe_type = 'product' AND item_id IS NULL
+      AND EXISTS (SELECT 1 FROM menu_products p WHERE p.tenant_id = recipes.tenant_id AND p.recipe_id = recipes.id AND p.item_id IS NOT NULL)
+  `).bind(tenantId).run();
+
+  await env.DB.prepare(`
+    UPDATE recipes SET item_id = output_item_id
+    WHERE tenant_id = ? AND recipe_type = 'subrecipe' AND item_id IS NULL AND output_item_id IS NOT NULL
+  `).bind(tenantId).run();
+
+  const stillUnlinkedProducts = (await env.DB.prepare(
+    `SELECT product_key, name FROM menu_products WHERE tenant_id = ? AND item_id IS NULL`
+  ).bind(tenantId).all()).results || [];
+  const stillUnlinkedRecipes = (await env.DB.prepare(
+    `SELECT recipe_key, name FROM recipes WHERE tenant_id = ? AND item_id IS NULL AND is_active = 1`
+  ).bind(tenantId).all()).results || [];
+
+  return {
+    itemsCreated,
+    recipesLinked: Number(recipesLinkedResult.meta?.changes || 0),
+    warnings,
+    stillUnlinkedProducts: stillUnlinkedProducts.map((p) => `${p.name} (${p.product_key})`),
+    stillUnlinkedRecipes: stillUnlinkedRecipes.map((r) => `${r.name} (${r.recipe_key})`),
+  };
+}
 
 function sanitizeStockPayloadForUser(data, user) {
   if (user.role === 'admin') return data;
@@ -2311,6 +2477,12 @@ export async function onRequestPost({ request, env }) {
       if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede importar CSV.' }, 403);
       const result = await importItems(env, body.rows || [], body.mode || 'upsert', user, actionBranchId);
       return jsonResponse({ ok: true, ...result });
+    }
+
+    if (body.action === 'migrateFase1Backfill') {
+      if (!requireAdmin(user)) return jsonResponse({ ok: false, error: 'Solo admin puede correr el backfill de items/recetas.' }, 403);
+      const report = await runFase1Backfill(env, currentTenantId(env));
+      return jsonResponse({ ok: true, report });
     }
 
     if (body.action === 'seedRecipeDefaults') {

@@ -37,10 +37,10 @@ export async function onRequestGet({ request, env }) {
     const tenantId = await resolveTenantId(request, env);
 
     const tableCheck = await env.DB.prepare(
-      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('stock_recipes', 'stock_recipe_lines', 'inventory_items')`
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('recipes', 'recipe_lines', 'items')`
     ).all();
     const tables = new Set((tableCheck.results || []).map((row) => row.name));
-    if (!tables.has('stock_recipes') || !tables.has('stock_recipe_lines') || !tables.has('inventory_items')) {
+    if (!tables.has('recipes') || !tables.has('recipe_lines') || !tables.has('items')) {
       return jsonResponse({ ok: true, products: {} });
     }
 
@@ -60,9 +60,9 @@ export async function onRequestGet({ request, env }) {
         i.name AS item_name,
         i.brand AS item_brand,
         u.code AS unit_code
-       FROM stock_recipes r
-       JOIN stock_recipe_lines l ON l.recipe_id = r.id AND l.tenant_id = r.tenant_id
-       JOIN inventory_items i ON i.id = l.item_id AND i.tenant_id = r.tenant_id
+       FROM recipes r
+       JOIN recipe_lines l ON l.recipe_id = r.id AND l.tenant_id = r.tenant_id
+       JOIN items i ON i.id = l.item_id AND i.tenant_id = r.tenant_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE r.tenant_id = ?
          AND r.recipe_type = 'product'
@@ -120,7 +120,7 @@ export async function onRequestGet({ request, env }) {
        FROM stock_product_option_groups pg
        JOIN stock_option_families f ON f.id = pg.family_id AND f.tenant_id = pg.tenant_id
        JOIN stock_option_family_items oi ON oi.family_id = f.id AND oi.tenant_id = pg.tenant_id AND oi.is_active = 1
-       JOIN inventory_items i ON i.id = oi.item_id AND i.tenant_id = pg.tenant_id
+       JOIN items i ON i.id = oi.item_id AND i.tenant_id = pg.tenant_id
        LEFT JOIN stock_units u ON u.id = i.unit_id
        WHERE pg.tenant_id = ? AND pg.is_active = 1 AND f.is_active = 1
        ORDER BY pg.product_id ASC, pg.sort_order ASC, oi.sort_order ASC, oi.id ASC`
@@ -131,7 +131,7 @@ export async function onRequestGet({ request, env }) {
       componentRows = (await env.DB.prepare(
         `SELECT c.option_item_id, c.quantity, i.name AS item_name, u.code AS unit_code
          FROM stock_option_family_item_components c
-         JOIN inventory_items i ON i.id = c.item_id AND i.tenant_id = c.tenant_id
+         JOIN items i ON i.id = c.item_id AND i.tenant_id = c.tenant_id
          LEFT JOIN stock_units u ON u.id = i.unit_id
          WHERE c.tenant_id = ?
          ORDER BY c.option_item_id ASC, c.sort_order ASC, c.id ASC`

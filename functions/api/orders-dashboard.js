@@ -1,5 +1,6 @@
 ﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
+import { explodeRecipeForConsumption } from './_shared/recipeEngine.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -375,7 +376,7 @@ async function getRecipeLinesForProduct(env, productId, productName = '', tenant
   if (productId) {
     const linked = await env.DB.prepare(
       `SELECT r.id FROM menu_products p
-       JOIN stock_recipes r ON r.tenant_id = p.tenant_id AND r.id = p.recipe_id
+       JOIN recipes r ON r.tenant_id = p.tenant_id AND r.id = p.recipe_id
        WHERE p.tenant_id = ? AND p.product_key = ? AND r.recipe_type = 'product' AND r.is_active = 1`
     ).bind(tenantId, productId).first();
     if (linked?.id) recipe = linked;
@@ -386,13 +387,13 @@ async function getRecipeLinesForProduct(env, productId, productName = '', tenant
   const candidates = recipe?.id ? [] : recipeKeyCandidates(productId, productName);
   for (const recipeKey of candidates) {
     recipe = await env.DB.prepare(
-      `SELECT id FROM stock_recipes WHERE tenant_id = ? AND lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
+      `SELECT id FROM recipes WHERE tenant_id = ? AND lower(recipe_key) = lower(?) AND recipe_type = 'product' AND is_active = 1`
     ).bind(tenantId, recipeKey).first();
     if (recipe?.id) break;
   }
   if (!recipe?.id && productName) {
     recipe = await env.DB.prepare(
-      `SELECT id FROM stock_recipes WHERE tenant_id = ? AND lower(name) = lower(?) AND recipe_type = 'product' AND is_active = 1 ORDER BY updated_at_utc DESC, id DESC LIMIT 1`
+      `SELECT id FROM recipes WHERE tenant_id = ? AND lower(name) = lower(?) AND recipe_type = 'product' AND is_active = 1 ORDER BY updated_at_utc DESC, id DESC LIMIT 1`
     ).bind(tenantId, String(productName || '').trim()).first();
   }
   if (!recipe?.id) return [];
@@ -402,9 +403,9 @@ async function getRecipeLinesForProduct(env, productId, productName = '', tenant
   // desaparecian del resultado sin avisar, subestimando el consumo real
   // sin que nadie se entere.
   const result = await env.DB.prepare(
-    `SELECT l.*, i.name AS item_name, i.current_stock, i.deducts_inventory, u.code AS unit_code
-     FROM stock_recipe_lines l
-     LEFT JOIN inventory_items i ON i.id = l.item_id AND i.tenant_id = ?
+    `SELECT l.*, i.name AS item_name, i.current_stock, i.deducts_inventory, i.type AS item_type, u.code AS unit_code
+     FROM recipe_lines l
+     LEFT JOIN items i ON i.id = l.item_id AND i.tenant_id = ?
      LEFT JOIN stock_units u ON u.id = i.unit_id
      WHERE l.tenant_id = ? AND l.recipe_id = ?
      ORDER BY l.sort_order ASC, l.id ASC`
@@ -434,14 +435,14 @@ async function getSelectedFamilyComponents(env, productId, options = {}, tenantI
   const rows = [];
   for (const pair of selectedPairs) {
     try {
-      // LEFT JOIN a inventory_items (no INNER) para poder detectar
+      // LEFT JOIN a items (no INNER) para poder detectar
       // items borrados en vez de que la fila desaparezca en silencio.
       const result = await env.DB.prepare(
         `SELECT oi.item_id, oi.quantity, i.name AS item_name, i.deducts_inventory, u.code AS unit_code
          FROM stock_product_option_groups pg
          JOIN stock_option_families f ON f.id = pg.family_id
          JOIN stock_option_family_items oi ON oi.family_id = f.id
-         LEFT JOIN inventory_items i ON i.id = oi.item_id AND i.tenant_id = ?
+         LEFT JOIN items i ON i.id = oi.item_id AND i.tenant_id = ?
          LEFT JOIN stock_units u ON u.id = i.unit_id
          WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1
         UNION ALL
@@ -450,7 +451,7 @@ async function getSelectedFamilyComponents(env, productId, options = {}, tenantI
          JOIN stock_option_families f ON f.id = pg.family_id
          JOIN stock_option_family_items oi ON oi.family_id = f.id
          JOIN stock_option_family_item_components c ON c.option_item_id = oi.id
-         LEFT JOIN inventory_items i ON i.id = c.item_id AND i.tenant_id = ?
+         LEFT JOIN items i ON i.id = c.item_id AND i.tenant_id = ?
          LEFT JOIN stock_units u ON u.id = i.unit_id
          WHERE pg.tenant_id = ? AND f.tenant_id = ? AND oi.tenant_id = ? AND c.tenant_id = ? AND pg.product_id = ? AND pg.is_active = 1 AND f.family_key = ? AND lower(oi.option_name) = lower(?) AND oi.is_active = 1`
       ).bind(
@@ -535,6 +536,46 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
     consumption.set(line.item_id, existing);
   };
 
+  // Fase 1: si la linea de receta apunta a una subreceta que NO se
+  // trackea como stock propio (deducts_inventory=0 -- hoy no existe
+  // ningun caso real asi en los datos de Pecas, pero el modelo nuevo lo
+  // soporta), se explota a sus ingredientes crudos via explodeRecipe en
+  // modo 'consumption'. Si la subreceta SI se trackea (deducts_inventory=1
+  // -- caso real actual: aderezo chipotle, blue cheese), se consume como
+  // hoja tal cual, exactamente el comportamiento de hoy: ya se descontaron
+  // sus ingredientes crudos cuando se PRODUJO el lote (produceSubRecipe),
+  // asi que volver a explotarla aqui duplicaria el descuento.
+  const addLineOrExpand = async (line, multiplier) => {
+    if (line.item_type !== 'subrecipe' || Number(line.deducts_inventory || 0) !== 0) {
+      addLine(line, multiplier);
+      return;
+    }
+    const scaledQuantity = Number(line.quantity || 0) * multiplier;
+    if (!scaledQuantity) {
+      stats.skippedNoQuantity.push(line.item_name || `Ingrediente ${line.item_id}`);
+      return;
+    }
+    const subRecipe = await env.DB.prepare(
+      `SELECT id FROM recipes WHERE tenant_id = ? AND item_id = ? AND recipe_type = 'subrecipe' AND is_active = 1 LIMIT 1`
+    ).bind(tenantId, line.item_id).first();
+    if (!subRecipe?.id) {
+      addLine(line, multiplier);
+      return;
+    }
+    const { lines: expandedLines } = await explodeRecipeForConsumption(env, tenantId, subRecipe.id, scaledQuantity);
+    stats.recipeLineCount += expandedLines.length;
+    for (const expandedLine of expandedLines) {
+      stats.matchedLineCount += 1;
+      addLine({
+        item_id: expandedLine.itemId,
+        item_name: expandedLine.itemName,
+        unit_code: expandedLine.unitCode,
+        quantity: expandedLine.quantity,
+        deducts_inventory: expandedLine.deductsInventory ? 1 : 0,
+      }, 1);
+    }
+  };
+
   for (const orderItem of orderItems) {
     const options = parseOptions(orderItem.options_json);
 
@@ -549,7 +590,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
         for (const line of lines) {
           if (shouldUseRecipeLine(line, promoOptions)) {
             stats.matchedLineCount += 1;
-            addLine(line, multiplier);
+            await addLineOrExpand(line, multiplier);
           } else {
             stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
           }
@@ -569,7 +610,7 @@ async function aggregateOrderConsumption(env, orderId, tenantId) {
     for (const line of lines) {
       if (shouldUseRecipeLine(line, options)) {
         stats.matchedLineCount += 1;
-        addLine(line, multiplier);
+        await addLineOrExpand(line, multiplier);
       } else {
         stats.skippedByOptions.push(line.item_name || `Ingrediente ${line.item_id}`);
       }
@@ -614,7 +655,7 @@ async function ensureBranchStock(env, branchId, tenantId) {
   await env.DB.prepare(`
     INSERT OR IGNORE INTO inventory_branch_stock (tenant_id, item_id, branch_id, current_stock, updated_at_utc)
     SELECT tenant_id, id, ?, CASE WHEN ? = 0 THEN current_stock ELSE 0 END, ?
-    FROM inventory_items
+    FROM items
     WHERE tenant_id = ?
   `).bind(branchId, count, ts.utc, tenantId).run();
   branchStockEnsuredCache.add(cacheKey);
@@ -624,7 +665,7 @@ async function getBranchStock(env, itemId, branchId, tenantId) {
   await ensureBranchStock(env, branchId, tenantId);
   const row = await env.DB.prepare(`SELECT current_stock FROM inventory_branch_stock WHERE tenant_id = ? AND item_id = ? AND branch_id = ?`).bind(tenantId, itemId, branchId).first();
   if (row) return Number(row.current_stock || 0);
-  const item = await env.DB.prepare(`SELECT current_stock FROM inventory_items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
+  const item = await env.DB.prepare(`SELECT current_stock FROM items WHERE tenant_id = ? AND id = ?`).bind(tenantId, itemId).first();
   return Number(item?.current_stock || 0);
 }
 
@@ -683,9 +724,9 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
     const after = before + qty;
     await setBranchStock(env, line.item_id, order.branch_id || 'dominio', after, tenantId);
     if ((order.branch_id || 'dominio') === 'dominio') {
-      await env.DB.prepare(`UPDATE inventory_items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(after, ts.utc, tenantId, line.item_id).run();
+      await env.DB.prepare(`UPDATE items SET current_stock = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(after, ts.utc, tenantId, line.item_id).run();
     } else {
-      await env.DB.prepare(`UPDATE inventory_items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, line.item_id).run();
+      await env.DB.prepare(`UPDATE items SET updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(ts.utc, tenantId, line.item_id).run();
     }
     await env.DB.prepare(
       `INSERT INTO stock_movements (

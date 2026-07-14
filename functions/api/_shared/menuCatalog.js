@@ -147,6 +147,7 @@ export async function ensureMenuCatalogTables(env) {
     product_key TEXT NOT NULL,
     category_key TEXT NOT NULL,
     recipe_id INTEGER,
+    item_id INTEGER,
     name TEXT NOT NULL,
     product_type TEXT NOT NULL DEFAULT 'custom',
     price REAL NOT NULL DEFAULT 0,
@@ -176,8 +177,61 @@ export async function ensureMenuCatalogTables(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_categories_tenant_active ON menu_categories(tenant_id, is_active, is_visible, sort_order)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_products_tenant_category ON menu_products(tenant_id, category_key, is_active, is_published, sort_order)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_menu_products_recipe ON menu_products(tenant_id, recipe_id)`).run();
+  // Fase 1: item_id es columna nueva -- para instalaciones existentes que
+  // crearon menu_products antes de esta columna. Idempotente via try/catch,
+  // mismo patron que el resto del backend.
+  try {
+    await env.DB.prepare(`ALTER TABLE menu_products ADD COLUMN item_id INTEGER`).run();
+  } catch {
+    // column already exists
+  }
   menuCatalogTablesEnsured = true;
   return true;
+}
+
+// Unidad base por defecto para el item de un producto -- un producto no
+// se compra ni se mide como un ingrediente, pero items.unit_id es NOT
+// NULL para todo tipo de item, asi que se usa "pieza" como unidad
+// nominal (1 producto = 1 pieza vendida).
+const DEFAULT_PRODUCT_UNIT_CODE = 'pieza';
+
+async function defaultProductUnitId(env) {
+  const row = await env.DB.prepare(`SELECT id FROM stock_units WHERE code = ?`).bind(DEFAULT_PRODUCT_UNIT_CODE).first();
+  return row?.id || null;
+}
+
+// Fase 1: asegura que un producto del catalogo tenga su fila espejo en
+// `items` (type='product') y que menu_products.item_id apunte a ella --
+// el FK real que reemplaza el matching por recipe_key/nombre. Se llama
+// tanto desde saveCatalogTables (productos nuevos/editados desde ahora)
+// como desde el backfill admin de stock.js (productos que ya existian
+// antes de esta migracion). Idempotente: si el producto ya tiene
+// item_id, no crea nada nuevo.
+export async function ensureProductItemLink(env, tenantId, productKey, productName) {
+  const existing = await env.DB.prepare(
+    `SELECT item_id FROM menu_products WHERE tenant_id = ? AND product_key = ?`
+  ).bind(tenantId, productKey).first();
+  if (existing?.item_id) return existing.item_id;
+
+  const unitId = await defaultProductUnitId(env);
+  if (!unitId) return null; // stock_units todavia no sembrada para este tenant -- no bloquea el guardado del producto
+
+  const now = new Date().toISOString();
+  const inserted = await env.DB.prepare(`
+    INSERT INTO items (
+      tenant_id, name, item_type, type, unit_id, is_active,
+      is_sellable, is_purchasable, is_producible, deducts_inventory,
+      created_at_utc, updated_at_utc
+    ) VALUES (?, ?, 'Producto', 'product', ?, 1, 1, 0, 0, 0, ?, ?)
+    RETURNING id
+  `).bind(tenantId, productName, unitId, now, now).first();
+  const itemId = inserted?.id || null;
+  if (itemId) {
+    await env.DB.prepare(
+      `UPDATE menu_products SET item_id = ? WHERE tenant_id = ? AND product_key = ?`
+    ).bind(itemId, tenantId, productKey).run();
+  }
+  return itemId;
 }
 
 function detectMojibake(values) {
@@ -214,7 +268,7 @@ export async function readCatalogTables(env, tenantId) {
             p.description, p.ingredients, p.image, p.is_published, p.is_active, p.metadata_json, p.sort_order,
             r.recipe_key
      FROM menu_products p
-     LEFT JOIN stock_recipes r ON r.tenant_id = p.tenant_id AND r.id = p.recipe_id
+     LEFT JOIN recipes r ON r.tenant_id = p.tenant_id AND r.id = p.recipe_id
      WHERE p.tenant_id = ? AND p.is_active = 1
      ORDER BY p.sort_order ASC, p.name ASC`
   ).bind(tenantId).all().then((result) => result.results || []);
@@ -314,7 +368,7 @@ export async function saveCatalogTables(env, tenantId, payload) {
     activeProductKeys.add(productKey);
     mojibake.push(...detectMojibake([name, product.description, product.ingredients, product.badge]));
     const recipeKey = String(product.recipeKey || `product:${productKey}`).trim();
-    const recipe = await env.DB.prepare(`SELECT id, recipe_key FROM stock_recipes WHERE tenant_id = ? AND (id = ? OR recipe_key = ?) LIMIT 1`)
+    const recipe = await env.DB.prepare(`SELECT id, recipe_key FROM recipes WHERE tenant_id = ? AND (id = ? OR recipe_key = ?) LIMIT 1`)
       .bind(tenantId, Number(product.recipeId || 0), recipeKey)
       .first()
       .catch(() => null);
@@ -363,6 +417,20 @@ export async function saveCatalogTables(env, tenantId, payload) {
          VALUES (?, ?, ?, 'primary', 1, ?, ?)
          ON CONFLICT(tenant_id, product_key, recipe_id, link_type) DO UPDATE SET is_active = 1, updated_at_utc = excluded.updated_at_utc`
       ).bind(tenantId, productKey, recipe.id, now, now).run();
+
+      // Fase 1: enlaza recipes.item_id (FK real) cada vez que se guarda un
+      // producto con receta -- asi los productos nuevos/editados de aqui en
+      // adelante nunca necesitan el fallback por recipe_key/nombre en
+      // orders-dashboard.js. WHERE item_id IS NULL evita pisar un link ya
+      // resuelto.
+      const itemId = await ensureProductItemLink(env, tenantId, productKey, name);
+      if (itemId) {
+        await env.DB.prepare(
+          `UPDATE recipes SET item_id = ? WHERE tenant_id = ? AND id = ? AND item_id IS NULL`
+        ).bind(itemId, tenantId, recipe.id).run();
+      }
+    } else {
+      await ensureProductItemLink(env, tenantId, productKey, name);
     }
   }
 
@@ -397,7 +465,7 @@ export async function recipeCatalogFromStock(env, tenantId, saved, overrides = s
 
   const rows = await env.DB.prepare(
     `SELECT r.recipe_key, r.name
-     FROM stock_recipes r
+     FROM recipes r
      WHERE r.tenant_id = ?
        AND r.recipe_type = 'product'
        AND r.is_active = 1

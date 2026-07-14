@@ -17,6 +17,7 @@ const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
 const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
 const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
+const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const items = [
@@ -110,7 +111,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
   const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
-  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, promo: true, hours: true, sections: true });
+  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
@@ -528,6 +529,16 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               {openAdminSections.instagramLogin && (
                 <div className="admin-order-box">
                   <InstagramLoginSettings />
+                </div>
+              )}
+            </section>
+
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('itemsCosts')}>Costos y recetas (nuevo) <span>{openAdminSections.itemsCosts ? '-' : '+'}</span></button>
+              {openAdminSections.itemsCosts && (
+                <div className="admin-order-box">
+                  <AdminSectionIntro title="Costos y recetas (nuevo)" description="Vista de solo lectura del motor de costeo -- items, tipos, y costo/margen calculado por receta." />
+                  <ItemsRecipesPanel />
                 </div>
               )}
             </section>

@@ -120,21 +120,21 @@ export async function onRequestGet({ request, env }) {
 
     if (type === 'stock_movements') {
       const stockBranch = branchClause(branchId, 'm.branch_id');
-      const sql = `SELECT m.created_at_monterrey AS fecha, m.branch_name AS sucursal, i.name AS ingrediente, m.movement_type AS tipo_movimiento, m.quantity AS cantidad, m.stock_before, m.stock_after, m.reason AS motivo, m.reported_by AS usuario, m.reported_role AS rol, m.source_type, m.source_id FROM stock_movements m JOIN inventory_items i ON i.id = m.item_id WHERE m.tenant_id = ? AND m.created_at_monterrey BETWEEN ? AND ?${stockBranch.sql} ORDER BY m.created_at_monterrey DESC`;
+      const sql = `SELECT m.created_at_monterrey AS fecha, m.branch_name AS sucursal, i.name AS ingrediente, m.movement_type AS tipo_movimiento, m.quantity AS cantidad, m.stock_before, m.stock_after, m.reason AS motivo, m.reported_by AS usuario, m.reported_role AS rol, m.source_type, m.source_id FROM stock_movements m JOIN items i ON i.id = m.item_id WHERE m.tenant_id = ? AND m.created_at_monterrey BETWEEN ? AND ?${stockBranch.sql} ORDER BY m.created_at_monterrey DESC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...stockBranch.binds).all();
       return csvResponse(`pecas-movimientos-stock-${start}-${end}.csv`, ['fecha','sucursal','ingrediente','tipo_movimiento','cantidad','stock_before','stock_after','motivo','usuario','rol','source_type','source_id'], result.results || []);
     }
 
     if (type === 'waste') {
       const wasteBranch = branchClause(branchId, 'w.branch_id');
-      const sql = `SELECT w.created_at_monterrey AS fecha, w.branch_name AS sucursal, i.name AS ingrediente, w.quantity AS cantidad, w.reason AS motivo, w.status AS estado, w.reported_by AS reportado_por, w.approved_by AS aprobado_por FROM waste_requests w JOIN inventory_items i ON i.id = w.item_id WHERE w.tenant_id = ? AND w.created_at_monterrey BETWEEN ? AND ?${wasteBranch.sql} ORDER BY w.created_at_monterrey DESC`;
+      const sql = `SELECT w.created_at_monterrey AS fecha, w.branch_name AS sucursal, i.name AS ingrediente, w.quantity AS cantidad, w.reason AS motivo, w.status AS estado, w.reported_by AS reportado_por, w.approved_by AS aprobado_por FROM waste_requests w JOIN items i ON i.id = w.item_id WHERE w.tenant_id = ? AND w.created_at_monterrey BETWEEN ? AND ?${wasteBranch.sql} ORDER BY w.created_at_monterrey DESC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...wasteBranch.binds).all();
       return csvResponse(`pecas-mermas-${start}-${end}.csv`, ['fecha','sucursal','ingrediente','cantidad','motivo','estado','reportado_por','aprobado_por'], result.results || []);
     }
 
     if (type === 'purchase_suggestions') {
       const selectedBranch = branchId === 'all' ? 'dominio' : branchId;
-      const sql = `SELECT ? AS sucursal, COALESCE(s.name, 'Sin proveedor') AS proveedor, i.name AS ingrediente, COALESCE(bs.current_stock, i.current_stock, 0) AS stock_actual, i.min_stock AS minimo, i.max_stock AS maximo, CASE WHEN COALESCE(bs.current_stock, i.current_stock, 0) < i.min_stock THEN MAX(i.max_stock - COALESCE(bs.current_stock, i.current_stock, 0), 0) ELSE 0 END AS sugerido_comprar, u.code AS unidad FROM inventory_items i JOIN stock_units u ON u.id = i.unit_id LEFT JOIN inventory_branch_stock bs ON bs.item_id = i.id AND bs.branch_id = ? AND bs.tenant_id = i.tenant_id LEFT JOIN stock_suppliers s ON s.id = i.primary_supplier_id AND s.tenant_id = i.tenant_id WHERE i.tenant_id = ? AND i.is_active = 1 AND COALESCE(bs.current_stock, i.current_stock, 0) < i.min_stock ORDER BY proveedor ASC, ingrediente ASC`;
+      const sql = `SELECT ? AS sucursal, COALESCE(s.name, 'Sin proveedor') AS proveedor, i.name AS ingrediente, COALESCE(bs.current_stock, i.current_stock, 0) AS stock_actual, i.min_stock AS minimo, i.max_stock AS maximo, CASE WHEN COALESCE(bs.current_stock, i.current_stock, 0) < i.min_stock THEN MAX(i.max_stock - COALESCE(bs.current_stock, i.current_stock, 0), 0) ELSE 0 END AS sugerido_comprar, u.code AS unidad FROM items i JOIN stock_units u ON u.id = i.unit_id LEFT JOIN inventory_branch_stock bs ON bs.item_id = i.id AND bs.branch_id = ? AND bs.tenant_id = i.tenant_id LEFT JOIN stock_suppliers s ON s.id = i.primary_supplier_id AND s.tenant_id = i.tenant_id WHERE i.tenant_id = ? AND i.is_active = 1 AND COALESCE(bs.current_stock, i.current_stock, 0) < i.min_stock ORDER BY proveedor ASC, ingrediente ASC`;
       const result = await env.DB.prepare(sql).bind(selectedBranch, selectedBranch, tenantId).all();
       return csvResponse(`pecas-compra-sugerida-${selectedBranch}-${start}-${end}.csv`, ['sucursal','proveedor','ingrediente','stock_actual','minimo','maximo','sugerido_comprar','unidad'], result.results || []);
     }
@@ -159,7 +159,7 @@ export async function onRequestGet({ request, env }) {
 
     if (type === 'inventory_value') {
       const selectedBranch = branchId === 'all' ? 'dominio' : branchId;
-      const sql = `SELECT ? AS sucursal, i.name AS ingrediente, u.code AS unidad, COALESCE(bs.current_stock, i.current_stock, 0) AS stock_actual, i.purchase_unit_quantity AS cantidad_presentacion, i.purchase_price AS precio_presentacion, CASE WHEN COALESCE(i.purchase_unit_quantity, 0) > 0 THEN ROUND(COALESCE(bs.current_stock, i.current_stock, 0) * COALESCE(i.purchase_price, 0) / i.purchase_unit_quantity, 2) ELSE 0 END AS valor_estimado FROM inventory_items i LEFT JOIN stock_units u ON u.id = i.unit_id LEFT JOIN inventory_branch_stock bs ON bs.item_id = i.id AND bs.branch_id = ? AND bs.tenant_id = i.tenant_id WHERE i.tenant_id = ? AND i.is_active = 1 ORDER BY valor_estimado DESC, ingrediente ASC`;
+      const sql = `SELECT ? AS sucursal, i.name AS ingrediente, u.code AS unidad, COALESCE(bs.current_stock, i.current_stock, 0) AS stock_actual, i.purchase_unit_quantity AS cantidad_presentacion, i.purchase_price AS precio_presentacion, CASE WHEN COALESCE(i.purchase_unit_quantity, 0) > 0 THEN ROUND(COALESCE(bs.current_stock, i.current_stock, 0) * COALESCE(i.purchase_price, 0) / i.purchase_unit_quantity, 2) ELSE 0 END AS valor_estimado FROM items i LEFT JOIN stock_units u ON u.id = i.unit_id LEFT JOIN inventory_branch_stock bs ON bs.item_id = i.id AND bs.branch_id = ? AND bs.tenant_id = i.tenant_id WHERE i.tenant_id = ? AND i.is_active = 1 ORDER BY valor_estimado DESC, ingrediente ASC`;
       const result = await env.DB.prepare(sql).bind(selectedBranch, selectedBranch, tenantId).all();
       return csvResponse(`pecas-inventario-valorizado-${selectedBranch}.csv`, ['sucursal','ingrediente','unidad','stock_actual','cantidad_presentacion','precio_presentacion','valor_estimado'], result.results || []);
     }

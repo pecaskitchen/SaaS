@@ -30,7 +30,6 @@ export async function onRequestPost({ request, env }) {
       tenantId = String(body.tenantId || tenantId || '').trim();
     }
     const code = String(body.code || '').trim();
-    const redirectUri = String(body.redirectUri || '').trim();
 
     if (!tenantId) return jsonResponse({ ok: false, error: 'Falta tenantId.' }, 400);
     if (!code) return jsonResponse({ ok: false, error: 'Falta el code del login de Facebook.' }, 400);
@@ -44,7 +43,7 @@ export async function onRequestPost({ request, env }) {
       ON CONFLICT(tenant_id) DO UPDATE SET connection_status = 'connecting', updated_at = CURRENT_TIMESTAMP
     `).bind(crypto.randomUUID(), tenantId).run();
 
-    const tokenData = await exchangePageLoginCode(env, code, redirectUri);
+    const tokenData = await exchangePageLoginCode(env, code);
     const pages = await fetchManagedPages(env, tokenData.access_token);
     if (!pages.length) {
       return jsonResponse({ ok: false, error: 'Tu usuario de Facebook no administra ninguna Página. Crea o pide acceso a la Página del negocio primero.' }, 409);

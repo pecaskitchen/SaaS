@@ -148,17 +148,12 @@ export async function resolveInstagramSender(env, igId) {
 // -----------------------------------------------------------------------
 
 // Igual que en whatsapp.js: el popup corre en el navegador, el frontend
-// manda el "code" acá para intercambiarlo server-to-server. A diferencia
-// de whatsapp.js, esta variante ("General") de Facebook Login for Business
-// SÍ exige un redirect_uri idéntico al que uso el popup -- si no coincide
-// exacto, Meta responde "Error validating verification code". El frontend
-// manda el mismo valor que le pasó a FB.login().
-export async function exchangePageLoginCode(env, code, redirectUri) {
+// manda el "code" acá para intercambiarlo server-to-server.
+export async function exchangePageLoginCode(env, code) {
   const url = new URL(graphUrl(env, 'oauth/access_token'));
   url.searchParams.set('client_id', env.META_APP_ID);
   url.searchParams.set('client_secret', env.META_APP_SECRET);
   url.searchParams.set('code', code);
-  if (redirectUri) url.searchParams.set('redirect_uri', redirectUri);
   const response = await fetch(url.toString());
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.access_token) {

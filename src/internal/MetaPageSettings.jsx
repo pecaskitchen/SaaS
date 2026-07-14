@@ -54,7 +54,7 @@ export default function MetaPageSettings() {
           try {
             const result = await apiFetch('/api/integrations/meta-page/complete', {
               method: 'POST',
-              body: JSON.stringify({ code: response.authResponse.code, redirectUri: `${window.location.origin}/` }),
+              body: JSON.stringify({ code: response.authResponse.code }),
             });
             setNotice({
               type: 'success',
@@ -73,7 +73,6 @@ export default function MetaPageSettings() {
         config_id: config.configId,
         response_type: 'code',
         override_default_response_type: true,
-        redirect_uri: `${window.location.origin}/`,
       });
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'No se pudo iniciar la conexión.' });

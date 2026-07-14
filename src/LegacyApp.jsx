@@ -2336,11 +2336,15 @@ export default function App() {
   // que con multiBranchEnabled apagado (una sola sucursal) el cliente
   // nunca veia los cambios de horario.
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours(selectedBranch?.businessHours || businessHours), [selectedBranch, businessHours]);
-  const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
+  // CORREGIDO: mismo bug que el horario -- "agotado" siempre se guarda
+  // por sucursal (ver stock.js), pero antes solo se leia asi con
+  // multiBranchEnabled activo. Con una sola sucursal, marcar agotado
+  // desde Stock nunca llegaba al cliente.
+  const branchSoldOutOverrides = selectedBranch?.soldOut || {};
   const currentProductsForBranch = useMemo(() => currentProducts.map((product) => ({
     ...product,
-    soldOut: branchSettings.multiBranchEnabled ? Boolean(branchSoldOutOverrides[product.id]) : Boolean(product.soldOut),
-  })), [currentProducts, branchSoldOutOverrides, branchSettings.multiBranchEnabled]);
+    soldOut: Boolean(branchSoldOutOverrides[product.id]),
+  })), [currentProducts, branchSoldOutOverrides]);
   const availableBranches = useMemo(() => activeBranches(branchSettings), [branchSettings]);
   const currentBusinessStatus = useMemo(() => businessStatus(effectiveBusinessHours), [effectiveBusinessHours]);
 

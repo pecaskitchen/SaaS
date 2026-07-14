@@ -1976,11 +1976,16 @@ export default function PublicApp() {
   // real de Pecas, una sola sucursal) el cliente seguia viendo el
   // horario viejo/default sin importar lo que el negocio editara.
   const effectiveBusinessHours = useMemo(() => normalizeBusinessHours(selectedBranch?.businessHours || businessHours), [selectedBranch, businessHours]);
-  const branchSoldOutOverrides = branchSettings.multiBranchEnabled ? (selectedBranch?.soldOut || {}) : {};
+  // CORREGIDO: mismo bug que el horario -- "agotado" tambien se guarda
+  // siempre por sucursal (ver stock.js: setProductSoldOut/"Siempre
+  // ignoramos soldOut global legacy en Stock"), pero antes solo se leia
+  // asi cuando multiBranchEnabled estaba activo. Con una sola sucursal
+  // el marcado de agotado desde Stock nunca llegaba al cliente.
+  const branchSoldOutOverrides = selectedBranch?.soldOut || {};
   const currentProductsForBranch = useMemo(() => currentProducts.map((product) => ({
     ...product,
-    soldOut: branchSettings.multiBranchEnabled ? Boolean(branchSoldOutOverrides[product.id]) : Boolean(product.soldOut),
-  })), [currentProducts, branchSoldOutOverrides, branchSettings.multiBranchEnabled]);
+    soldOut: Boolean(branchSoldOutOverrides[product.id]),
+  })), [currentProducts, branchSoldOutOverrides]);
   const availableBranches = useMemo(() => activeBranches(branchSettings), [branchSettings]);
   const currentBusinessStatus = useMemo(() => businessStatus(effectiveBusinessHours), [effectiveBusinessHours]);
 

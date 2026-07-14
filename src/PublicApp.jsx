@@ -1,4 +1,19 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
+import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils } from 'lucide-react';
+import './styles.css';
+import { CATALOG_PRODUCTS, categoryMeta, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
+import {
+  BRANCH_STORAGE_KEY,
+  DEFAULT_BRANCH_SETTINGS,
+  DEFAULT_BUSINESS_HOURS,
+  activeBranches,
+  businessStatus,
+  normalizeBranchSettings,
+  normalizeBusinessHours,
+  normalizeWhatsAppNumber,
+  selectedBranchFrom,
+} from './lib/business.js';
+
 const WHATSAPP_NUMBER = '';
 const categories = [];
 const dressingSides = [];
@@ -2131,7 +2146,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
 
 
 

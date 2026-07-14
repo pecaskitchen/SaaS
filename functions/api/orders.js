@@ -134,7 +134,14 @@ export async function ensureSchema(env) {
       cashier_name TEXT,
       cashier_shift TEXT,
       payment_method TEXT,
-      payment_status TEXT
+      payment_status TEXT,
+      payment_provider TEXT,
+      payment_preference_id TEXT,
+      provider_payment_id TEXT,
+      provider_merchant_order_id TEXT,
+      payment_amount INTEGER,
+      marketplace_fee INTEGER DEFAULT 0,
+      paid_at TEXT
     )
   `).run();
 
@@ -204,6 +211,18 @@ export async function ensureSchema(env) {
   if (!columns.has('cashier_shift')) alters.push(`ALTER TABLE orders ADD COLUMN cashier_shift TEXT`);
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
+  // Antes solo las creaba ensurePaymentTables() (payments.js) -- un pedido
+  // creado por WhatsApp/Messenger (que solo llama a este ensureSchema, no
+  // al de pagos) en un tenant nuevo que nunca conecto Mercado Pago fallaba
+  // con "no such column: payment_provider" al insertar. orders.js es el
+  // dueno real de la tabla orders, asi que estas columnas viven aqui.
+  if (!columns.has('payment_provider')) alters.push(`ALTER TABLE orders ADD COLUMN payment_provider TEXT`);
+  if (!columns.has('payment_preference_id')) alters.push(`ALTER TABLE orders ADD COLUMN payment_preference_id TEXT`);
+  if (!columns.has('provider_payment_id')) alters.push(`ALTER TABLE orders ADD COLUMN provider_payment_id TEXT`);
+  if (!columns.has('provider_merchant_order_id')) alters.push(`ALTER TABLE orders ADD COLUMN provider_merchant_order_id TEXT`);
+  if (!columns.has('payment_amount')) alters.push(`ALTER TABLE orders ADD COLUMN payment_amount INTEGER`);
+  if (!columns.has('marketplace_fee')) alters.push(`ALTER TABLE orders ADD COLUMN marketplace_fee INTEGER DEFAULT 0`);
+  if (!columns.has('paid_at')) alters.push(`ALTER TABLE orders ADD COLUMN paid_at TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
   ordersSchemaEnsured = true;
 }

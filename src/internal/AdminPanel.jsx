@@ -18,6 +18,7 @@ const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
 const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
 const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
+const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
 function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
   const items = [
@@ -111,7 +112,7 @@ export default function AdminPanel({ products, categoriesList = categories, cate
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
   const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
-  const [openAdminSections, setOpenAdminSections] = useState({ branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true });
+  const [openAdminSections, setOpenAdminSections] = useState({ executive: true, branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
@@ -515,6 +516,16 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               <button type="button" className="primary" onClick={saveMenu} disabled={Boolean(loadError)}><Save size={16} /> Guardar cambios</button>
               {status && <p className="admin-status">{status}</p>}
             </div>
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('executive')}>Dashboard ejecutivo <span>{openAdminSections.executive ? '-' : '+'}</span></button>
+              {openAdminSections.executive && (
+                <div className="admin-order-box">
+                  <React.Suspense fallback={<p className="empty-cart">Cargando dashboard...</p>}>
+                    <ExecutiveDashboard />
+                  </React.Suspense>
+                </div>
+              )}
+            </section>
             <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('payments')}>Pagos en línea <span>{openAdminSections.payments ? '-' : '+'}</span></button>
               {openAdminSections.payments && (

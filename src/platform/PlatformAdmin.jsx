@@ -1,6 +1,8 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, RefreshCw, Save, Shield, Upload, WalletCards } from 'lucide-react';
 import '../styles.css';
+import BusinessConfigCenter from '../internal/BusinessConfigCenter.jsx';
+import PlatformHealthPanel from './PlatformHealthPanel.jsx';
 
 const emptyBusiness = {
   id: '',
@@ -434,6 +436,10 @@ export default function PlatformAdmin() {
         </section>
 
         <section className="platform-panel">
+          <PlatformHealthPanel />
+        </section>
+
+        <section className="platform-panel">
           <h2>Pagina Omdexa</h2>
           <p>Edita el contenido publico de omdexa.com. El layout vive en el producto; textos, modulos, flujo y labels salen de esta configuracion.</p>
           <label className="field full">
@@ -492,6 +498,12 @@ export default function PlatformAdmin() {
             </div>
             {status && <p className="admin-status">{status}</p>}
           </form>
+
+          {draft.id ? (
+            <section className="platform-panel">
+              <BusinessConfigCenter tenantId={draft.id} />
+            </section>
+          ) : null}
 
           <section className="platform-panel">
             <h2>Clientes</h2>

@@ -3,7 +3,6 @@ import { requireAuth } from '../../_shared/auth.js';
 import { encryptSecret } from '../../_shared/payments.js';
 import {
   ensureMetaMessagingTables,
-  exchangePageLoginCode,
   fetchManagedPages,
   fetchInstagramBusinessAccount,
   subscribePageToApp,
@@ -11,8 +10,11 @@ import {
 
 // El popup de Facebook Login for Business corre ENTERAMENTE en el
 // navegador -- el frontend llama a este endpoint DESPUÉS de que el popup
-// termina, con el "code" que devolvió el SDK de Facebook. Mismo patrón que
-// integrations/whatsapp/complete.js.
+// termina, con el access token de usuario que devolvió el SDK de Facebook
+// directamente (response_type por defecto, sin pasar por un intercambio
+// de "code" server-side -- ese camino exige un redirect_uri idéntico al
+// que uso el popup internamente, algo que no logramos hacer coincidir de
+// forma confiable con FB.login() vía popup).
 //
 // LIMITACIÓN CONOCIDA: si el usuario administra más de una Página de
 // Facebook, se conecta automáticamente la PRIMERA que devuelve la Graph
@@ -29,10 +31,10 @@ export async function onRequestPost({ request, env }) {
     if (auth.session.role === 'platform_admin') {
       tenantId = String(body.tenantId || tenantId || '').trim();
     }
-    const code = String(body.code || '').trim();
+    const accessToken = String(body.accessToken || '').trim();
 
     if (!tenantId) return jsonResponse({ ok: false, error: 'Falta tenantId.' }, 400);
-    if (!code) return jsonResponse({ ok: false, error: 'Falta el code del login de Facebook.' }, 400);
+    if (!accessToken) return jsonResponse({ ok: false, error: 'Falta el token de acceso del login de Facebook.' }, 400);
 
     const db = requireDb(env);
     await ensureMetaMessagingTables(env);
@@ -43,8 +45,7 @@ export async function onRequestPost({ request, env }) {
       ON CONFLICT(tenant_id) DO UPDATE SET connection_status = 'connecting', updated_at = CURRENT_TIMESTAMP
     `).bind(crypto.randomUUID(), tenantId).run();
 
-    const tokenData = await exchangePageLoginCode(env, code);
-    const pages = await fetchManagedPages(env, tokenData.access_token);
+    const pages = await fetchManagedPages(env, accessToken);
     if (!pages.length) {
       return jsonResponse({ ok: false, error: 'Tu usuario de Facebook no administra ninguna Página. Crea o pide acceso a la Página del negocio primero.' }, 409);
     }

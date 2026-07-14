@@ -146,21 +146,9 @@ export async function resolveInstagramSender(env, igId) {
 // -----------------------------------------------------------------------
 // Facebook Login for Business (Página → Messenger + Instagram vinculado)
 // -----------------------------------------------------------------------
-
-// Igual que en whatsapp.js: el popup corre en el navegador, el frontend
-// manda el "code" acá para intercambiarlo server-to-server.
-export async function exchangePageLoginCode(env, code) {
-  const url = new URL(graphUrl(env, 'oauth/access_token'));
-  url.searchParams.set('client_id', env.META_APP_ID);
-  url.searchParams.set('client_secret', env.META_APP_SECRET);
-  url.searchParams.set('code', code);
-  const response = await fetch(url.toString());
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) {
-    throw Object.assign(new Error(data.error?.message || 'No se pudo intercambiar el code de Facebook Login.'), { code: 'CODE_EXCHANGE_FAILED', status: 400 });
-  }
-  return data; // { access_token, token_type, expires_in? } -- token de usuario
-}
+// El popup de FB.login() entrega el access token de usuario directamente
+// (response.authResponse.accessToken), sin pasar por un intercambio de
+// "code" server-side -- ver complete.js para el porqué.
 
 // Lista las Páginas que administra el usuario que acaba de loguearse, con
 // el access token PROPIO de cada página (no el de usuario) -- ese es el

@@ -46,7 +46,7 @@ export default function MetaPageSettings() {
 
       window.FB.login((response) => {
         (async () => {
-          if (response.status !== 'connected' || !response.authResponse?.code) {
+          if (response.status !== 'connected' || !response.authResponse?.accessToken) {
             setNotice({ type: 'error', message: 'Se canceló la conexión o no se autorizó por completo.' });
             setConnecting(false);
             return;
@@ -54,7 +54,7 @@ export default function MetaPageSettings() {
           try {
             const result = await apiFetch('/api/integrations/meta-page/complete', {
               method: 'POST',
-              body: JSON.stringify({ code: response.authResponse.code }),
+              body: JSON.stringify({ accessToken: response.authResponse.accessToken }),
             });
             setNotice({
               type: 'success',
@@ -71,8 +71,6 @@ export default function MetaPageSettings() {
         })();
       }, {
         config_id: config.configId,
-        response_type: 'code',
-        override_default_response_type: true,
       });
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'No se pudo iniciar la conexión.' });

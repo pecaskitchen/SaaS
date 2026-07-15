@@ -1,8 +1,8 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider } from './auth/AuthContext.jsx';
+import OmdexaLanding from './OmdexaLanding.jsx';
 
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
-const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
 const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));

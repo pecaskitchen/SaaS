@@ -1,8 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { installTenantFetchInterceptor } from './lib/apiClient.js';
-
-const App = lazy(() => import('./App.jsx'));
+import App from './App.jsx';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('vite:preloadError', (event) => {
@@ -24,7 +23,5 @@ if (typeof window !== 'undefined') {
 installTenantFetchInterceptor();
 
 createRoot(document.getElementById('root')).render(
-  <Suspense fallback={<main className="app-loading" aria-label="Cargando" />}>
-    <App />
-  </Suspense>
+  <App />
 );

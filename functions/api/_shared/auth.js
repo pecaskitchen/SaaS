@@ -94,10 +94,39 @@ export function requestToken(request) {
   return request.headers.get('x-platform-admin-token') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
 }
 
-export function requirePlatformAdmin(request, env) {
+// Rediseno de roles: acepta el token estatico de plataforma (como antes)
+// O una sesion JWT real con rol platform_admin, para que el login unificado
+// tambien sirva para entrar al panel de Plataforma. El token estatico NO se
+// retira todavia -- coexiste hasta Fase B (ver plan de rediseno de roles).
+export async function requirePlatformAdmin(request, env) {
   const expected = platformToken(env);
-  if (!expected || requestToken(request) !== expected) {
-    return { ok: false, response: jsonResponse({ ok: false, error: 'No autorizado como admin de plataforma.' }, 401) };
+  const provided = requestToken(request);
+  if (expected && provided === expected) {
+    return { ok: true };
   }
-  return { ok: true };
+
+  if (provided) {
+    try {
+      const payload = await verifyToken(provided, jwtSecret(env));
+      if (payload.role === 'platform_admin') {
+        if (payload.sessionId) {
+          try {
+            const db = requireDb(env);
+            const row = await db.prepare(`SELECT id FROM user_sessions WHERE id = ? AND user_id = ? LIMIT 1`)
+              .bind(payload.sessionId, payload.userId).first();
+            if (!row) {
+              return { ok: false, response: jsonResponse({ ok: false, error: 'Tu sesión fue cerrada. Inicia sesión de nuevo.' }, 401) };
+            }
+          } catch {
+            // La tabla podría no existir aún; no bloqueamos por eso.
+          }
+        }
+        return { ok: true, session: payload };
+      }
+    } catch {
+      // No era un JWT valido; cae al 401 generico de abajo.
+    }
+  }
+
+  return { ok: false, response: jsonResponse({ ok: false, error: 'No autorizado como admin de plataforma.' }, 401) };
 }

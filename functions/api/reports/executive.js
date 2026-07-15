@@ -28,7 +28,9 @@ async function columnExists(db, tableName, columnName) {
 
 export async function onRequestGet({ request, env }) {
   try {
-    const auth = await requireAuth(request, env, ['admin', 'platform_admin']);
+    // Rediseno de roles: dashboard ejecutivo tambien visible para 'manager'
+    // y el rol nuevo 'reports' (solo lectura).
+    const auth = await requireAuth(request, env, ['admin', 'manager', 'reports', 'platform_admin']);
     if (!auth.ok) return auth.response;
 
     const tenantId = await resolveTenantId(request, env);

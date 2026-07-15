@@ -4,7 +4,7 @@ import { createTenant, listTenants, updateTenant } from '../_shared/platform.js'
 
 export async function onRequestGet({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     const businesses = await listTenants(env);
     return jsonResponse({ ok: true, businesses });
@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPost({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     const body = await readJson(request);
     const business = await createTenant(env, body);
@@ -27,7 +27,7 @@ export async function onRequestPost({ request, env }) {
 
 export async function onRequestPatch({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     const body = await readJson(request);
     const tenantId = String(body.id || '').trim();

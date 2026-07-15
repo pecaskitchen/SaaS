@@ -702,6 +702,9 @@ function EmployeeLoginModal({ open, onClose, brandName = 'este negocio' }) {
         </div>
         <button type="button" className="primary checkout" onClick={submit} disabled={loading}>{loading ? 'Validando...' : 'Entrar'}</button>
         {status && <p className="admin-status">{status}</p>}
+        <p className="employee-login-alt">
+          ¿Tienes cuenta con email y contraseña? <a href="#login" onClick={onClose}>Inicia sesión aquí</a>.
+        </p>
       </div>
     </div>
   );

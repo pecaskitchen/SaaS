@@ -43,7 +43,7 @@ async function readTenant(db, tenantId) {
 
 export async function onRequestGet({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     await ensurePlatformTables(env);
 
@@ -80,7 +80,7 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPatch({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     await ensurePlatformTables(env);
 

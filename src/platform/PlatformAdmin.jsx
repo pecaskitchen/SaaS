@@ -3,6 +3,7 @@ import { Building2, RefreshCw, Save, Shield, WalletCards } from 'lucide-react';
 import '../styles.css';
 import BusinessConfigCenter from '../internal/BusinessConfigCenter.jsx';
 import PlatformHealthPanel from './PlatformHealthPanel.jsx';
+import { getSessionToken } from '../lib/apiClient.js';
 
 const emptyBusiness = {
   id: '',
@@ -36,12 +37,19 @@ function setPlatformToken(token) {
   }
 }
 
+// Rediseno de roles: si no hay token estatico de plataforma pero si una
+// sesion JWT unificada (login nuevo), se manda tambien como Bearer -- el
+// backend acepta cualquiera de los dos (ver requirePlatformAdmin en
+// _shared/auth.js). Coexisten, no se retira el token estatico.
 async function platformFetch(path, options = {}) {
+  const staticToken = platformToken();
+  const sessionToken = getSessionToken();
   const response = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'x-platform-admin-token': platformToken(),
+      ...(staticToken ? { 'x-platform-admin-token': staticToken } : {}),
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
       ...(options.headers || {}),
     },
   });
@@ -79,7 +87,7 @@ export default function PlatformAdmin() {
   const [draft, setDraft] = useState(emptyBusiness);
   const [password, setPassword] = useState('');
   const [omdexaConfigText, setOmdexaConfigText] = useState('');
-  const [authorized, setAuthorized] = useState(() => Boolean(platformToken()));
+  const [authorized, setAuthorized] = useState(() => Boolean(platformToken()) || Boolean(getSessionToken()));
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -92,7 +100,7 @@ export default function PlatformAdmin() {
   }, 0), [businesses]);
 
   const loadAll = async () => {
-    if (!platformToken()) {
+    if (!platformToken() && !getSessionToken()) {
       setAuthorized(false);
       setStatus('');
       return;

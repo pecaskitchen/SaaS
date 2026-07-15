@@ -618,7 +618,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [role, setRole] = useState(isAdminConfigMode ? 'admin' : (savedSession.role || ''));
   const [stockAccessScope, setStockAccessScope] = useState(savedSession.accessScope || 'legacy');
   const [stockLockedBranchId, setStockLockedBranchId] = useState(savedSession.lockedBranchId || null);
-  const [unlocked, setUnlocked] = useState(isAdminConfigMode ? hasSession : Boolean(savedSession.password));
+  const [unlocked, setUnlocked] = useState(isAdminConfigMode ? hasSession : (hasSession || Boolean(savedSession.password)));
   const [activeTab, setActiveTab] = useState(isAdminConfigMode ? 'productSetup' : 'dashboard');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -727,11 +727,12 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   useEffect(() => {
-    if (isAdminConfigMode && hasSession) {
-      loadStock();
-    }
+    // Rediseno de roles: si ya hay sesion de personal (login unificado), se
+    // carga directo sin pedir PIN -- cubre tanto el modo embebido en Menu
+    // (adminConfig) como el modulo operativo de Inventario en el shell nuevo.
+    if (hasSession && !(password && operatorName)) loadStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const postStockAction = async (payload, successMessage = '', options = {}) => {

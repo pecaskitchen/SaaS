@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, RefreshCw, Search } from 'lucide-react';
+import { getSessionToken } from '../lib/apiClient.js';
 
 const STATUS_LABEL = {
   healthy: 'Saludable',
@@ -27,12 +28,19 @@ function platformToken() {
   }
 }
 
+// Rediseno de roles: si no hay token estatico de plataforma pero si una
+// sesion JWT unificada (login nuevo), se manda tambien como Bearer -- el
+// backend acepta cualquiera de los dos (ver requirePlatformAdmin en
+// _shared/auth.js). Coexisten, no se retira el token estatico.
 async function platformFetch(path, options = {}) {
+  const staticToken = platformToken();
+  const sessionToken = getSessionToken();
   const response = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'x-platform-admin-token': platformToken(),
+      ...(staticToken ? { 'x-platform-admin-token': staticToken } : {}),
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
       ...(options.headers || {}),
     },
   });

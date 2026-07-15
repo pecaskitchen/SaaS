@@ -12,7 +12,7 @@ function safeJson(value, fallback) {
 
 export async function onRequestGet({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
 
     await ensureAuditTables(env);

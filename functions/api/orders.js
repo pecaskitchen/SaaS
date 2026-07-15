@@ -228,7 +228,8 @@ export async function onRequestPost({ request, env }) {
     let orderSource = 'online';
     if (source === 'cashier') {
       const cashierAuth = body.cashierAuth || {};
-      const jwtAccess = await requireAuth(request, env, ['admin', 'cashier', 'platform_admin']);
+      // Rediseno de roles: 'manager' tambien puede crear pedidos de caja.
+      const jwtAccess = await requireAuth(request, env, ['admin', 'manager', 'cashier', 'platform_admin']);
       const pinAccess = jwtAccess.ok ? null : resolveCashierAccess(settings, cashierAuth.password);
       if (!jwtAccess.ok && !pinAccess?.ok) {
         return jsonResponse({ ok: false, error: pinAccess?.error || 'No autorizado para crear pedidos de caja.' }, 401);

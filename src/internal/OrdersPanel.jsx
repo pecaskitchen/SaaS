@@ -140,7 +140,10 @@ export default function OrdersPanel() {
   };
 
   useEffect(() => {
-    if (password) fetchOrders(statusFilter);
+    // Si ya hay sesion de personal (login unificado nuevo) el panel entra
+    // desbloqueado desde el primer render, pero sin este chequeo del token
+    // se quedaba sin pedir la carga inicial hasta el primer click manual.
+    if (password || getSessionToken()) fetchOrders(statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -4,7 +4,7 @@ import { readOmdexaConfig, saveOmdexaConfig } from '../_shared/omdexaConfig.js';
 
 export async function onRequestGet({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     const config = await readOmdexaConfig(env);
     return jsonResponse({ ok: true, config });
@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPatch({ request, env }) {
   try {
-    const auth = requirePlatformAdmin(request, env);
+    const auth = await requirePlatformAdmin(request, env);
     if (!auth.ok) return auth.response;
     const body = await readJson(request);
     const config = await saveOmdexaConfig(env, body.config || body);

@@ -1695,7 +1695,12 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
 }
 
 
-function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu }) {
+// Exportado ademas del uso interno de #cashier para que el modulo "Caja"
+// del shell nuevo (src/internal/CashierPanel.jsx) lo pueda montar directo
+// con una sesion ya autenticada, sin duplicar ProductCard y su arbol de
+// dependencias (personalizaciones, familias de opciones, etc.), que es
+// demasiado riesgo mover en esta pasada (ver plan de rediseno de roles).
+export function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu, employeeName = '' }) {
   const savedSession = (() => {
     try { return JSON.parse(window.sessionStorage.getItem(CASHIER_SESSION_STORAGE_KEY) || '{}'); } catch { return {}; }
   })();
@@ -1706,9 +1711,11 @@ function CashierPanel({ products, categoriesList, categoryOrder, productOrder, c
     try { return window.localStorage.getItem(EMPLOYEE_LOGIN_SHIFT_STORAGE_KEY) || 'Turno'; } catch { return 'Turno'; }
   })();
   const [password, setPassword] = useState(savedSession.password || '');
-  const [cashierName, setCashierName] = useState(savedSession.cashierName || savedEmployeeName || '');
+  const [cashierName, setCashierName] = useState(savedSession.cashierName || employeeName || savedEmployeeName || '');
   const [shift, setShift] = useState(savedSession.shift || savedEmployeeShift || 'Turno');
-  const [unlocked, setUnlocked] = useState(Boolean((savedSession.password && savedSession.cashierName) || (getSessionToken() && (savedSession.cashierName || savedEmployeeName))));
+  // Con sesion de personal (login unificado nuevo) no hace falta PIN ni
+  // nombre guardado -- entra directo, cubriendo el modulo Caja del shell.
+  const [unlocked, setUnlocked] = useState(Boolean((savedSession.password && savedSession.cashierName) || getSessionToken()));
   const [activeCategory, setActiveCategory] = useState(categoriesList[0]?.id || '');
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({ name: '', phone: '', notes: '' });

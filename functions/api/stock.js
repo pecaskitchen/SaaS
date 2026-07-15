@@ -52,7 +52,10 @@ async function authFromValues(values, env, request = null) {
   if (!name) return { ok: false, error: 'Ingresa el nombre de quien opera.' };
 
   if (request) {
-    const jwtAuth = await requireAuth(request, env, ['admin', 'kitchen', 'platform_admin']);
+    // Rediseno de roles: 'kitchen' se renombra a 'inventory' -- se acepta
+    // el rol viejo tambien mientras dura la coexistencia (Fase A). 'manager'
+    // tambien ve el modulo Inventario.
+    const jwtAuth = await requireAuth(request, env, ['admin', 'manager', 'inventory', 'kitchen', 'platform_admin']);
     if (jwtAuth.ok) {
       const role = jwtAuth.session.role === 'platform_admin' ? 'admin' : jwtAuth.session.role;
       return { ok: true, role, name, shift, accessScope: role === 'admin' ? 'all' : 'legacy' };

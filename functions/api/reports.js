@@ -69,7 +69,9 @@ async function readMenuOverrides(env, tenantId) {
 // usuario admin/super/platform_admin válido PARA ESTE tenant.
 // IMPORTANTE: no reintroducir el fallback a esas contraseñas globales.
 async function auth(request, env) {
-  return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
+  // Rediseno de roles: 'super' se renombra a 'manager', se agrega 'reports'
+  // (rol nuevo, de solo lectura) -- ver plan de rediseno de roles/menus.
+  return requireAuth(request, env, ['admin', 'manager', 'reports', 'platform_admin']);
 }
 
 function branchClause(branchId, column = 'branch_id') {

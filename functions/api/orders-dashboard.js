@@ -18,7 +18,8 @@ function getPassword(request) {
 // El acceso se valida con usuario del tenant o con PIN de sucursal acotado
 // al tenant resuelto por hostname.
 async function resolveOrdersAccess(request, env, tenantId) {
-  const auth = await requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
+  // Rediseno de roles: 'manager' tambien ve el modulo Pedidos.
+  const auth = await requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
 
   if (auth.ok) {
     if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {

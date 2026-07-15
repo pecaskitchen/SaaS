@@ -11,7 +11,8 @@ import {
 } from '../_shared/menuCatalog.js';
 
 async function checkAuth(request, env) {
-  return requireAuth(request, env, ['admin', 'platform_admin']);
+  // Rediseno de roles: 'manager' tambien edita el modulo Menu.
+  return requireAuth(request, env, ['admin', 'manager', 'platform_admin']);
 }
 
 async function ensureAppSettings(env) {

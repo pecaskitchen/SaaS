@@ -1,5 +1,5 @@
-import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings, normalizeCashierOrderSources } from '../_shared/branchSettings.js';
-﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
+import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings } from '../_shared/branchSettings.js';
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from '../_shared/tenant.js';
 import { requireAuth } from '../_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -9,11 +9,27 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+async function ensureAppSettings(env) {
+  if (!env.DB) return false;
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+  await ensureTenantColumns(env, ['app_settings']);
+  return true;
+}
+
 // MIGRADO a JWT (ver auditoria-saas-multitenant.md, hallazgo #3/#6).
 // IMPORTANTE: no reintroducir env.SUPER_PASSWORD/env.ADMIN_PASSWORD como
 // fallback: eran contrasenas globales compartidas por TODOS los tenants.
 async function checkSuperAuth(request, env) {
-  return requireAuth(request, env, ['admin', 'super', 'platform_admin']);
+  // Rediseno de roles: 'super' se renombra a 'manager' -- se acepta el
+  // rol viejo tambien mientras dura la coexistencia con cuentas creadas
+  // antes del rediseno (Fase A, ver plan de rediseno de roles/menus).
+  return requireAuth(request, env, ['admin', 'manager', 'super', 'platform_admin']);
 }
 
 

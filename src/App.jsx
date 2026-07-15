@@ -1,4 +1,5 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { AuthProvider } from './auth/AuthContext.jsx';
 
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
 const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
@@ -10,6 +11,8 @@ const StockPanel = lazy(() => import('./internal/StockPanel.jsx'));
 const CrmPanel = lazy(() => import('./internal/CrmPanel.jsx'));
 const PrivacyPolicy = lazy(() => import('./PrivacyPolicy.jsx'));
 const TermsOfService = lazy(() => import('./TermsOfService.jsx'));
+const Login = lazy(() => import('./Login.jsx'));
+const BackofficeShell = lazy(() => import('./internal/BackofficeShell.jsx'));
 
 function currentRoute() {
   try {
@@ -55,17 +58,21 @@ export default function App() {
   }, []);
 
   return (
-    <Suspense fallback={<main className="app-loading" aria-label="Cargando" />}>
-      {route === '#platform' ? <PlatformAdmin />
-        : route === '#admin' ? <AdminRoute />
-        : route === '#orders' ? <OrdersPanel />
-        : route === '#crm' ? <CrmPanel />
-        : route === '#stock' ? <StockPanel />
-        : route === '#privacidad' ? <PrivacyPolicy />
-        : route === '#terminos' ? <TermsOfService />
-        : isLegacyRoute(route) ? <LegacyApp />
-        : isOmdexaLandingHost() ? <OmdexaLanding />
-        : <PublicApp />}
-    </Suspense>
+    <AuthProvider>
+      <Suspense fallback={<main className="app-loading" aria-label="Cargando" />}>
+        {route === '#login' ? <Login />
+          : route.startsWith('#panel') ? <BackofficeShell />
+          : route === '#platform' ? <PlatformAdmin />
+          : route === '#admin' ? <AdminRoute />
+          : route === '#orders' ? <OrdersPanel />
+          : route === '#crm' ? <CrmPanel />
+          : route === '#stock' ? <StockPanel />
+          : route === '#privacidad' ? <PrivacyPolicy />
+          : route === '#terminos' ? <TermsOfService />
+          : isLegacyRoute(route) ? <LegacyApp />
+          : isOmdexaLandingHost() ? <OmdexaLanding />
+          : <PublicApp />}
+      </Suspense>
+    </AuthProvider>
   );
 }

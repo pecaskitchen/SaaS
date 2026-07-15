@@ -37,7 +37,8 @@ function mapCustomer(row) {
 }
 
 async function requireCrmAccess(request, env) {
-  return requireAuth(request, env, ['admin', 'orders', 'platform_admin']);
+  // Rediseno de roles: 'manager' tambien ve el modulo Clientes.
+  return requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
 }
 
 export async function onRequestGet({ request, env }) {

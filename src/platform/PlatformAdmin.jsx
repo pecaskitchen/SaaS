@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, RefreshCw, Save, Shield, Upload, WalletCards } from 'lucide-react';
+import { Building2, RefreshCw, Save, Shield, WalletCards } from 'lucide-react';
 import '../styles.css';
 import BusinessConfigCenter from '../internal/BusinessConfigCenter.jsx';
 import PlatformHealthPanel from './PlatformHealthPanel.jsx';
@@ -16,93 +16,9 @@ const emptyBusiness = {
   monthlyPriceCents: 99000,
   domain: '',
   subdomain: '',
-  whatsappNumber: '',
-  themePreset: 'neutral',
-  displayName: '',
-  tagline: '',
-  logoUrl: '',
-  heroImageUrl: '',
-  heroEyebrow: '',
-  heroTitle: '',
-  heroText: '',
-  primaryActionLabel: '',
-  secondaryActionLabel: '',
-  orderMessageIntro: '',
-  menuEyebrow: '',
-  menuTitle: '',
-  emptyCatalogTitle: '',
-  emptyCatalogText: '',
-  primaryColor: '',
-  accentColor: '',
   notes: '',
 };
 
-const THEME_PRESETS = [
-  { value: 'neutral', label: 'Neutro / limpio' },
-  { value: 'gastro', label: 'Gastronomia' },
-  { value: 'floral', label: 'Floral' },
-  { value: 'boutique', label: 'Boutique / regalos' },
-  { value: 'premium', label: 'Premium / profesional' },
-];
-
-const CUSTOM_BRAND_ALIASES = {
-  nombre: 'displayName',
-  nombre_visible: 'displayName',
-  displayName: 'displayName',
-  subtitulo: 'tagline',
-  tagline: 'tagline',
-  logo: 'logoUrl',
-  logoUrl: 'logoUrl',
-  imagen: 'heroImageUrl',
-  imagen_portada: 'heroImageUrl',
-  heroImageUrl: 'heroImageUrl',
-  estilo: 'themePreset',
-  themePreset: 'themePreset',
-  eyebrow: 'heroEyebrow',
-  heroEyebrow: 'heroEyebrow',
-  titulo: 'heroTitle',
-  titulo_portada: 'heroTitle',
-  heroTitle: 'heroTitle',
-  texto: 'heroText',
-  texto_portada: 'heroText',
-  heroText: 'heroText',
-  boton_principal: 'primaryActionLabel',
-  primaryActionLabel: 'primaryActionLabel',
-  boton_carrito: 'secondaryActionLabel',
-  secondaryActionLabel: 'secondaryActionLabel',
-  mensaje_whatsapp: 'orderMessageIntro',
-  orderMessageIntro: 'orderMessageIntro',
-  etiqueta_catalogo: 'menuEyebrow',
-  menuEyebrow: 'menuEyebrow',
-  pestana: 'menuTitle',
-  pestaña: 'menuTitle',
-  titulo_catalogo: 'menuTitle',
-  menuTitle: 'menuTitle',
-  titulo_sin_productos: 'emptyCatalogTitle',
-  emptyCatalogTitle: 'emptyCatalogTitle',
-  texto_sin_productos: 'emptyCatalogText',
-  emptyCatalogText: 'emptyCatalogText',
-  color_principal: 'primaryColor',
-  primaryColor: 'primaryColor',
-  color_acento: 'accentColor',
-  accentColor: 'accentColor',
-};
-
-function parseCustomBrandImport(text) {
-  const raw = String(text || '').trim();
-  if (!raw) throw new Error('Pega un JSON de customizacion.');
-  const parsed = JSON.parse(raw);
-  const source = parsed.brand && typeof parsed.brand === 'object' ? parsed.brand : parsed;
-  const mapped = {};
-  for (const [key, value] of Object.entries(source || {})) {
-    const target = CUSTOM_BRAND_ALIASES[key] || CUSTOM_BRAND_ALIASES[String(key).trim()] || key;
-    if (Object.prototype.hasOwnProperty.call(emptyBusiness, target) && value !== undefined && value !== null) {
-      mapped[target] = String(value);
-    }
-  }
-  if (Object.keys(mapped).length === 0) throw new Error('No encontre campos custom validos en el JSON.');
-  return mapped;
-}
 function platformToken() {
   try {
     return window.sessionStorage.getItem('platform_admin_token') || '';
@@ -162,7 +78,6 @@ export default function PlatformAdmin() {
   const [dashboard, setDashboard] = useState(null);
   const [draft, setDraft] = useState(emptyBusiness);
   const [password, setPassword] = useState('');
-  const [customImportText, setCustomImportText] = useState('');
   const [omdexaConfigText, setOmdexaConfigText] = useState('');
   const [authorized, setAuthorized] = useState(() => Boolean(platformToken()));
   const [status, setStatus] = useState('');
@@ -267,24 +182,6 @@ export default function PlatformAdmin() {
       monthlyPriceCents: Number(business.monthlyPriceCents || 0),
       domain: business.domain || '',
       subdomain: business.subdomain || '',
-      whatsappNumber: business.settings?.whatsappNumber || '',
-      themePreset: business.brand?.themePreset || 'neutral',
-      displayName: business.brand?.displayName || business.name || '',
-      tagline: business.brand?.tagline || '',
-      logoUrl: business.brand?.logoUrl || '',
-      heroImageUrl: business.brand?.heroImageUrl || '',
-      heroEyebrow: business.brand?.heroEyebrow || '',
-      heroTitle: business.brand?.heroTitle || business.name || '',
-      heroText: business.brand?.heroText || '',
-      primaryActionLabel: business.brand?.primaryActionLabel || '',
-      secondaryActionLabel: business.brand?.secondaryActionLabel || '',
-      orderMessageIntro: business.brand?.orderMessageIntro || '',
-      menuEyebrow: business.brand?.menuEyebrow || '',
-      menuTitle: business.brand?.menuTitle || '',
-      emptyCatalogTitle: business.brand?.emptyCatalogTitle || '',
-      emptyCatalogText: business.brand?.emptyCatalogText || '',
-      primaryColor: business.brand?.primaryColor || '',
-      accentColor: business.brand?.accentColor || '',
       notes: business.notes || '',
     });
     setStatus(`Editando ${business.name}`);
@@ -292,18 +189,7 @@ export default function PlatformAdmin() {
 
   const clearDraft = () => {
     setDraft(emptyBusiness);
-    setCustomImportText('');
     setStatus('');
-  };
-
-  const applyCustomImport = () => {
-    try {
-      const mapped = parseCustomBrandImport(customImportText);
-      setDraft((current) => ({ ...current, ...mapped }));
-      setStatus('Customizacion importada. Revisa y guarda cambios.');
-    } catch (error) {
-      setStatus(error.message || 'No se pudo importar la customizacion.');
-    }
   };
 
   const saveBusiness = async () => {
@@ -314,9 +200,23 @@ export default function PlatformAdmin() {
     setLoading(true);
     setStatus(draft.id ? 'Guardando negocio...' : 'Creando negocio...');
     try {
+      const businessPayload = {
+        id: draft.id,
+        name: draft.name,
+        slug: draft.slug,
+        contactName: draft.contactName,
+        contactEmail: draft.contactEmail,
+        contactPhone: draft.contactPhone,
+        plan: draft.plan,
+        status: draft.status,
+        monthlyPriceCents: draft.monthlyPriceCents,
+        domain: draft.domain,
+        subdomain: draft.subdomain,
+        notes: draft.notes,
+      };
       await platformFetch('/api/platform/businesses', {
         method: draft.id ? 'PATCH' : 'POST',
-        body: JSON.stringify(draft),
+        body: JSON.stringify(businessPayload),
       });
       setDraft(emptyBusiness);
       await loadAll();
@@ -465,31 +365,11 @@ export default function PlatformAdmin() {
               <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(e) => updateDraft('contactName', e.target.value)} placeholder="Nombre del dueño" /></label>
               <label className="field"><span>Email</span><input value={draft.contactEmail} onChange={(e) => updateDraft('contactEmail', e.target.value)} placeholder="correo@negocio.com" /></label>
               <label className="field"><span>Teléfono</span><input value={draft.contactPhone} onChange={(e) => updateDraft('contactPhone', e.target.value)} placeholder="8112345678" /></label>
-              <label className="field"><span>WhatsApp pedidos</span><input value={draft.whatsappNumber} onChange={(e) => updateDraft('whatsappNumber', e.target.value)} placeholder="5281..." /></label>
               <label className="field"><span>Plan</span><select value={draft.plan} onChange={(e) => updateDraft('plan', e.target.value)}><option value="starter">Starter</option><option value="growth">Growth</option><option value="pro">Pro</option></select></label>
               <label className="field"><span>Estado</span><select value={draft.status} onChange={(e) => updateDraft('status', e.target.value)}><option value="trial">Trial</option><option value="active">Activo</option><option value="past_due">Pago pendiente</option><option value="paused">Pausado</option></select></label>
               <label className="field"><span>Precio mensual</span><input type="number" value={draft.monthlyPriceCents / 100} onChange={(e) => updateDraft('monthlyPriceCents', Number(e.target.value || 0) * 100)} /></label>
               <label className="field"><span>Dominio</span><input value={draft.domain} onChange={(e) => updateDraft('domain', e.target.value)} placeholder="negocio.mx" /></label>
               <label className="field"><span>Subdominio</span><input value={draft.subdomain} onChange={(e) => updateDraft('subdomain', e.target.value)} placeholder="filians" /></label>
-              <label className="field"><span>Estilo visual</span><select value={draft.themePreset} onChange={(e) => updateDraft('themePreset', e.target.value)}>{THEME_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></label>
-              <label className="field"><span>Nombre visible</span><input value={draft.displayName} onChange={(e) => updateDraft('displayName', e.target.value)} placeholder="Floreria Lilians" /></label>
-              <label className="field"><span>Tagline</span><input value={draft.tagline} onChange={(e) => updateDraft('tagline', e.target.value)} placeholder="Flores y detalles" /></label>
-              <label className="field full"><span>Logo URL</span><input value={draft.logoUrl} onChange={(e) => updateDraft('logoUrl', e.target.value)} placeholder="https://.../logo.png" /></label>
-              <label className="field full"><span>Imagen portada URL</span><input value={draft.heroImageUrl} onChange={(e) => updateDraft('heroImageUrl', e.target.value)} placeholder="https://.../portada.jpg" /></label>
-              <label className="field"><span>Color principal</span><input value={draft.primaryColor} onChange={(e) => updateDraft('primaryColor', e.target.value)} placeholder="#111827" /></label>
-              <label className="field"><span>Color acento</span><input value={draft.accentColor} onChange={(e) => updateDraft('accentColor', e.target.value)} placeholder="#f15a24" /></label>
-              <label className="field"><span>Eyebrow portada</span><input value={draft.heroEyebrow} onChange={(e) => updateDraft('heroEyebrow', e.target.value)} placeholder="Pedidos en linea" /></label>
-              <label className="field"><span>Titulo portada</span><input value={draft.heroTitle} onChange={(e) => updateDraft('heroTitle', e.target.value)} placeholder="Arreglos florales para hoy" /></label>
-              <label className="field full"><span>Texto portada</span><textarea value={draft.heroText} onChange={(e) => updateDraft('heroText', e.target.value)} placeholder="Elige tu producto y mandanos tu pedido por WhatsApp." /></label>
-              <label className="field"><span>Boton principal</span><input value={draft.primaryActionLabel} onChange={(e) => updateDraft('primaryActionLabel', e.target.value)} placeholder="Ver catalogo" /></label>
-              <label className="field"><span>Boton carrito</span><input value={draft.secondaryActionLabel} onChange={(e) => updateDraft('secondaryActionLabel', e.target.value)} placeholder="Ver carrito" /></label>
-              <label className="field full"><span>Mensaje WhatsApp</span><input value={draft.orderMessageIntro} onChange={(e) => updateDraft('orderMessageIntro', e.target.value)} placeholder="Hola, quiero hacer un pedido:" /></label>
-              <label className="field"><span>Etiqueta catalogo</span><input value={draft.menuEyebrow} onChange={(e) => updateDraft('menuEyebrow', e.target.value)} placeholder="Catalogo" /></label>
-              <label className="field"><span>Titulo catalogo</span><input value={draft.menuTitle} onChange={(e) => updateDraft('menuTitle', e.target.value)} placeholder="Elige una categoria" /></label>
-              <label className="field"><span>Titulo sin productos</span><input value={draft.emptyCatalogTitle} onChange={(e) => updateDraft('emptyCatalogTitle', e.target.value)} placeholder="Catalogo en preparacion" /></label>
-              <label className="field"><span>Texto sin productos</span><input value={draft.emptyCatalogText} onChange={(e) => updateDraft('emptyCatalogText', e.target.value)} placeholder="Pronto publicaremos productos." /></label>
-              <label className="field full"><span>Import custom JSON</span><textarea rows="5" value={customImportText} onChange={(e) => setCustomImportText(e.target.value)} placeholder={'{"titulo":"Arreglos para hoy","texto":"Pedidos por WhatsApp","pestana":"Catalogo floral"}'} /></label>
-              <div className="field full"><button type="button" className="ghost small" onClick={applyCustomImport}><Upload size={16} /> Importar custom</button></div>
               <label className="field full"><span>Notas internas</span><textarea value={draft.notes} onChange={(e) => updateDraft('notes', e.target.value)} placeholder="Pendientes, acuerdos, soporte..." /></label>
             </div>
             <div className="inline-actions">

@@ -4232,6 +4232,12 @@ textarea { resize: vertical; min-height: 48px; }
   margin: 2px 0 0;
   color: #111827;
 }
+.muted-line {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
 .button-row {
   flex-wrap: wrap;
   justify-content: flex-end;

@@ -1,7 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Save } from 'lucide-react';
+import { RefreshCw, Save, Upload } from 'lucide-react';
 
 const THEMES = ['neutral', 'gastro', 'floral', 'boutique', 'premium'];
+
+const CUSTOM_BRAND_ALIASES = {
+  nombre: 'displayName',
+  nombre_visible: 'displayName',
+  displayName: 'displayName',
+  subtitulo: 'tagline',
+  tagline: 'tagline',
+  logo: 'logoUrl',
+  logoUrl: 'logoUrl',
+  imagen: 'heroImageUrl',
+  imagen_portada: 'heroImageUrl',
+  heroImageUrl: 'heroImageUrl',
+  estilo: 'themePreset',
+  themePreset: 'themePreset',
+  eyebrow: 'heroEyebrow',
+  heroEyebrow: 'heroEyebrow',
+  titulo: 'heroTitle',
+  titulo_portada: 'heroTitle',
+  heroTitle: 'heroTitle',
+  texto: 'heroText',
+  texto_portada: 'heroText',
+  heroText: 'heroText',
+  boton_principal: 'primaryActionLabel',
+  primaryActionLabel: 'primaryActionLabel',
+  boton_carrito: 'secondaryActionLabel',
+  secondaryActionLabel: 'secondaryActionLabel',
+  mensaje_whatsapp: 'orderMessageIntro',
+  orderMessageIntro: 'orderMessageIntro',
+  etiqueta_catalogo: 'menuEyebrow',
+  menuEyebrow: 'menuEyebrow',
+  pestana: 'menuTitle',
+  pestaña: 'menuTitle',
+  titulo_catalogo: 'menuTitle',
+  menuTitle: 'menuTitle',
+  titulo_sin_productos: 'emptyCatalogTitle',
+  emptyCatalogTitle: 'emptyCatalogTitle',
+  texto_sin_productos: 'emptyCatalogText',
+  emptyCatalogText: 'emptyCatalogText',
+  color_principal: 'primaryColor',
+  primaryColor: 'primaryColor',
+  color_acento: 'accentColor',
+  accentColor: 'accentColor',
+};
 
 function csvToList(value) {
   return String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
@@ -9,6 +52,22 @@ function csvToList(value) {
 
 function listToCsv(value) {
   return Array.isArray(value) ? value.join(', ') : '';
+}
+
+function parseCustomBrandImport(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('Pega un JSON de customizacion.');
+  const parsed = JSON.parse(raw);
+  const source = parsed.brand && typeof parsed.brand === 'object' ? parsed.brand : parsed;
+  const mapped = {};
+  for (const [key, value] of Object.entries(source || {})) {
+    const target = CUSTOM_BRAND_ALIASES[key] || CUSTOM_BRAND_ALIASES[String(key).trim()] || key;
+    if (Object.prototype.hasOwnProperty.call(emptyDraft.brand, target) && value !== undefined && value !== null) {
+      mapped[target] = String(value);
+    }
+  }
+  if (Object.keys(mapped).length === 0) throw new Error('No encontre campos custom validos en el JSON.');
+  return mapped;
 }
 
 function platformToken() {
@@ -80,6 +139,7 @@ export default function BusinessConfigCenter({ tenantId }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
+  const [customImportText, setCustomImportText] = useState('');
 
   function patch(path, value) {
     setDraft((current) => {
@@ -113,8 +173,8 @@ export default function BusinessConfigCenter({ tenantId }) {
       await platformFetch('/api/platform/config-center', {
         method: 'PATCH',
         body: JSON.stringify({
-          ...draft,
           tenantId: draft.id || tenantId,
+          brand: draft.brand,
           settings: {
             ...draft.settings,
             paymentMethods: csvToList(draft.settings.paymentMethodsText || listToCsv(draft.settings.paymentMethods)),
@@ -132,14 +192,27 @@ export default function BusinessConfigCenter({ tenantId }) {
     }
   }
 
+  function applyCustomImport() {
+    try {
+      const mapped = parseCustomBrandImport(customImportText);
+      setDraft((current) => ({ ...current, brand: { ...current.brand, ...mapped } }));
+      setSaved('Customizacion importada. Revisa y guarda.');
+      setError('');
+    } catch (err) {
+      setError(err.message || 'No se pudo importar customizacion.');
+      setSaved('');
+    }
+  }
+
   useEffect(() => { load(); }, [tenantId]);
 
   return (
     <section className="admin-section">
       <div className="section-title-row">
         <div>
-          <p className="eyebrow">Cliente</p>
+          <p className="eyebrow">Marca y operacion</p>
           <h2>Centro de configuracion</h2>
+          <p className="muted-line">{draft.name || draft.slug || tenantId}</p>
         </div>
         <div className="button-row">
           <button type="button" className="icon-button" onClick={load} disabled={loading} title="Actualizar"><RefreshCw size={18} /></button>
@@ -150,15 +223,6 @@ export default function BusinessConfigCenter({ tenantId }) {
       {error ? <p className="form-error">{error}</p> : null}
       {saved ? <p className="form-success">{saved}</p> : null}
 
-      <div className="form-grid two">
-        <label className="field"><span>Nombre comercial</span><input value={draft.name} onChange={(event) => patch(['name'], event.target.value)} /></label>
-        <label className="field"><span>Razon social</span><input value={draft.legalName} onChange={(event) => patch(['legalName'], event.target.value)} /></label>
-        <label className="field"><span>Contacto</span><input value={draft.contactName} onChange={(event) => patch(['contactName'], event.target.value)} /></label>
-        <label className="field"><span>Email</span><input value={draft.contactEmail} onChange={(event) => patch(['contactEmail'], event.target.value)} /></label>
-        <label className="field"><span>Telefono</span><input value={draft.contactPhone} onChange={(event) => patch(['contactPhone'], event.target.value)} /></label>
-        <label className="field"><span>Dominio</span><input value={draft.domain} onChange={(event) => patch(['domain'], event.target.value)} /></label>
-      </div>
-
       <h3>Marca publica</h3>
       <div className="form-grid two">
         <label className="field"><span>Estilo visual</span><select value={draft.brand.themePreset} onChange={(event) => patch(['brand', 'themePreset'], event.target.value)}>{THEMES.map((theme) => <option key={theme}>{theme}</option>)}</select></label>
@@ -166,8 +230,22 @@ export default function BusinessConfigCenter({ tenantId }) {
         <label className="field"><span>Tagline</span><input value={draft.brand.tagline} onChange={(event) => patch(['brand', 'tagline'], event.target.value)} /></label>
         <label className="field"><span>Logo URL</span><input value={draft.brand.logoUrl} onChange={(event) => patch(['brand', 'logoUrl'], event.target.value)} /></label>
         <label className="field"><span>Imagen hero URL</span><input value={draft.brand.heroImageUrl} onChange={(event) => patch(['brand', 'heroImageUrl'], event.target.value)} /></label>
+        <label className="field"><span>Eyebrow hero</span><input value={draft.brand.heroEyebrow} onChange={(event) => patch(['brand', 'heroEyebrow'], event.target.value)} /></label>
         <label className="field"><span>Titulo hero</span><input value={draft.brand.heroTitle} onChange={(event) => patch(['brand', 'heroTitle'], event.target.value)} /></label>
         <label className="field wide"><span>Texto hero</span><textarea value={draft.brand.heroText} onChange={(event) => patch(['brand', 'heroText'], event.target.value)} /></label>
+        <label className="field"><span>Boton principal</span><input value={draft.brand.primaryActionLabel} onChange={(event) => patch(['brand', 'primaryActionLabel'], event.target.value)} /></label>
+        <label className="field"><span>Boton carrito</span><input value={draft.brand.secondaryActionLabel} onChange={(event) => patch(['brand', 'secondaryActionLabel'], event.target.value)} /></label>
+        <label className="field wide"><span>Mensaje WhatsApp</span><input value={draft.brand.orderMessageIntro} onChange={(event) => patch(['brand', 'orderMessageIntro'], event.target.value)} /></label>
+        <label className="field"><span>Etiqueta catalogo</span><input value={draft.brand.menuEyebrow} onChange={(event) => patch(['brand', 'menuEyebrow'], event.target.value)} /></label>
+        <label className="field"><span>Titulo catalogo</span><input value={draft.brand.menuTitle} onChange={(event) => patch(['brand', 'menuTitle'], event.target.value)} /></label>
+        <label className="field"><span>Titulo sin productos</span><input value={draft.brand.emptyCatalogTitle} onChange={(event) => patch(['brand', 'emptyCatalogTitle'], event.target.value)} /></label>
+        <label className="field"><span>Texto sin productos</span><input value={draft.brand.emptyCatalogText} onChange={(event) => patch(['brand', 'emptyCatalogText'], event.target.value)} /></label>
+        <label className="field"><span>Color principal</span><input value={draft.brand.primaryColor} onChange={(event) => patch(['brand', 'primaryColor'], event.target.value)} /></label>
+        <label className="field"><span>Color acento</span><input value={draft.brand.accentColor} onChange={(event) => patch(['brand', 'accentColor'], event.target.value)} /></label>
+        <label className="field wide"><span>Import custom JSON</span><textarea rows="5" value={customImportText} onChange={(event) => setCustomImportText(event.target.value)} placeholder={'{"titulo":"Arreglos para hoy","texto":"Pedidos por WhatsApp","pestana":"Catalogo floral"}'} /></label>
+        <div className="field wide">
+          <button type="button" className="ghost small" onClick={applyCustomImport}><Upload size={16} /> Importar custom</button>
+        </div>
       </div>
 
       <h3>Operacion</h3>

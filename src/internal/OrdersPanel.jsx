@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { ShoppingBag } from 'lucide-react';
+import { Archive, Columns3, List, ShoppingBag, Trash2 } from 'lucide-react';
 import '../styles.css';
 import { formatOrderDate } from '../lib/dates.js';
 import {
@@ -55,6 +55,8 @@ const ORDER_STATUS_LABELS = {
   cancelled: 'Cancelados',
 };
 
+const KANBAN_COLUMNS = ['pending', 'confirmed', 'preparing'];
+
 function minutesSince(value) {
   if (!value) return 0;
   const normalized = value.includes('T') ? value : value.replace(' ', 'T');
@@ -94,6 +96,7 @@ export default function OrdersPanel() {
   const [branchFilter, setBranchFilter] = useState('all');
   const [ordersAccessScope, setOrdersAccessScope] = useState('legacy');
   const [ordersLockedBranchId, setOrdersLockedBranchId] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
 
@@ -183,6 +186,38 @@ export default function OrdersPanel() {
     }
   };
 
+  const archiveOrder = async (orderId, action = 'archive') => {
+    const label = action === 'delete' ? 'eliminando' : 'archivando';
+    setStatus(`${label.charAt(0).toUpperCase()}${label.slice(1)} pedido...`);
+
+    try {
+      const response = await fetch('/api/orders-dashboard', {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+          ...(password ? { 'x-orders-password': password } : {}),
+        },
+        body: JSON.stringify({
+          orderId,
+          action,
+          note: action === 'delete'
+            ? 'Pedido eliminado desde panel. No cuenta en ventas ni CRM.'
+            : 'Pedido archivado desde panel. No cuenta en ventas ni CRM.',
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        setStatus([result.error || 'No se pudo actualizar el pedido.', result.detail].filter(Boolean).join(' '));
+        return;
+      }
+      await fetchOrders(statusFilter);
+    } catch (error) {
+      setStatus(`No se pudo actualizar el pedido: ${error.message}`);
+    }
+  };
+
   const logout = () => {
     try {
       window.sessionStorage.removeItem(ORDERS_PASSWORD_STORAGE_KEY);
@@ -200,6 +235,91 @@ export default function OrdersPanel() {
     acc[order.status] = (acc[order.status] || 0) + 1;
     return acc;
   }, {});
+
+  const renderOrderCard = (order) => {
+    const createdMinutes = minutesSince(order.created_at_utc);
+    const statusMeta = ORDER_STATUS_META[order.status] || { label: order.status, next: [] };
+    return (
+      <article className={`order-card status-${order.status}`} key={order.id}>
+        <div className="order-card-top">
+          <div>
+            <strong>{order.order_number}</strong>
+            <span>{formatOrderDate(order.created_at_monterrey)}</span>
+          </div>
+          <div className="order-status">
+            {statusMeta.label}
+          </div>
+        </div>
+
+        <div className="order-metrics">
+          <span>Tiempo total: <b>{formatElapsed(createdMinutes)}</b></span>
+          <span>Total: <b>{currency(order.total)}</b></span>
+          {order.stock_deducted ? <span>Stock: <b>descontado</b></span> : null}
+          <span>Origen: <b>{order.order_source === 'online' ? 'Online' : order.order_source || 'Caja'}</b></span>
+        </div>
+
+        <div className="order-customer">
+          {order.branch_name ? <p><b>Sucursal:</b> {order.branch_name}</p> : null}
+          {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` - ${order.cashier_shift}` : ''}</p> : null}
+          {order.order_source === 'cashier' ? <p><b>Pago:</b> {order.payment_method || 'No capturado'} - {order.payment_status === 'pending' ? 'Pendiente' : 'Pagado'}</p> : null}
+          <p><b>Cliente:</b> {order.customer_name}</p>
+          <p><b>Direccion:</b> {order.customer_address}</p>
+          {order.customer_notes ? <p><b>Nota:</b> {order.customer_notes}</p> : null}
+        </div>
+
+        <div className="order-items">
+          {(order.items || []).map((item) => {
+            const options = parseOptions(item.options_json);
+            return (
+              <div className="order-item" key={item.id}>
+                <div>
+                  <b>{item.quantity} x {item.product_name}</b>
+                  <span>{item.category} - {currency(item.line_total)}</span>
+                </div>
+                {item.item_notes ? <small>{item.item_notes}</small> : null}
+                {options?.details?.length ? (
+                  <ul>
+                    {options.details.map((detail) => <li key={detail}>{detail}</li>)}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="order-events">
+          {(order.events || []).slice(-4).map((event) => (
+            <span key={event.id}>
+              {ORDER_STATUS_META[event.event_type]?.label || event.event_type} - {formatOrderDate(event.created_at_monterrey)}
+            </span>
+          ))}
+        </div>
+
+        <div className="order-actions">
+          {statusMeta.next.length === 0 ? (
+            <span className="order-final">Sin acciones pendientes</span>
+          ) : (
+            statusMeta.next.map((nextStatus) => (
+              <button
+                type="button"
+                key={nextStatus}
+                className={nextStatus === 'cancelled' ? 'ghost danger-text' : 'primary small'}
+                onClick={() => changeStatus(order.id, nextStatus)}
+              >
+                {ORDER_STATUS_META[nextStatus]?.label || nextStatus}
+              </button>
+            ))
+          )}
+          <button type="button" className="ghost small" onClick={() => archiveOrder(order.id, 'archive')} title="Archivar y excluir de ventas/CRM">
+            <Archive size={15} /> Archivar
+          </button>
+          <button type="button" className="ghost small danger-text" onClick={() => archiveOrder(order.id, 'delete')} title="Eliminar de la vista y excluir de ventas/CRM">
+            <Trash2 size={15} /> Eliminar
+          </button>
+        </div>
+      </article>
+    );
+  };
 
   if (!unlocked) {
     return (
@@ -281,95 +401,46 @@ export default function OrdersPanel() {
           ))}
         </div>
 
+        <div className="orders-view-toggle">
+          <button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>
+            <List size={16} /> Lista
+          </button>
+          <button type="button" className={viewMode === 'kanban' ? 'active' : ''} onClick={() => setViewMode('kanban')}>
+            <Columns3 size={16} /> Kanban
+          </button>
+        </div>
+
         {status && <p className="admin-status">{status}</p>}
 
-        <div className="orders-grid">
+        {viewMode === 'kanban' ? (
+          <div className="orders-kanban">
+            {KANBAN_COLUMNS.map((columnStatus) => {
+              const columnOrders = orders.filter((order) => order.status === columnStatus);
+              return (
+                <section className="orders-kanban-column" key={columnStatus}>
+                  <header>
+                    <strong>{ORDER_STATUS_LABELS[columnStatus]}</strong>
+                    <span>{columnOrders.length}</span>
+                  </header>
+                  <div className="orders-kanban-list">
+                    {columnOrders.length ? columnOrders.map(renderOrderCard) : <p className="empty-cart">Sin pedidos.</p>}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="orders-grid">
           {orders.length === 0 ? (
             <div className="empty-cart">
               <ShoppingBag size={32} />
               <p>No hay pedidos en esta vista.</p>
             </div>
           ) : (
-            orders.map((order) => {
-              const createdMinutes = minutesSince(order.created_at_utc);
-              const statusMeta = ORDER_STATUS_META[order.status] || { label: order.status, next: [] };
-              return (
-                <article className={`order-card status-${order.status}`} key={order.id}>
-                  <div className="order-card-top">
-                    <div>
-                      <strong>{order.order_number}</strong>
-                      <span>{formatOrderDate(order.created_at_monterrey)}</span>
-                    </div>
-                    <div className="order-status">
-                      {statusMeta.label}
-                    </div>
-                  </div>
-
-                  <div className="order-metrics">
-                    <span>Tiempo total: <b>{formatElapsed(createdMinutes)}</b></span>
-                    <span>Total: <b>{currency(order.total)}</b></span>
-                    {order.stock_deducted ? <span>Stock: <b>descontado</b></span> : null}
-                    <span>Origen: <b>{order.order_source === 'online' ? 'Online' : order.order_source || 'Caja'}</b></span>
-                  </div>
-
-                  <div className="order-customer">
-                    {order.branch_name ? <p><b>Sucursal:</b> {order.branch_name}</p> : null}
-                    {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` · ${order.cashier_shift}` : ''}</p> : null}
-                    {order.order_source === 'cashier' ? <p><b>Pago:</b> {order.payment_method || 'No capturado'} · {order.payment_status === 'pending' ? 'Pendiente' : 'Pagado'}</p> : null}
-                    <p><b>Cliente:</b> {order.customer_name}</p>
-                    <p><b>Dirección:</b> {order.customer_address}</p>
-                    {order.customer_notes ? <p><b>Nota:</b> {order.customer_notes}</p> : null}
-                  </div>
-
-                  <div className="order-items">
-                    {(order.items || []).map((item) => {
-                      const options = parseOptions(item.options_json);
-                      return (
-                        <div className="order-item" key={item.id}>
-                          <div>
-                            <b>{item.quantity} x {item.product_name}</b>
-                            <span>{item.category} · {currency(item.line_total)}</span>
-                          </div>
-                          {item.item_notes ? <small>{item.item_notes}</small> : null}
-                          {options?.details?.length ? (
-                            <ul>
-                              {options.details.map((detail) => <li key={detail}>{detail}</li>)}
-                            </ul>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="order-events">
-                    {(order.events || []).slice(-4).map((event) => (
-                      <span key={event.id}>
-                        {ORDER_STATUS_META[event.event_type]?.label || event.event_type} · {formatOrderDate(event.created_at_monterrey)}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="order-actions">
-                    {statusMeta.next.length === 0 ? (
-                      <span className="order-final">Sin acciones pendientes</span>
-                    ) : (
-                      statusMeta.next.map((nextStatus) => (
-                        <button
-                          type="button"
-                          key={nextStatus}
-                          className={nextStatus === 'cancelled' ? 'ghost danger-text' : 'primary small'}
-                          onClick={() => changeStatus(order.id, nextStatus)}
-                        >
-                          {ORDER_STATUS_META[nextStatus]?.label || nextStatus}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </article>
-              );
-            })
+            orders.map(renderOrderCard)
           )}
-        </div>
+          </div>
+        )}
       </section>
     </main>
   );

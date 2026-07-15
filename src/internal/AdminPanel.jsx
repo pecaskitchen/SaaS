@@ -5,6 +5,7 @@ import { categoryMeta, normalizePromotion, slugifyCatalogId, sortByOrder } from 
 import {
   DEFAULT_BRANCH_SETTINGS,
   DEFAULT_BUSINESS_HOURS,
+  WEEKDAY_LABELS,
   normalizeBranchId,
   normalizeBranchSettings,
   normalizeBusinessHours,
@@ -19,22 +20,6 @@ const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
 const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
-
-function BackofficeNav({ current = 'admin', compact = false, showAdmin = true }) {
-  const items = [
-    ...(showAdmin ? [{ id: 'admin', label: 'Admin', href: '#admin' }] : []),
-    { id: 'orders', label: 'Pedidos', href: '#orders' },
-    { id: 'stock', label: 'Stock', href: '#stock' },
-    { id: 'cashier', label: 'Caja', href: '#cashier' },
-  ];
-  return (
-    <nav className={`backoffice-nav ${compact ? 'compact' : ''}`}>
-      {items.map((item) => (
-        <a key={item.id} href={item.href} className={current === item.id ? 'active' : ''}>{item.label}</a>
-      ))}
-    </nav>
-  );
-}
 
 function AdminSectionIntro({ title, description, children }) {
   return (
@@ -97,44 +82,59 @@ function parseMenuCsv(text) {
   return { categories: [...categoriesById.values()], products };
 }
 
-export default function AdminPanel({ products, categoriesList = categories, categoryOrder, productOrder, categoryHidden, promotion, businessHours, branchSettings, reloadMenu, loadError = '' }) {
+export default function AdminPanel({
+  products = [],
+  categoriesList = categories,
+  categoryOrder = [],
+  productOrder = [],
+  categoryHidden = {},
+  promotion = null,
+  businessHours = DEFAULT_BUSINESS_HOURS,
+  branchSettings = DEFAULT_BRANCH_SETTINGS,
+  reloadMenu,
+  loadError = '',
+}) {
+  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
+  const safeCategoriesList = useMemo(() => (Array.isArray(categoriesList) ? categoriesList : []), [categoriesList]);
+  const safeCategoryOrder = useMemo(() => (Array.isArray(categoryOrder) ? categoryOrder : []), [categoryOrder]);
+  const safeProductOrder = useMemo(() => (Array.isArray(productOrder) ? productOrder : []), [productOrder]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [unlocked, setUnlocked] = useState(false);
-  const [drafts, setDrafts] = useState(() => products.map((product) => ({ ...product })));
-  const [categoryItems, setCategoryItems] = useState(() => categoriesList.map((category) => ({ ...category })));
-  const [categoryDraft, setCategoryDraft] = useState(() => categoryOrder.length ? categoryOrder : categoriesList.map((category) => category.id));
-  const [productOrderDraft, setProductOrderDraft] = useState(() => productOrder.length ? productOrder : products.map((product) => product.id));
-  const [promotionDraft, setPromotionDraft] = useState(() => normalizePromotion(promotion, products));
+  const [drafts, setDrafts] = useState(() => safeProducts.map((product) => ({ ...product })));
+  const [categoryItems, setCategoryItems] = useState(() => safeCategoriesList.map((category) => ({ ...category })));
+  const [categoryDraft, setCategoryDraft] = useState(() => safeCategoryOrder.length ? safeCategoryOrder : safeCategoriesList.map((category) => category.id));
+  const [productOrderDraft, setProductOrderDraft] = useState(() => safeProductOrder.length ? safeProductOrder : safeProducts.map((product) => product.id));
+  const [promotionDraft, setPromotionDraft] = useState(() => normalizePromotion(promotion, safeProducts));
   const [categoryHiddenDraft, setCategoryHiddenDraft] = useState(() => ({ ...(categoryHidden || {}) }));
   const [businessHoursDraft, setBusinessHoursDraft] = useState(() => normalizeBusinessHours(businessHours));
   const [branchSettingsDraft, setBranchSettingsDraft] = useState(() => normalizeBranchSettings(branchSettings));
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
-  const [newProductDraft, setNewProductDraft] = useState({ name: '', category: categoriesList[0]?.id || '', price: 0 });
+  const [newProductDraft, setNewProductDraft] = useState({ name: '', category: safeCategoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
   const [openAdminSections, setOpenAdminSections] = useState({ executive: true, branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true });
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
   useEffect(() => {
-    setDrafts(products.map((product) => ({ ...product })));
-  }, [products]);
+    setDrafts(safeProducts.map((product) => ({ ...product })));
+  }, [safeProducts]);
 
   useEffect(() => {
-    setCategoryItems(categoriesList.map((category) => ({ ...category })));
-  }, [categoriesList]);
+    setCategoryItems(safeCategoriesList.map((category) => ({ ...category })));
+  }, [safeCategoriesList]);
 
   useEffect(() => {
-    setCategoryDraft(categoryOrder.length ? categoryOrder : categoriesList.map((category) => category.id));
-  }, [categoryOrder, categoriesList]);
+    setCategoryDraft(safeCategoryOrder.length ? safeCategoryOrder : safeCategoriesList.map((category) => category.id));
+  }, [safeCategoryOrder, safeCategoriesList]);
 
   useEffect(() => {
-    setProductOrderDraft(productOrder.length ? productOrder : products.map((product) => product.id));
-  }, [productOrder, products]);
+    setProductOrderDraft(safeProductOrder.length ? safeProductOrder : safeProducts.map((product) => product.id));
+  }, [safeProductOrder, safeProducts]);
 
   useEffect(() => {
-    setPromotionDraft(normalizePromotion(promotion, products));
-  }, [promotion, products]);
+    setPromotionDraft(normalizePromotion(promotion, safeProducts));
+  }, [promotion, safeProducts]);
 
   useEffect(() => {
     setCategoryHiddenDraft({ ...(categoryHidden || {}) });
@@ -366,6 +366,15 @@ export default function AdminPanel({ products, categoriesList = categories, cate
     });
   };
 
+  const updateCashierOrderSources = (value) => {
+    const list = String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+    setBranchSettingsDraft((current) => normalizeBranchSettings({
+      ...current,
+      cashierOrderSources: list,
+      defaultCashierOrderSource: list.includes(current.defaultCashierOrderSource) ? current.defaultCashierOrderSource : list[0],
+    }));
+  };
+
   const orderedDrafts = useMemo(() => sortByOrder(drafts, productOrderDraft), [drafts, productOrderDraft]);
   const orderedCategories = useMemo(() => sortByOrder(categoryItems, categoryDraft), [categoryItems, categoryDraft]);
 
@@ -506,7 +515,6 @@ export default function AdminPanel({ products, categoriesList = categories, cate
           </div>
         ) : (
           <>
-            <BackofficeNav current="admin" />
             {loadError && (
               <p className="admin-status" style={{ color: '#b91c1c' }}>
                 No se pudo cargar el catálogo ({loadError}). No guardes cambios hasta recargar la página o podrías borrar tu catálogo.
@@ -644,10 +652,80 @@ export default function AdminPanel({ products, categoriesList = categories, cate
               )}
             </section>
 
-            <div className="admin-order-box admin-super-moved-note">
-              <h2>Horario y promoción</h2>
-              <p>Estos controles se movieron al apartado de Super usuario: abre <b>#super</b>.</p>
-            </div>
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('promo')}>Promocion <span>{openAdminSections.promo ? '-' : '+'}</span></button>
+              {openAdminSections.promo && (
+                <div className="admin-order-box">
+                  <AdminSectionIntro title="Promocion del menu" description="Configura el combo o promocion visible en la pagina publica." />
+                  <label className="check-row full">
+                    <input type="checkbox" checked={Boolean(promotionDraft.active)} onChange={(e) => setPromotionDraft((current) => ({ ...current, active: e.target.checked }))} />
+                    <span>Promocion activa</span>
+                  </label>
+                  <div className="admin-promo-grid">
+                    <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
+                    <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>
+                    <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+                  </div>
+                  <div className="admin-products">
+                    {(promotionDraft.items || []).map((item, index) => (
+                      <article className="admin-product" key={`promo-${index}`}>
+                        <label className="field"><span>Producto</span>
+                          <select value={item.productId || ''} onChange={(e) => setPromotionDraft((current) => {
+                            const items = [...(current.items || [])];
+                            items[index] = { ...items[index], productId: e.target.value };
+                            return { ...current, items };
+                          })}>
+                            <option value="">Selecciona producto</option>
+                            {orderedDrafts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="field"><span>Cantidad</span><input type="number" min="1" value={item.quantity || 1} onChange={(e) => setPromotionDraft((current) => {
+                          const items = [...(current.items || [])];
+                          items[index] = { ...items[index], quantity: Math.max(1, Number(e.target.value || 1)) };
+                          return { ...current, items };
+                        })} /></label>
+                        <button type="button" className="ghost danger-text" onClick={() => setPromotionDraft((current) => ({ ...current, items: (current.items || []).filter((_, itemIndex) => itemIndex !== index) }))}>Quitar</button>
+                      </article>
+                    ))}
+                  </div>
+                  <button type="button" className="ghost" onClick={() => setPromotionDraft((current) => ({ ...current, items: [...(current.items || []), { productId: orderedDrafts[0]?.id || '', quantity: 1 }] }))}>+ Agregar producto a promo</button>
+                </div>
+              )}
+            </section>
+
+            <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('hours')}>Horarios y pedidos <span>{openAdminSections.hours ? '-' : '+'}</span></button>
+              {openAdminSections.hours && (
+                <div className="admin-order-box">
+                  <AdminSectionIntro title="Horarios y pedidos" description="Controla horarios, pedidos fuera de horario y origenes que aparecen en Caja." />
+                  <label className="check-row full">
+                    <input type="checkbox" checked={Boolean(businessHoursDraft.allowClosedOrders)} onChange={(e) => setBusinessHoursDraft((current) => ({ ...current, allowClosedOrders: e.target.checked }))} />
+                    <span>Permitir pedidos fuera de horario</span>
+                  </label>
+                  <label className="field full"><span>Mensaje cuando esta cerrado</span><input value={businessHoursDraft.messageWhenClosed || ''} onChange={(e) => setBusinessHoursDraft((current) => ({ ...current, messageWhenClosed: e.target.value }))} /></label>
+                  <div className="admin-products">
+                    {(businessHoursDraft.days || []).map((row) => (
+                      <article className="admin-product" key={row.day}>
+                        <label className="check-row full">
+                          <input type="checkbox" checked={row.active !== false} onChange={(e) => updateBusinessDay(row.day, 'active', e.target.checked)} />
+                          <span>{WEEKDAY_LABELS[row.day] || `Dia ${row.day}`}</span>
+                        </label>
+                        <label className="field"><span>Abre</span><input type="time" value={row.open || '09:00'} onChange={(e) => updateBusinessDay(row.day, 'open', e.target.value)} /></label>
+                        <label className="field"><span>Cierra</span><input type="time" value={row.close || '18:00'} onChange={(e) => updateBusinessDay(row.day, 'close', e.target.value)} /></label>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="admin-promo-grid">
+                    <label className="field full"><span>Origenes de pedido en Caja</span><input value={(branchSettingsDraft.cashierOrderSources || []).join(', ')} onChange={(e) => updateCashierOrderSources(e.target.value)} placeholder="Tienda, WhatsApp, Facebook, Instagram, Llamada" /></label>
+                    <label className="field"><span>Origen default</span>
+                      <select value={branchSettingsDraft.defaultCashierOrderSource || ''} onChange={(e) => updateBranchSettings('defaultCashierOrderSource', e.target.value)}>
+                        {(branchSettingsDraft.cashierOrderSources || []).map((source) => <option key={source} value={source}>{source}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </section>
 
             <section className="admin-collapse">
             <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Secciones del menú <span>{openAdminSections.sections ? '-' : '+'}</span></button>

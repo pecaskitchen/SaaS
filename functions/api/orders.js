@@ -165,6 +165,10 @@ export async function ensureSchema(env) {
   if (!columns.has('cashier_shift')) alters.push(`ALTER TABLE orders ADD COLUMN cashier_shift TEXT`);
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
+  if (!columns.has('exclude_from_reports')) alters.push(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`);
+  if (!columns.has('archived_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`);
+  if (!columns.has('archived_reason')) alters.push(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`);
+  if (!columns.has('deleted_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`);
   // Antes solo las creaba ensurePaymentTables() (payments.js) -- un pedido
   // creado por WhatsApp/Messenger (que solo llama a este ensureSchema, no
   // al de pagos) en un tenant nuevo que nunca conecto Mercado Pago fallaba
@@ -334,5 +338,4 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
-
 

@@ -1,4 +1,4 @@
-import { resolveTenantId } from './_shared/tenant.js';
+﻿import { resolveTenantId } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 
 function jsonResponse(data, status = 200) {
@@ -48,10 +48,14 @@ async function ensureOrderColumns(env) {
     const columns = new Set((info.results || []).map((row) => row.name));
     if (!columns.has('payment_method')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN payment_method TEXT`).run();
     if (!columns.has('payment_status')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN payment_status TEXT`).run();
+    if (!columns.has('exclude_from_reports')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`).run();
+    if (!columns.has('archived_at_utc')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`).run();
+    if (!columns.has('archived_reason')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`).run();
+    if (!columns.has('deleted_at_utc')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`).run();
   } catch { /* ignore */ }
 }
 
-// CORREGIDO: antes leía siempre la key fija 'menu_overrides', mezclando
+// CORREGIDO: antes leia siempre la key fija 'menu_overrides', mezclando
 // la config de sold_out de TODOS los tenants. Ahora se filtra por tenant_id.
 async function readMenuOverrides(env, tenantId) {
   try {
@@ -65,9 +69,9 @@ async function readMenuOverrides(env, tenantId) {
 }
 
 // MIGRADO a JWT: antes comparaba contra env.ADMIN_PASSWORD/SUPER_PASSWORD
-// (contraseñas globales, mismas para todos los tenants). Ahora exige un
-// usuario admin/super/platform_admin válido PARA ESTE tenant.
-// IMPORTANTE: no reintroducir el fallback a esas contraseñas globales.
+// (contrasenas globales, mismas para todos los tenants). Ahora exige un
+// usuario admin/super/platform_admin valido PARA ESTE tenant.
+// IMPORTANTE: no reintroducir el fallback a esas contrasenas globales.
 async function auth(request, env) {
   // Rediseno de roles: 'super' se renombra a 'manager', se agrega 'reports'
   // (rol nuevo, de solo lectura) -- ver plan de rediseno de roles/menus.
@@ -86,10 +90,10 @@ export async function onRequestGet({ request, env }) {
     if (!authResult.ok) return authResult.response;
     await ensureOrderColumns(env);
 
-    // NUEVO: se resuelve el tenant_id de la petición (por hostname o header)
+    // NUEVO: se resuelve el tenant_id de la peticion (por hostname o header)
     // y se agrega como filtro OBLIGATORIO en cada consulta de este archivo.
     // Antes ninguna query de reports.js filtraba por tenant_id: cualquier
-    // cuenta admin/super podía exportar ventas, stock y mermas de TODOS los
+    // cuenta admin/super podia exportar ventas, stock y mermas de TODOS los
     // negocios del sistema, no solo el propio.
     const tenantId = await resolveTenantId(request, env);
 
@@ -103,19 +107,19 @@ export async function onRequestGet({ request, env }) {
     const branch = branchClause(branchId);
 
     if (type === 'sales_orders') {
-      const sql = `SELECT created_at_monterrey AS fecha, branch_name AS sucursal, order_source AS origen, order_number AS pedido, status AS estado, customer_name AS cliente, total, payment_method AS metodo_pago, payment_status AS estado_pago FROM orders WHERE tenant_id = ? AND created_at_monterrey BETWEEN ? AND ?${branch.sql} ORDER BY created_at_monterrey DESC`;
+      const sql = `SELECT created_at_monterrey AS fecha, branch_name AS sucursal, order_source AS origen, order_number AS pedido, status AS estado, customer_name AS cliente, total, payment_method AS metodo_pago, payment_status AS estado_pago FROM orders WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_monterrey BETWEEN ? AND ?${branch.sql} ORDER BY created_at_monterrey DESC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-ventas-pedido-${start}-${end}.csv`, ['fecha','sucursal','origen','pedido','estado','cliente','total','metodo_pago','estado_pago'], result.results || []);
     }
 
     if (type === 'sales_products') {
-      const sql = `SELECT o.created_at_monterrey AS fecha, o.branch_name AS sucursal, o.order_source AS origen, oi.product_name AS producto, oi.category AS categoria, SUM(oi.quantity) AS cantidad, SUM(oi.line_total) AS venta_total FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.tenant_id = ? AND o.created_at_monterrey BETWEEN ? AND ?${branch.sql.replace('branch_id','o.branch_id')} GROUP BY fecha, sucursal, origen, producto, categoria ORDER BY fecha DESC, producto ASC`;
+      const sql = `SELECT o.created_at_monterrey AS fecha, o.branch_name AS sucursal, o.order_source AS origen, oi.product_name AS producto, oi.category AS categoria, SUM(oi.quantity) AS cantidad, SUM(oi.line_total) AS venta_total FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.tenant_id = ? AND o.deleted_at_utc IS NULL AND o.archived_at_utc IS NULL AND COALESCE(o.exclude_from_reports, 0) = 0 AND o.created_at_monterrey BETWEEN ? AND ?${branch.sql.replace('branch_id','o.branch_id')} GROUP BY fecha, sucursal, origen, producto, categoria ORDER BY fecha DESC, producto ASC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-ventas-producto-${start}-${end}.csv`, ['fecha','sucursal','origen','producto','categoria','cantidad','venta_total'], result.results || []);
     }
 
     if (type === 'source_summary') {
-      const sql = `SELECT SUBSTR(created_at_monterrey, 1, 10) AS fecha, branch_name AS sucursal, order_source AS origen, COUNT(*) AS pedidos, SUM(total) AS venta_total FROM orders WHERE tenant_id = ? AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY fecha, sucursal, origen ORDER BY fecha DESC, sucursal ASC, origen ASC`;
+      const sql = `SELECT SUBSTR(created_at_monterrey, 1, 10) AS fecha, branch_name AS sucursal, order_source AS origen, COUNT(*) AS pedidos, SUM(total) AS venta_total FROM orders WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY fecha, sucursal, origen ORDER BY fecha DESC, sucursal ASC, origen ASC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-online-vs-caja-${start}-${end}.csv`, ['fecha','sucursal','origen','pedidos','venta_total'], result.results || []);
     }
@@ -142,19 +146,19 @@ export async function onRequestGet({ request, env }) {
     }
 
     if (type === 'payment_summary') {
-      const sql = `SELECT SUBSTR(created_at_monterrey, 1, 10) AS fecha, branch_name AS sucursal, COALESCE(payment_method, 'Sin registrar') AS metodo_pago, COALESCE(payment_status, 'Sin registrar') AS estado_pago, COUNT(*) AS pedidos, SUM(total) AS venta_total FROM orders WHERE tenant_id = ? AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY fecha, sucursal, metodo_pago, estado_pago ORDER BY fecha DESC, sucursal ASC`;
+      const sql = `SELECT SUBSTR(created_at_monterrey, 1, 10) AS fecha, branch_name AS sucursal, COALESCE(payment_method, 'Sin registrar') AS metodo_pago, COALESCE(payment_status, 'Sin registrar') AS estado_pago, COUNT(*) AS pedidos, SUM(total) AS venta_total FROM orders WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY fecha, sucursal, metodo_pago, estado_pago ORDER BY fecha DESC, sucursal ASC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-pagos-${start}-${end}.csv`, ['fecha','sucursal','metodo_pago','estado_pago','pedidos','venta_total'], result.results || []);
     }
 
     if (type === 'category_sales') {
-      const sql = `SELECT SUBSTR(o.created_at_monterrey, 1, 10) AS fecha, o.branch_name AS sucursal, oi.category AS categoria, SUM(oi.quantity) AS unidades, SUM(oi.line_total) AS venta_total FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.tenant_id = ? AND o.created_at_monterrey BETWEEN ? AND ?${branch.sql.replace('branch_id','o.branch_id')} GROUP BY fecha, sucursal, categoria ORDER BY fecha DESC, venta_total DESC`;
+      const sql = `SELECT SUBSTR(o.created_at_monterrey, 1, 10) AS fecha, o.branch_name AS sucursal, oi.category AS categoria, SUM(oi.quantity) AS unidades, SUM(oi.line_total) AS venta_total FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.tenant_id = ? AND o.deleted_at_utc IS NULL AND o.archived_at_utc IS NULL AND COALESCE(o.exclude_from_reports, 0) = 0 AND o.created_at_monterrey BETWEEN ? AND ?${branch.sql.replace('branch_id','o.branch_id')} GROUP BY fecha, sucursal, categoria ORDER BY fecha DESC, venta_total DESC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-ventas-categoria-${start}-${end}.csv`, ['fecha','sucursal','categoria','unidades','venta_total'], result.results || []);
     }
 
     if (type === 'branch_summary') {
-      const sql = `SELECT branch_name AS sucursal, COUNT(*) AS pedidos, SUM(total) AS venta_total, SUM(CASE WHEN order_source = 'online' THEN 1 ELSE 0 END) AS pedidos_online, SUM(CASE WHEN order_source = 'cashier' THEN 1 ELSE 0 END) AS pedidos_caja, AVG(total) AS ticket_promedio FROM orders WHERE tenant_id = ? AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY branch_name ORDER BY venta_total DESC`;
+      const sql = `SELECT branch_name AS sucursal, COUNT(*) AS pedidos, SUM(total) AS venta_total, SUM(CASE WHEN order_source = 'online' THEN 1 ELSE 0 END) AS pedidos_online, SUM(CASE WHEN order_source = 'cashier' THEN 1 ELSE 0 END) AS pedidos_caja, AVG(total) AS ticket_promedio FROM orders WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_monterrey BETWEEN ? AND ?${branch.sql} GROUP BY branch_name ORDER BY venta_total DESC`;
       const result = await env.DB.prepare(sql).bind(tenantId, startDateTime, endDateTime, ...branch.binds).all();
       return csvResponse(`pecas-resumen-sucursales-${start}-${end}.csv`, ['sucursal','pedidos','venta_total','pedidos_online','pedidos_caja','ticket_promedio'], result.results || []);
     }
@@ -185,3 +189,4 @@ export async function onRequestGet({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo generar reporte.', detail: error.message }, 500);
   }
 }
+

@@ -36,6 +36,19 @@ function mapCustomer(row) {
   };
 }
 
+async function ensureOrderArchiveColumns(db) {
+  try {
+    const info = await db.prepare(`PRAGMA table_info(orders)`).all();
+    const columns = new Set((info.results || []).map((row) => row.name));
+    if (!columns.has('exclude_from_reports')) await db.prepare(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`).run();
+    if (!columns.has('archived_at_utc')) await db.prepare(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`).run();
+    if (!columns.has('archived_reason')) await db.prepare(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`).run();
+    if (!columns.has('deleted_at_utc')) await db.prepare(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`).run();
+  } catch {
+    // orders may not exist yet
+  }
+}
+
 async function requireCrmAccess(request, env) {
   // Rediseno de roles: 'manager' tambien ve el modulo Clientes.
   return requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
@@ -53,6 +66,7 @@ export async function onRequestGet({ request, env }) {
     const customerId = Number(url.searchParams.get('customer_id') || 0);
     const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 80)));
     const db = requireDb(env);
+    await ensureOrderArchiveColumns(db);
 
     if (customerId) {
       const customer = await db.prepare(`SELECT * FROM crm_customers WHERE tenant_id = ? AND id = ?`)
@@ -65,6 +79,9 @@ export async function onRequestGet({ request, env }) {
           (? != '' AND replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', '') = ?)
           OR lower(customer_name) = lower(?)
         )
+        AND deleted_at_utc IS NULL
+        AND archived_at_utc IS NULL
+        AND COALESCE(exclude_from_reports, 0) = 0
         ORDER BY created_at_utc DESC
         LIMIT 30
       `).bind(tenantId, customer.phone || '', normalizePhone(customer.phone), customer.name || '').all();
@@ -125,5 +142,22 @@ export async function onRequestPatch({ request, env }) {
     return jsonResponse({ ok: true, customer: mapCustomer(row) });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar cliente.', detail: error.message }, 500);
+  }
+}
+
+export async function onRequestDelete({ request, env }) {
+  try {
+    if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
+    const auth = await requireAuth(request, env, ['admin', 'manager', 'platform_admin']);
+    if (!auth.ok) return auth.response;
+    await ensureCrmSchema(env);
+    const tenantId = await resolveTenantId(request, env);
+    const url = new URL(request.url);
+    const id = Number(url.searchParams.get('id') || 0);
+    if (!id) return jsonResponse({ ok: false, error: 'Falta id del cliente.' }, 400);
+    await requireDb(env).prepare(`DELETE FROM crm_customers WHERE tenant_id = ? AND id = ?`).bind(tenantId, id).run();
+    return jsonResponse({ ok: true, deleted: true, id });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: 'No se pudo eliminar cliente.', detail: error.message }, 500);
   }
 }

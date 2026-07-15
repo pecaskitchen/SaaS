@@ -1,7 +1,8 @@
-import { DEFAULT_BRANCH_SETTINGS, normalizeBranchSettings } from './_shared/branchSettings.js';
-﻿import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+﻿import { DEFAULT_BRANCH_SETTINGS, normalizeBranchSettings } from './_shared/branchSettings.js';
+import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
 import { explodeRecipeForConsumption } from './_shared/recipeEngine.js';
+import { rebuildCustomerFromOrderIdentity } from './_shared/crm.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -240,6 +241,10 @@ async function ensureOrderStockColumns(env) {
   if (!columns.has('cashier_shift')) alters.push(`ALTER TABLE orders ADD COLUMN cashier_shift TEXT`);
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
+  if (!columns.has('exclude_from_reports')) alters.push(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`);
+  if (!columns.has('archived_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`);
+  if (!columns.has('archived_reason')) alters.push(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`);
+  if (!columns.has('deleted_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
   orderStockColumnsEnsured = true;
 }
@@ -666,9 +671,9 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
 
   const branchId = order.branch_id || 'dominio';
   const shortages = [];
-  // Se guarda el stock "current" leido acá para reusarlo en el loop de
-  // abajo -- antes se volvía a leer con un segundo getBranchStock por
-  // línea, una llamada redundante ya que nada mas modifica el stock
+  // Se guarda el stock "current" leido aca para reusarlo en el loop de
+  // abajo -- antes se volvia a leer con un segundo getBranchStock por
+  // linea, una llamada redundante ya que nada mas modifica el stock
   // entre estos dos loops dentro del mismo request.
   const currentStockByItem = new Map();
   for (const line of consumption) {
@@ -710,7 +715,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
       String(orderId),
       'Orders',
       'system',
-      'Operación',
+      'Operacion',
       null,
       order.branch_id || 'dominio',
       order.branch_name || 'Dominio',
@@ -732,9 +737,12 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all', tenantId
     SELECT id, order_number, status, customer_name, customer_phone, customer_address, customer_notes,
       subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey,
       updated_at_utc, updated_at_monterrey, branch_id, branch_name, order_source, cashier_name, cashier_shift, payment_method, payment_status,
-      stock_deducted, stock_deducted_at_monterrey, stock_deduction_error
+      stock_deducted, stock_deducted_at_monterrey, stock_deduction_error, exclude_from_reports, archived_at_utc, deleted_at_utc
     FROM orders
-    WHERE tenant_id = ? AND created_at_monterrey >= ? AND created_at_monterrey < ?`;
+    WHERE tenant_id = ? AND created_at_monterrey >= ? AND created_at_monterrey < ?
+      AND deleted_at_utc IS NULL
+      AND archived_at_utc IS NULL
+      AND COALESCE(exclude_from_reports, 0) = 0`;
   const binds = [tenantId, businessWindow.start, businessWindow.end];
   if (status !== 'all') { ordersQuery += ` AND status = ?`; binds.push(status); }
   if (branchFilter && branchFilter !== 'all') { ordersQuery += ` AND COALESCE(branch_id, 'dominio') = ?`; binds.push(branchFilter); }
@@ -815,15 +823,55 @@ export async function onRequestPatch(context) {
     if (!access.ok) return jsonResponse({ ok: false, error: access.error || 'No autorizado.' }, 401);
     await ensureOrderStockColumns(env);
     const body = await request.json();
-    const { orderId, status, note = '' } = body;
+    const { orderId, status, note = '', action = '' } = body;
     const allowedStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-    if (!orderId || !allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus inválido.' }, 400);
+    if (!orderId) return jsonResponse({ ok: false, error: 'Falta pedido.' }, 400);
 
-    const order = await env.DB.prepare(`SELECT id, order_number, status, stock_deducted, branch_id FROM orders WHERE tenant_id = ? AND id = ?`).bind(tenantId, orderId).first();
+    const order = await env.DB.prepare(`
+      SELECT id, order_number, status, stock_deducted, branch_id, customer_name, customer_phone, customer_address, total, created_at_utc
+      FROM orders
+      WHERE tenant_id = ? AND id = ? AND deleted_at_utc IS NULL
+    `).bind(tenantId, orderId).first();
     if (!order) return jsonResponse({ ok: false, error: 'Pedido no encontrado.' }, 404);
     if (access.accessScope === 'branch' && (order.branch_id || 'dominio') !== access.branchFilter) {
       return jsonResponse({ ok: false, error: 'No puedes modificar pedidos de otra sucursal.' }, 403);
     }
+
+    const timestamps = getTimestamps();
+    if (action === 'archive' || action === 'delete') {
+      const isDelete = action === 'delete';
+      const eventType = isDelete ? 'deleted' : 'archived';
+      const eventNote = String(note || (isDelete ? 'Pedido eliminado de reportes y CRM.' : 'Pedido archivado de reportes y CRM.'));
+      await env.DB.prepare(`
+        UPDATE orders
+        SET exclude_from_reports = 1,
+          archived_at_utc = COALESCE(archived_at_utc, ?),
+          archived_reason = ?,
+          deleted_at_utc = CASE WHEN ? = 1 THEN ? ELSE deleted_at_utc END,
+          updated_at_utc = ?,
+          updated_at_monterrey = ?
+        WHERE tenant_id = ? AND id = ?
+      `).bind(
+        timestamps.utc,
+        eventNote,
+        isDelete ? 1 : 0,
+        timestamps.utc,
+        timestamps.utc,
+        timestamps.monterrey,
+        tenantId,
+        orderId,
+      ).run();
+
+      await env.DB.prepare(
+        `INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(tenantId, orderId, eventType, eventNote, timestamps.utc, timestamps.monterrey).run();
+
+      await rebuildCustomerFromOrderIdentity(env, tenantId, order);
+      return jsonResponse({ ok: true, orderId, action, archived: true, deleted: isDelete });
+    }
+
+    if (!allowedStatuses.includes(status)) return jsonResponse({ ok: false, error: 'Estatus invalido.' }, 400);
 
     let stockResult = null;
     if (status === 'ready' && Number(order.stock_deducted || 0) !== 1) {
@@ -835,13 +883,12 @@ export async function onRequestPatch(context) {
       }
     }
 
-    const timestamps = getTimestamps();
     await env.DB.prepare(
       `UPDATE orders SET status = ?, updated_at_utc = ?, updated_at_monterrey = ? WHERE tenant_id = ? AND id = ?`
     ).bind(status, timestamps.utc, timestamps.monterrey, tenantId, orderId).run();
 
     const eventNote = stockResult
-      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automáticamente.`
+      ? `${note || `Pedido cambiado a ${status}`}. Stock descontado automaticamente.`
       : (note || `Pedido cambiado a ${status}`);
 
     await env.DB.prepare(
@@ -854,7 +901,5 @@ export async function onRequestPatch(context) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }
 }
-
-
 
 

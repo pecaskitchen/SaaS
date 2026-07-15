@@ -96,3 +96,87 @@ export async function upsertCustomerFromOrder(env, tenantId, { customer = {}, or
     timestamp,
   ).run();
 }
+
+export async function rebuildCustomerFromOrderIdentity(env, tenantId, order = {}) {
+  await ensureCrmSchema(env);
+  const db = requireDb(env);
+  const timestamp = nowIso();
+  const key = customerKey({
+    name: order.customer_name,
+    phone: order.customer_phone,
+    address: order.customer_address,
+  }, order);
+  const phone = normalizePhone(order.customer_phone || '');
+  const name = String(order.customer_name || '').trim();
+  const binds = [tenantId];
+  let identitySql = '';
+
+  if (phone) {
+    identitySql = `replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', '') = ?`;
+    binds.push(phone);
+  } else if (order.id || order.order_number) {
+    identitySql = `id = ?`;
+    binds.push(order.id || 0);
+  } else {
+    identitySql = `lower(customer_name) = lower(?)`;
+    binds.push(name || 'Cliente');
+  }
+
+  const active = await db.prepare(`
+    SELECT
+      COUNT(*) AS order_count,
+      COALESCE(SUM(total), 0) AS total_spent,
+      MAX(created_at_utc) AS last_order_at_utc
+    FROM orders
+    WHERE tenant_id = ?
+      AND deleted_at_utc IS NULL
+      AND archived_at_utc IS NULL
+      AND COALESCE(exclude_from_reports, 0) = 0
+      AND ${identitySql}
+  `).bind(...binds).first();
+
+  if (!Number(active?.order_count || 0)) {
+    await db.prepare(`DELETE FROM crm_customers WHERE tenant_id = ? AND customer_key = ?`).bind(tenantId, key).run();
+    return { removed: true };
+  }
+
+  const latest = await db.prepare(`
+    SELECT id, order_number, customer_name, customer_phone, customer_address, created_at_utc
+    FROM orders
+    WHERE tenant_id = ?
+      AND deleted_at_utc IS NULL
+      AND archived_at_utc IS NULL
+      AND COALESCE(exclude_from_reports, 0) = 0
+      AND ${identitySql}
+    ORDER BY created_at_utc DESC, id DESC
+    LIMIT 1
+  `).bind(...binds).first();
+
+  await db.prepare(`
+    UPDATE crm_customers
+    SET name = ?,
+      phone = ?,
+      address = ?,
+      order_count = ?,
+      total_spent = ?,
+      last_order_id = ?,
+      last_order_number = ?,
+      last_order_at_utc = ?,
+      updated_at_utc = ?
+    WHERE tenant_id = ? AND customer_key = ?
+  `).bind(
+    latest?.customer_name || name || 'Cliente',
+    normalizePhone(latest?.customer_phone || phone),
+    latest?.customer_address || '',
+    Number(active.order_count || 0),
+    Number(active.total_spent || 0),
+    latest?.id || null,
+    latest?.order_number || '',
+    latest?.created_at_utc || active.last_order_at_utc || '',
+    timestamp,
+    tenantId,
+    key,
+  ).run();
+
+  return { removed: false };
+}

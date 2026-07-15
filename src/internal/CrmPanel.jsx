@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MessageCircle, RefreshCw, Save, Search, Users } from 'lucide-react';
+import { MessageCircle, RefreshCw, Save, Search, Trash2, Users } from 'lucide-react';
 import '../styles.css';
 import { getSessionToken } from '../lib/apiClient.js';
 
@@ -110,6 +110,28 @@ export default function CrmPanel() {
     }
   };
 
+  const deleteSelected = async () => {
+    if (!selected?.id) return;
+    setLoading(true);
+    setStatus('Eliminando cliente...');
+    try {
+      const response = await fetch(`/api/crm/customers?id=${encodeURIComponent(selected.id)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || 'No se pudo eliminar cliente.');
+      setCustomers((current) => current.filter((item) => item.id !== selected.id));
+      setSelected(null);
+      setOrders([]);
+      setStatus('Cliente eliminado del CRM.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,6 +193,9 @@ export default function CrmPanel() {
                   </div>
                   <button type="button" className="primary small" onClick={saveSelected} disabled={loading}>
                     <Save size={15} /> Guardar
+                  </button>
+                  <button type="button" className="ghost small danger-text" onClick={deleteSelected} disabled={loading}>
+                    <Trash2 size={15} /> Eliminar
                   </button>
                 </div>
 

@@ -14,6 +14,7 @@ const AdminRoute = lazy(() => import('./AdminRoute.jsx'));
 const StockPanel = lazy(() => import('./StockPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
+const ReportDownloadsPanel = lazy(() => import('./ReportDownloadsPanel.jsx'));
 const UsersPanel = lazy(() => import('./UsersPanel.jsx'));
 const PlatformAdmin = lazy(() => import('../platform/PlatformAdmin.jsx'));
 
@@ -42,7 +43,14 @@ function ModuleContent({ moduleId }) {
   if (moduleId === 'menu') return <AdminRoute />;
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
   if (moduleId === 'clientes') return <CrmPanel />;
-  if (moduleId === 'reportes') return <ExecutiveDashboard />;
+  if (moduleId === 'reportes') {
+    return (
+      <>
+        <ExecutiveDashboard />
+        <ReportDownloadsPanel />
+      </>
+    );
+  }
   if (moduleId === 'configuracion') return <UsersPanel />;
   if (moduleId === 'plataforma') return <PlatformAdmin />;
   return <p>Selecciona un modulo.</p>;

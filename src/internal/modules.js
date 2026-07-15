@@ -7,11 +7,11 @@ export const MODULES = [
   { id: 'inicio', label: 'Inicio', roles: ['admin', 'manager'] },
   { id: 'pedidos', label: 'Pedidos', roles: ['admin', 'manager', 'orders'] },
   { id: 'caja', label: 'Caja', roles: ['admin', 'manager', 'cashier'] },
-  { id: 'menu', label: 'Menu', roles: ['admin', 'manager'] },
+  { id: 'menu', label: 'Catalogo y ajustes', roles: ['admin', 'manager'] },
   { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'clientes', label: 'Clientes', roles: ['admin', 'manager', 'orders'] },
   { id: 'reportes', label: 'Reportes', roles: ['admin', 'manager', 'reports'] },
-  { id: 'configuracion', label: 'Configuracion', roles: ['admin'] },
+  { id: 'configuracion', label: 'Equipo', roles: ['admin'] },
   { id: 'plataforma', label: 'Plataforma', roles: ['platform_admin'] },
 ];
 

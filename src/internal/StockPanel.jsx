@@ -1439,26 +1439,34 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     return categoryMeta(categoryId).label;
   };
   const productById = new Map(stockMenuProducts.map((product) => [product.id, product]));
+  const recipeById = new Map(productRecipes.map((recipe) => [Number(recipe.id), recipe]));
+  const recipeByKey = new Map(productRecipes.map((recipe) => [String(recipe.recipe_key || ''), recipe]));
   const itemById = new Map(data.items.map((item) => [Number(item.id), item]));
-  const productStockSuggestions = productRecipes.map((recipe) => {
-    const productId = String(recipe.recipe_key || '').replace('product:', '');
-    const product = productById.get(productId);
-    if (!product) return null;
+  const productStockSuggestions = stockMenuProducts.map((product) => {
+    const recipe = recipeById.get(Number(product.recipeId || product.recipe_id))
+      || recipeByKey.get(String(product.recipeKey || product.recipe_key || ''))
+      || recipeByKey.get(`product:${product.id}`)
+      || productRecipes.find((item) => String(item.name || '').trim().toLowerCase() === String(product.name || '').trim().toLowerCase());
+    if (!recipe) return null;
     const blockingLines = (recipe.lines || [])
       .filter((line) => Number(line.is_default ?? 1) !== 0 && Number(line.is_optional || 0) === 0 && Number(line.quantity || 0) > 0)
       .map((line) => ({ ...line, item: itemById.get(Number(line.item_id)) }))
-      .filter((line) => line.item && Number(line.item.current_stock || 0) <= 0);
+      .filter((line) => line.item && Number(line.item.deducts_inventory ?? 1) !== 0 && Number(line.item.current_stock || 0) <= 0);
     const lowLines = (recipe.lines || [])
       .filter((line) => Number(line.is_default ?? 1) !== 0 && Number(line.is_optional || 0) === 0 && Number(line.quantity || 0) > 0)
       .map((line) => ({ ...line, item: itemById.get(Number(line.item_id)) }))
-      .filter((line) => line.item && Number(line.item.current_stock || 0) > 0 && Number(line.item.min_stock || 0) > 0 && Number(line.item.current_stock || 0) <= Number(line.item.min_stock || 0));
+      .filter((line) => line.item && Number(line.item.deducts_inventory ?? 1) !== 0 && Number(line.item.current_stock || 0) > 0 && Number(line.item.min_stock || 0) > 0 && Number(line.item.current_stock || 0) <= Number(line.item.min_stock || 0));
     return { recipe, product, blockingLines, lowLines, shouldSuggestSoldOut: blockingLines.length > 0 };
   }).filter(Boolean);
   const soldOutProducts = stockMenuProducts.filter((product) => product.soldOut);
   const suggestedSoldOutProducts = productStockSuggestions.filter((item) => item.shouldSuggestSoldOut && !item.product.soldOut);
   const veryLowItems = data.items.filter((item) => Number(item.current_stock || 0) > 0 && Number(item.min_stock || 0) > 0 && Number(item.current_stock || 0) <= Number(item.min_stock || 0) * 0.5);
   const selectedProductSetup = stockMenuProducts.find((product) => product.id === selectedProductSetupId) || stockMenuProducts[0] || null;
-  const selectedProductRecipe = selectedProductSetup ? productRecipes.find((recipe) => recipe.recipe_key === `product:${selectedProductSetup.id}`) : null;
+  const selectedProductRecipe = selectedProductSetup
+    ? (recipeById.get(Number(selectedProductSetup.recipeId || selectedProductSetup.recipe_id))
+      || recipeByKey.get(String(selectedProductSetup.recipeKey || selectedProductSetup.recipe_key || ''))
+      || recipeByKey.get(`product:${selectedProductSetup.id}`))
+    : null;
   const selectedProductFamilyRules = selectedProductSetup ? (data.optionFamilies || []).flatMap((family) => (
     (family.productRules || [])
       .filter((rule) => rule.product_id === selectedProductSetup.id)
@@ -2423,8 +2431,6 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     </main>
   );
 }
-
-
 
 
 

@@ -1,6 +1,6 @@
 ﻿import { defaultTenantId, ensureTenantColumns, normalizeTenantId, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
-import { ensureMenuCatalogTables, ensureProductItemLink } from './_shared/menuCatalog.js';
+import { ensureMenuCatalogTables, ensureProductItemLink, readEffectiveCatalog } from './_shared/menuCatalog.js';
 import { DEFAULT_BRANCH_SETTINGS, hideBranchPasswords, normalizeBranchId, normalizeBranchSettings, selectedBranchFrom } from './_shared/branchSettings.js';
 
 function jsonResponse(data, status = 200) {
@@ -1376,9 +1376,12 @@ async function listData(env, requestedBranchId = null) {
   }));
 
   const menuSettingsRaw = await readMenuSettings(env);
-  const effectiveBranch = selectedBranchFrom(menuSettingsRaw.branchSettings || branchContext.branchSettings || DEFAULT_BRANCH_SETTINGS, branchContext.branchId);
+  const effectiveCatalog = await readEffectiveCatalog(env, tenantId, menuSettingsRaw, {
+    overrides: menuSettingsRaw.overrides || {},
+  });
+  const effectiveBranch = selectedBranchFrom(effectiveCatalog.branchSettings || branchContext.branchSettings || DEFAULT_BRANCH_SETTINGS, branchContext.branchId);
   const branchSoldOut = effectiveBranch?.soldOut || {};
-  const effectiveOverrides = { ...(menuSettingsRaw.overrides || {}) };
+  const effectiveOverrides = { ...(effectiveCatalog.overrides || {}) };
   // Siempre ignoramos soldOut global legacy en Stock. El estado operativo
   // de agotado debe venir de la sucursal seleccionada, aun si multi-sucursal
   // est? apagado y se usa la sucursal default.
@@ -1391,7 +1394,7 @@ async function listData(env, requestedBranchId = null) {
   for (const [productId, soldOut] of Object.entries(branchSoldOut)) {
     effectiveOverrides[productId] = { ...(effectiveOverrides[productId] || {}), soldOut: Boolean(soldOut) };
   }
-  const menuSettings = { ...menuSettingsRaw, overrides: effectiveOverrides };
+  const menuSettings = { ...effectiveCatalog, overrides: effectiveOverrides };
 
   return {
     items: items.results || [],
@@ -2589,7 +2592,6 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
-
 
 
 

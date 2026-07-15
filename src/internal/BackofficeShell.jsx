@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Settings, Shield, LogOut,
+  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog,
 } from 'lucide-react';
 import '../styles.css';
 import './backoffice-shell.css';
@@ -15,6 +15,9 @@ const StockPanel = lazy(() => import('./StockPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
 const ReportDownloadsPanel = lazy(() => import('./ReportDownloadsPanel.jsx'));
+const PublicPagePanel = lazy(() => import('./PublicPagePanel.jsx'));
+const BusinessSettingsPanel = lazy(() => import('./BusinessSettingsPanel.jsx'));
+const IntegrationsPanel = lazy(() => import('./IntegrationsPanel.jsx'));
 const UsersPanel = lazy(() => import('./UsersPanel.jsx'));
 const PlatformAdmin = lazy(() => import('../platform/PlatformAdmin.jsx'));
 
@@ -26,21 +29,25 @@ const MODULE_ICONS = {
   inventario: Package,
   clientes: Users,
   reportes: BarChart3,
-  configuracion: Settings,
+  'pagina-publica': Store,
+  negocio: Building2,
+  integraciones: PlugZap,
+  usuarios: UserCog,
   plataforma: Shield,
 };
 
 function activeModuleIdFromHash() {
   const hash = window.location.hash || '';
   const [, moduleId] = hash.split('/');
-  return moduleId || '';
+  const aliases = { configuracion: 'usuarios' };
+  return aliases[moduleId] || moduleId || '';
 }
 
 function ModuleContent({ moduleId }) {
   if (moduleId === 'inicio') return <InicioPanel />;
   if (moduleId === 'pedidos') return <OrdersPanel />;
   if (moduleId === 'caja') return <CashierModule />;
-  if (moduleId === 'menu') return <AdminRoute />;
+  if (moduleId === 'menu') return <AdminRoute view="menu" />;
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
   if (moduleId === 'clientes') return <CrmPanel />;
   if (moduleId === 'reportes') {
@@ -51,7 +58,10 @@ function ModuleContent({ moduleId }) {
       </>
     );
   }
-  if (moduleId === 'configuracion') return <UsersPanel />;
+  if (moduleId === 'pagina-publica') return <PublicPagePanel />;
+  if (moduleId === 'negocio') return <BusinessSettingsPanel />;
+  if (moduleId === 'integraciones') return <IntegrationsPanel />;
+  if (moduleId === 'usuarios') return <UsersPanel />;
   if (moduleId === 'plataforma') return <PlatformAdmin />;
   return <p>Selecciona un modulo.</p>;
 }

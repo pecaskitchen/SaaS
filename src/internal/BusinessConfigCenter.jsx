@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Save, Upload } from 'lucide-react';
-import { getSessionToken } from '../lib/apiClient.js';
+import { apiFetch, getSessionToken } from '../lib/apiClient.js';
 
 const THEMES = ['neutral', 'gastro', 'floral', 'boutique', 'premium'];
 
@@ -141,7 +141,12 @@ const emptyDraft = {
   },
 };
 
-export default function BusinessConfigCenter({ tenantId }) {
+export default function BusinessConfigCenter({
+  tenantId = '',
+  section = 'all',
+  title = '',
+  description = '',
+}) {
   const [draft, setDraft] = useState(emptyDraft);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -160,11 +165,12 @@ export default function BusinessConfigCenter({ tenantId }) {
   }
 
   async function load() {
-    if (!tenantId) return;
     setLoading(true);
     setError('');
     try {
-      const data = await platformFetch(`/api/platform/config-center?tenant_id=${encodeURIComponent(tenantId)}`);
+      const data = tenantId
+        ? await platformFetch(`/api/platform/config-center?tenant_id=${encodeURIComponent(tenantId)}`)
+        : await apiFetch('/api/business-config');
       setDraft({ ...emptyDraft, ...(data.tenant || {}), brand: { ...emptyDraft.brand, ...(data.tenant?.brand || {}) }, settings: { ...emptyDraft.settings, ...(data.tenant?.settings || {}) } });
     } catch (err) {
       setError(err.message || 'No se pudo cargar configuracion.');
@@ -178,19 +184,30 @@ export default function BusinessConfigCenter({ tenantId }) {
     setError('');
     setSaved('');
     try {
-      await platformFetch('/api/platform/config-center', {
+      const showPublicPage = section === 'all' || section === 'public';
+      const showBusiness = section === 'all' || section === 'business';
+      const nextSettings = {};
+      if (showBusiness) {
+        nextSettings.timezone = draft.settings.timezone;
+        nextSettings.whatsappNumber = draft.settings.whatsappNumber;
+        nextSettings.supportEmail = draft.settings.supportEmail;
+        nextSettings.paymentMethods = csvToList(draft.settings.paymentMethodsText || listToCsv(draft.settings.paymentMethods));
+        nextSettings.fulfillmentTypes = csvToList(draft.settings.fulfillmentTypesText || listToCsv(draft.settings.fulfillmentTypes));
+      }
+      if (section === 'all') {
+        nextSettings.orderSources = csvToList(draft.settings.orderSourcesText || listToCsv(draft.settings.orderSources));
+      }
+      const payload = {
+        tenantId: draft.id || tenantId,
+        brand: showPublicPage ? draft.brand : {},
+        settings: nextSettings,
+      };
+      const request = {
         method: 'PATCH',
-        body: JSON.stringify({
-          tenantId: draft.id || tenantId,
-          brand: draft.brand,
-          settings: {
-            ...draft.settings,
-            paymentMethods: csvToList(draft.settings.paymentMethodsText || listToCsv(draft.settings.paymentMethods)),
-            fulfillmentTypes: csvToList(draft.settings.fulfillmentTypesText || listToCsv(draft.settings.fulfillmentTypes)),
-            orderSources: csvToList(draft.settings.orderSourcesText || listToCsv(draft.settings.orderSources)),
-          },
-        }),
-      });
+        body: JSON.stringify(payload),
+      };
+      if (tenantId) await platformFetch('/api/platform/config-center', request);
+      else await apiFetch('/api/business-config', request);
       setSaved('Configuracion guardada.');
       await load();
     } catch (err) {
@@ -214,12 +231,24 @@ export default function BusinessConfigCenter({ tenantId }) {
 
   useEffect(() => { load(); }, [tenantId]);
 
+  const showPublicPage = section === 'all' || section === 'public';
+  const showBusiness = section === 'all' || section === 'business';
+  const showOrderSources = section === 'all';
+  const eyebrow = section === 'public' ? 'Pagina publica' : section === 'business' ? 'Negocio' : 'Marca y operacion';
+  const heading = title || (section === 'public' ? 'Pagina publica' : section === 'business' ? 'Ajustes del negocio' : 'Centro de configuracion');
+  const helper = description || (section === 'public'
+    ? 'Controla la portada, estilo visual, textos y etiquetas que ve el cliente.'
+    : section === 'business'
+      ? 'Configura contacto operativo, formas de pago, tipos de entrega y origenes de pedido.'
+      : 'Configura marca publica y operacion del negocio.');
+
   return (
     <section className="admin-section">
       <div className="section-title-row">
         <div>
-          <p className="eyebrow">Marca y operacion</p>
-          <h2>Centro de configuracion</h2>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2>{heading}</h2>
+          <p className="muted-line">{helper}</p>
           <p className="muted-line">{draft.name || draft.slug || tenantId}</p>
         </div>
         <div className="button-row">
@@ -231,39 +260,47 @@ export default function BusinessConfigCenter({ tenantId }) {
       {error ? <p className="form-error">{error}</p> : null}
       {saved ? <p className="form-success">{saved}</p> : null}
 
-      <h3>Marca publica</h3>
-      <div className="form-grid two">
-        <label className="field"><span>Estilo visual</span><select value={draft.brand.themePreset} onChange={(event) => patch(['brand', 'themePreset'], event.target.value)}>{THEMES.map((theme) => <option key={theme}>{theme}</option>)}</select></label>
-        <label className="field"><span>Nombre visible</span><input value={draft.brand.displayName} onChange={(event) => patch(['brand', 'displayName'], event.target.value)} /></label>
-        <label className="field"><span>Tagline</span><input value={draft.brand.tagline} onChange={(event) => patch(['brand', 'tagline'], event.target.value)} /></label>
-        <label className="field"><span>Logo URL</span><input value={draft.brand.logoUrl} onChange={(event) => patch(['brand', 'logoUrl'], event.target.value)} /></label>
-        <label className="field"><span>Imagen hero URL</span><input value={draft.brand.heroImageUrl} onChange={(event) => patch(['brand', 'heroImageUrl'], event.target.value)} /></label>
-        <label className="field"><span>Eyebrow hero</span><input value={draft.brand.heroEyebrow} onChange={(event) => patch(['brand', 'heroEyebrow'], event.target.value)} /></label>
-        <label className="field"><span>Titulo hero</span><input value={draft.brand.heroTitle} onChange={(event) => patch(['brand', 'heroTitle'], event.target.value)} /></label>
-        <label className="field wide"><span>Texto hero</span><textarea value={draft.brand.heroText} onChange={(event) => patch(['brand', 'heroText'], event.target.value)} /></label>
-        <label className="field"><span>Boton principal</span><input value={draft.brand.primaryActionLabel} onChange={(event) => patch(['brand', 'primaryActionLabel'], event.target.value)} /></label>
-        <label className="field"><span>Boton carrito</span><input value={draft.brand.secondaryActionLabel} onChange={(event) => patch(['brand', 'secondaryActionLabel'], event.target.value)} /></label>
-        <label className="field wide"><span>Mensaje WhatsApp</span><input value={draft.brand.orderMessageIntro} onChange={(event) => patch(['brand', 'orderMessageIntro'], event.target.value)} /></label>
-        <label className="field"><span>Etiqueta catalogo</span><input value={draft.brand.menuEyebrow} onChange={(event) => patch(['brand', 'menuEyebrow'], event.target.value)} /></label>
-        <label className="field"><span>Titulo catalogo</span><input value={draft.brand.menuTitle} onChange={(event) => patch(['brand', 'menuTitle'], event.target.value)} /></label>
-        <label className="field"><span>Titulo sin productos</span><input value={draft.brand.emptyCatalogTitle} onChange={(event) => patch(['brand', 'emptyCatalogTitle'], event.target.value)} /></label>
-        <label className="field"><span>Texto sin productos</span><input value={draft.brand.emptyCatalogText} onChange={(event) => patch(['brand', 'emptyCatalogText'], event.target.value)} /></label>
-        <label className="field"><span>Color principal</span><input value={draft.brand.primaryColor} onChange={(event) => patch(['brand', 'primaryColor'], event.target.value)} /></label>
-        <label className="field"><span>Color acento</span><input value={draft.brand.accentColor} onChange={(event) => patch(['brand', 'accentColor'], event.target.value)} /></label>
-        <label className="field wide"><span>Import custom JSON</span><textarea rows="5" value={customImportText} onChange={(event) => setCustomImportText(event.target.value)} placeholder={'{"titulo":"Arreglos para hoy","texto":"Pedidos por WhatsApp","pestana":"Catalogo floral"}'} /></label>
-        <div className="field wide">
-          <button type="button" className="ghost small" onClick={applyCustomImport}><Upload size={16} /> Importar custom</button>
-        </div>
-      </div>
+      {showPublicPage && (
+        <>
+          <h3>Portada y estilo</h3>
+          <div className="form-grid two">
+            <label className="field"><span>Estilo visual</span><select value={draft.brand.themePreset} onChange={(event) => patch(['brand', 'themePreset'], event.target.value)}>{THEMES.map((theme) => <option key={theme}>{theme}</option>)}</select></label>
+            <label className="field"><span>Nombre visible</span><input value={draft.brand.displayName} onChange={(event) => patch(['brand', 'displayName'], event.target.value)} /></label>
+            <label className="field"><span>Tagline</span><input value={draft.brand.tagline} onChange={(event) => patch(['brand', 'tagline'], event.target.value)} /></label>
+            <label className="field"><span>Logo URL</span><input value={draft.brand.logoUrl} onChange={(event) => patch(['brand', 'logoUrl'], event.target.value)} /></label>
+            <label className="field"><span>Imagen portada URL</span><input value={draft.brand.heroImageUrl} onChange={(event) => patch(['brand', 'heroImageUrl'], event.target.value)} /></label>
+            <label className="field"><span>Etiqueta portada</span><input value={draft.brand.heroEyebrow} onChange={(event) => patch(['brand', 'heroEyebrow'], event.target.value)} /></label>
+            <label className="field"><span>Titulo portada</span><input value={draft.brand.heroTitle} onChange={(event) => patch(['brand', 'heroTitle'], event.target.value)} /></label>
+            <label className="field wide"><span>Texto portada</span><textarea value={draft.brand.heroText} onChange={(event) => patch(['brand', 'heroText'], event.target.value)} /></label>
+            <label className="field"><span>Boton principal</span><input value={draft.brand.primaryActionLabel} onChange={(event) => patch(['brand', 'primaryActionLabel'], event.target.value)} /></label>
+            <label className="field"><span>Boton carrito</span><input value={draft.brand.secondaryActionLabel} onChange={(event) => patch(['brand', 'secondaryActionLabel'], event.target.value)} /></label>
+            <label className="field wide"><span>Mensaje WhatsApp</span><input value={draft.brand.orderMessageIntro} onChange={(event) => patch(['brand', 'orderMessageIntro'], event.target.value)} /></label>
+            <label className="field"><span>Etiqueta menu</span><input value={draft.brand.menuEyebrow} onChange={(event) => patch(['brand', 'menuEyebrow'], event.target.value)} /></label>
+            <label className="field"><span>Titulo menu</span><input value={draft.brand.menuTitle} onChange={(event) => patch(['brand', 'menuTitle'], event.target.value)} /></label>
+            <label className="field"><span>Titulo sin productos</span><input value={draft.brand.emptyCatalogTitle} onChange={(event) => patch(['brand', 'emptyCatalogTitle'], event.target.value)} /></label>
+            <label className="field"><span>Texto sin productos</span><input value={draft.brand.emptyCatalogText} onChange={(event) => patch(['brand', 'emptyCatalogText'], event.target.value)} /></label>
+            <label className="field"><span>Color principal</span><input value={draft.brand.primaryColor} onChange={(event) => patch(['brand', 'primaryColor'], event.target.value)} /></label>
+            <label className="field"><span>Color acento</span><input value={draft.brand.accentColor} onChange={(event) => patch(['brand', 'accentColor'], event.target.value)} /></label>
+            <label className="field wide"><span>Import custom JSON</span><textarea rows="5" value={customImportText} onChange={(event) => setCustomImportText(event.target.value)} placeholder={'{"titulo":"Arreglos para hoy","texto":"Pedidos por WhatsApp","pestana":"Catalogo floral"}'} /></label>
+            <div className="field wide">
+              <button type="button" className="ghost small" onClick={applyCustomImport}><Upload size={16} /> Importar custom</button>
+            </div>
+          </div>
+        </>
+      )}
 
-      <h3>Operacion</h3>
-      <div className="form-grid two">
-        <label className="field"><span>WhatsApp principal</span><input value={draft.settings.whatsappNumber || ''} onChange={(event) => patch(['settings', 'whatsappNumber'], event.target.value)} /></label>
-        <label className="field"><span>Email soporte</span><input value={draft.settings.supportEmail || ''} onChange={(event) => patch(['settings', 'supportEmail'], event.target.value)} /></label>
-        <label className="field wide"><span>Formas de pago</span><input value={draft.settings.paymentMethodsText ?? listToCsv(draft.settings.paymentMethods)} onChange={(event) => patch(['settings', 'paymentMethodsText'], event.target.value)} /></label>
-        <label className="field wide"><span>Tipos de entrega</span><input value={draft.settings.fulfillmentTypesText ?? listToCsv(draft.settings.fulfillmentTypes)} onChange={(event) => patch(['settings', 'fulfillmentTypesText'], event.target.value)} /></label>
-        <label className="field wide"><span>Origenes de pedido</span><input value={draft.settings.orderSourcesText ?? listToCsv(draft.settings.orderSources)} onChange={(event) => patch(['settings', 'orderSourcesText'], event.target.value)} /></label>
-      </div>
+      {showBusiness && (
+        <>
+          <h3>Operacion</h3>
+          <div className="form-grid two">
+            <label className="field"><span>WhatsApp principal</span><input value={draft.settings.whatsappNumber || ''} onChange={(event) => patch(['settings', 'whatsappNumber'], event.target.value)} /></label>
+            <label className="field"><span>Email soporte</span><input value={draft.settings.supportEmail || ''} onChange={(event) => patch(['settings', 'supportEmail'], event.target.value)} /></label>
+            <label className="field wide"><span>Formas de pago</span><input value={draft.settings.paymentMethodsText ?? listToCsv(draft.settings.paymentMethods)} onChange={(event) => patch(['settings', 'paymentMethodsText'], event.target.value)} /></label>
+            <label className="field wide"><span>Tipos de entrega</span><input value={draft.settings.fulfillmentTypesText ?? listToCsv(draft.settings.fulfillmentTypes)} onChange={(event) => patch(['settings', 'fulfillmentTypesText'], event.target.value)} /></label>
+            {showOrderSources ? <label className="field wide"><span>Origenes de pedido</span><input value={draft.settings.orderSourcesText ?? listToCsv(draft.settings.orderSources)} onChange={(event) => patch(['settings', 'orderSourcesText'], event.target.value)} /></label> : null}
+          </div>
+        </>
+      )}
     </section>
   );
 }

@@ -30,7 +30,7 @@ function mergeProductsWithOverrides(products, overrides) {
   });
 }
 
-export default function AdminRoute() {
+export default function AdminRoute({ view = 'menu' }) {
   const [menuOverrides, setMenuOverrides] = useState({});
   const [extraCategories, setExtraCategories] = useState([]);
   const [extraProducts, setExtraProducts] = useState([]);
@@ -102,6 +102,7 @@ export default function AdminRoute() {
 
   return (
     <AdminPanel
+      view={view}
       products={currentProducts}
       categoriesList={currentCategories.length ? currentCategories : categories.filter(() => false)}
       categoryOrder={categoryOrder}
@@ -115,4 +116,3 @@ export default function AdminRoute() {
     />
   );
 }
-

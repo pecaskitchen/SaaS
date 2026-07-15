@@ -64,6 +64,10 @@
   padding: 28px clamp(16px, 3vw, 40px);
   min-width: 0;
 }
+.settings-stack {
+  display: grid;
+  gap: 16px;
+}
 
 @media (max-width: 860px) {
   .panel-shell {

@@ -21,6 +21,27 @@ const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
+const ADMIN_VIEW_CONFIG = {
+  menu: {
+    title: 'Menu',
+    description: 'Administra categorias, productos y promociones de venta. Lo tecnico de recetas e inventario vive en Inventario.',
+    sections: ['sections', 'promo'],
+    open: { sections: true, promo: false },
+  },
+  business: {
+    title: 'Negocio',
+    description: 'Configura sucursales, horarios y reglas operativas del pedido.',
+    sections: ['branches', 'hours'],
+    open: { branches: true, hours: true },
+  },
+  all: {
+    title: 'Administrador',
+    description: 'Configura sucursales, menu, ingredientes, recetas, familias e importaciones. Para operacion diaria usa Pedidos, Stock o Caja.',
+    sections: ['executive', 'payments', 'whatsapp', 'metaPage', 'instagramLogin', 'itemsCosts', 'catalog', 'branches', 'promo', 'hours', 'sections'],
+    open: { executive: true, branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
+  },
+};
+
 function AdminSectionIntro({ title, description, children }) {
   return (
     <div className="admin-section-intro">
@@ -83,6 +104,7 @@ function parseMenuCsv(text) {
 }
 
 export default function AdminPanel({
+  view = 'menu',
   products = [],
   categoriesList = categories,
   categoryOrder = [],
@@ -94,6 +116,9 @@ export default function AdminPanel({
   reloadMenu,
   loadError = '',
 }) {
+  const viewConfig = ADMIN_VIEW_CONFIG[view] || ADMIN_VIEW_CONFIG.menu;
+  const visibleSections = useMemo(() => new Set(viewConfig.sections || []), [viewConfig]);
+  const hasAdminSection = (sectionKey) => visibleSections.has(sectionKey);
   const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
   const safeCategoriesList = useMemo(() => (Array.isArray(categoriesList) ? categoriesList : []), [categoriesList]);
   const safeCategoryOrder = useMemo(() => (Array.isArray(categoryOrder) ? categoryOrder : []), [categoryOrder]);
@@ -112,7 +137,7 @@ export default function AdminPanel({
   const [newCategoryDraft, setNewCategoryDraft] = useState({ label: '', emoji: '' });
   const [newProductDraft, setNewProductDraft] = useState({ name: '', category: safeCategoriesList[0]?.id || '', price: 0 });
   const [importText, setImportText] = useState('');
-  const [openAdminSections, setOpenAdminSections] = useState({ executive: true, branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true });
+  const [openAdminSections, setOpenAdminSections] = useState(() => ({ ...(viewConfig.open || {}) }));
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
 
@@ -494,8 +519,8 @@ export default function AdminPanel({
         <Logo />
         <div className="admin-hero">
           <div>
-            <h1>Administrador</h1>
-            <p>Configura sucursales, menú, ingredientes, recetas, familias e importaciones. Para operación diaria usa Pedidos, Stock o Caja.</p>
+            <h1>{viewConfig.title}</h1>
+            <p>{viewConfig.description}</p>
           </div>
           <a className="ghost admin-home-link" href="#">Ver página cliente</a>
         </div>
@@ -524,7 +549,7 @@ export default function AdminPanel({
               <button type="button" className="primary" onClick={saveMenu} disabled={Boolean(loadError)}><Save size={16} /> Guardar cambios</button>
               {status && <p className="admin-status">{status}</p>}
             </div>
-            <section className="admin-collapse">
+            {hasAdminSection('executive') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('executive')}>Dashboard ejecutivo <span>{openAdminSections.executive ? '-' : '+'}</span></button>
               {openAdminSections.executive && (
                 <div className="admin-order-box">
@@ -533,44 +558,44 @@ export default function AdminPanel({
                   </React.Suspense>
                 </div>
               )}
-            </section>
-            <section className="admin-collapse">
+            </section>}
+            {hasAdminSection('payments') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('payments')}>Pagos en línea <span>{openAdminSections.payments ? '-' : '+'}</span></button>
               {openAdminSections.payments && (
                 <div className="admin-order-box">
                   <PaymentsSettings />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('whatsapp') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('whatsapp')}>WhatsApp Business <span>{openAdminSections.whatsapp ? '-' : '+'}</span></button>
               {openAdminSections.whatsapp && (
                 <div className="admin-order-box">
                   <WhatsAppSettings />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('metaPage') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('metaPage')}>Facebook e Instagram <span>{openAdminSections.metaPage ? '-' : '+'}</span></button>
               {openAdminSections.metaPage && (
                 <div className="admin-order-box">
                   <MetaPageSettings />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('instagramLogin') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('instagramLogin')}>Instagram (conexión directa) <span>{openAdminSections.instagramLogin ? '-' : '+'}</span></button>
               {openAdminSections.instagramLogin && (
                 <div className="admin-order-box">
                   <InstagramLoginSettings />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('itemsCosts') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('itemsCosts')}>Costos y recetas (nuevo) <span>{openAdminSections.itemsCosts ? '-' : '+'}</span></button>
               {openAdminSections.itemsCosts && (
                 <div className="admin-order-box">
@@ -578,9 +603,9 @@ export default function AdminPanel({
                   <ItemsRecipesPanel />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('catalog') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('catalog')}>Catálogo operativo <span>{openAdminSections.catalog ? '-' : '+'}</span></button>
               {openAdminSections.catalog && (
                 <div className="admin-embedded-stock-config">
@@ -588,9 +613,9 @@ export default function AdminPanel({
                   <StockPanel mode="adminConfig" />
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('branches') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('branches')}>Sucursales <span>{openAdminSections.branches ? '-' : '+'}</span></button>
               {openAdminSections.branches && (
               <div className="admin-order-box">
@@ -650,13 +675,13 @@ export default function AdminPanel({
                 <button type="button" className="ghost" onClick={addBranch}>+ Agregar sucursal</button>
               </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('promo')}>Promocion <span>{openAdminSections.promo ? '-' : '+'}</span></button>
+            {hasAdminSection('promo') && <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('promo')}>Promociones de venta <span>{openAdminSections.promo ? '-' : '+'}</span></button>
               {openAdminSections.promo && (
                 <div className="admin-order-box">
-                  <AdminSectionIntro title="Promocion del menu" description="Configura el combo o promocion visible en la pagina publica." />
+                  <AdminSectionIntro title="Promociones de venta" description="Configura combos o promociones que forman parte del menu y pueden afectar precio/carrito." />
                   <label className="check-row full">
                     <input type="checkbox" checked={Boolean(promotionDraft.active)} onChange={(e) => setPromotionDraft((current) => ({ ...current, active: e.target.checked }))} />
                     <span>Promocion activa</span>
@@ -691,9 +716,9 @@ export default function AdminPanel({
                   <button type="button" className="ghost" onClick={() => setPromotionDraft((current) => ({ ...current, items: [...(current.items || []), { productId: orderedDrafts[0]?.id || '', quantity: 1 }] }))}>+ Agregar producto a promo</button>
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
+            {hasAdminSection('hours') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('hours')}>Horarios y pedidos <span>{openAdminSections.hours ? '-' : '+'}</span></button>
               {openAdminSections.hours && (
                 <div className="admin-order-box">
@@ -725,10 +750,10 @@ export default function AdminPanel({
                   </div>
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="admin-collapse">
-            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Secciones del menú <span>{openAdminSections.sections ? '-' : '+'}</span></button>
+            {hasAdminSection('sections') && <section className="admin-collapse">
+            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Productos y categorias <span>{openAdminSections.sections ? '-' : '+'}</span></button>
             {openAdminSections.sections && (
             <>
             <div className="admin-order-box">
@@ -845,7 +870,7 @@ export default function AdminPanel({
             })}
             </>
             )}
-            </section>
+            </section>}
           </>
         )}
       </section>

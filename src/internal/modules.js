@@ -7,11 +7,14 @@ export const MODULES = [
   { id: 'inicio', label: 'Inicio', roles: ['admin', 'manager'] },
   { id: 'pedidos', label: 'Pedidos', roles: ['admin', 'manager', 'orders'] },
   { id: 'caja', label: 'Caja', roles: ['admin', 'manager', 'cashier'] },
-  { id: 'menu', label: 'Catalogo y ajustes', roles: ['admin', 'manager'] },
-  { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'clientes', label: 'Clientes', roles: ['admin', 'manager', 'orders'] },
+  { id: 'menu', label: 'Menu', roles: ['admin', 'manager'] },
+  { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'reportes', label: 'Reportes', roles: ['admin', 'manager', 'reports'] },
-  { id: 'configuracion', label: 'Equipo', roles: ['admin'] },
+  { id: 'pagina-publica', label: 'Pagina publica', roles: ['admin', 'manager'] },
+  { id: 'negocio', label: 'Negocio', roles: ['admin', 'manager'] },
+  { id: 'integraciones', label: 'Integraciones', roles: ['admin'] },
+  { id: 'usuarios', label: 'Usuarios', roles: ['admin'] },
   { id: 'plataforma', label: 'Plataforma', roles: ['platform_admin'] },
 ];
 

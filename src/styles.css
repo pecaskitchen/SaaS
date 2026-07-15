@@ -3952,6 +3952,58 @@ textarea { resize: vertical; min-height: 48px; }
 .odx-proof-card li { display: flex; align-items: center; gap: 9px; color: var(--odx-navy); font-weight: 700; font-size: 14.5px; }
 .odx-proof-card svg { flex: 0 0 auto; color: var(--odx-teal); }
 
+/* Sales proof */
+.odx-sales {
+  width: min(100% - 40px, 1200px);
+  margin: 0 auto;
+  padding: clamp(28px, 4vw, 44px);
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+  gap: clamp(20px, 4vw, 42px);
+  align-items: center;
+  border: 1px solid #dce8ec;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #f2fbfc 100%);
+  box-shadow: 0 22px 48px -28px rgba(16, 24, 40, .2);
+}
+.odx-sales h2 {
+  margin: 12px 0 10px;
+  color: var(--odx-navy);
+  font-size: clamp(26px, 3.2vw, 40px);
+  line-height: 1.12;
+}
+.odx-sales p {
+  margin: 0;
+  color: #526070;
+  line-height: 1.65;
+  max-width: 620px;
+}
+.odx-sales-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.odx-sales-metrics article {
+  min-height: 136px;
+  padding: 18px;
+  border: 1px solid rgba(20, 184, 180, .18);
+  border-radius: 16px;
+  background: #fff;
+  display: grid;
+  align-content: space-between;
+}
+.odx-sales-metrics strong {
+  color: var(--odx-teal-dark);
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1;
+}
+.odx-sales-metrics span {
+  color: #344054;
+  font-size: 13.5px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
 /* Modules */
 .odx-modules { padding: clamp(40px, 6vw, 72px) 20px; }
 .odx-section-head { max-width: 640px; margin-bottom: 34px; }
@@ -4045,7 +4097,7 @@ textarea { resize: vertical; min-height: 48px; }
 /* Access */
 .odx-access { padding: clamp(48px, 7vw, 80px) 20px; display: flex; justify-content: center; }
 .odx-access-card {
-  width: min(100%, 720px);
+  width: min(100%, 980px);
   padding: clamp(28px, 4vw, 48px);
   border-radius: 22px;
   border: 1px solid #eaecf0;
@@ -4054,7 +4106,28 @@ textarea { resize: vertical; min-height: 48px; }
 }
 .odx-access-card h2 { margin: 14px 0 10px; color: var(--odx-navy); font-size: clamp(24px, 3vw, 32px); }
 .odx-access-card p { margin: 0; max-width: 560px; color: #667085; line-height: 1.6; }
-.odx-access-card form { margin-top: 24px; display: grid; gap: 14px; }
+.odx-access-grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.odx-access-card form {
+  margin-top: 0;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid #eaecf0;
+  border-radius: 18px;
+  background: #fff;
+}
+.odx-access-card h3 {
+  margin: 0;
+  color: var(--odx-navy);
+  font-size: 18px;
+}
 .odx-access-card label { display: grid; gap: 8px; }
 .odx-access-card label span { color: #344054; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
 .odx-access-card input {
@@ -4068,6 +4141,22 @@ textarea { resize: vertical; min-height: 48px; }
 .odx-access-card input:focus { outline: 2px solid var(--odx-teal); outline-offset: 1px; }
 .odx-access-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .odx-access-status { margin: 0; color: var(--odx-teal-dark); font-weight: 700; font-size: 14px; }
+.odx-login-form {
+  background: linear-gradient(180deg, #f5fdff, #fff) !important;
+  border-color: rgba(20, 184, 180, .24) !important;
+}
+.odx-login-form p {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.odx-login-form small {
+  color: #667085;
+  line-height: 1.45;
+}
+.odx-login-form small a {
+  color: var(--odx-teal-dark);
+  font-weight: 800;
+}
 
 /* Footer */
 .odx-footer {
@@ -4527,6 +4616,10 @@ textarea { resize: vertical; min-height: 48px; }
   .odx-flow-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .odx-sales,
+  .odx-access-grid {
+    grid-template-columns: 1fr;
+  }
   .crm-grid {
     grid-template-columns: 1fr;
   }
@@ -4568,7 +4661,8 @@ textarea { resize: vertical; min-height: 48px; }
     width: 100%;
   }
   .odx-modules-grid,
-  .odx-flow-grid {
+  .odx-flow-grid,
+  .odx-sales-metrics {
     grid-template-columns: 1fr;
   }
   .crm-shell {

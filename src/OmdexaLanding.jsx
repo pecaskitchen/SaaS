@@ -14,11 +14,12 @@ const DEFAULT_CONFIG = {
     { label: 'CRM', href: '#ops', icon: 'users' },
     { label: 'Acceso', href: '#access', icon: 'store' },
     { label: 'Contacto', href: '#contact', icon: 'phone' },
+    { label: 'Terminos', href: '#terminos', icon: 'shield' },
   ],
   hero: {
     eyebrow: 'Software para negocios locales',
-    title: 'Tienda, CRM, inventario y pagos — usa todo, o solo lo que necesitas.',
-    text: 'Omdexa es un sistema modular: negocios que venden en linea usan la operacion completa (tienda, caja, inventario por recetas y pagos), y negocios que solo necesitan dar seguimiento a sus clientes pueden usar unicamente el CRM. Vos eliges que prender.',
+    title: 'Tienda, CRM, inventario y pagos para negocios locales.',
+    text: 'Omdexa es un sistema modular: negocios que venden en linea usan la operacion completa (tienda, caja, inventario por recetas y pagos), y negocios que solo necesitan seguimiento pueden usar solo el CRM. Tu eliges que activar.',
     imageUrl: '/omdexa-dashboard.svg',
     imageAlt: 'Panel operativo de Omdexa con pedidos, CRM, inventario y pagos',
     primaryActionLabel: 'Entrar a mi negocio',
@@ -28,7 +29,7 @@ const DEFAULT_CONFIG = {
   },
   contact: {
     title: 'Hablemos de tu operacion',
-    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio — completo o solo el CRM.',
+    text: 'Agenda soporte, onboarding o una demo para configurar Omdexa alrededor de tu negocio, completo o solo el CRM.',
     phone: '+528113927548',
     whatsapp: '+528113927548',
     email: 'hola@omdexa.com',
@@ -45,6 +46,23 @@ const DEFAULT_CONFIG = {
     adminButton: 'Entrar a admin',
     emptyStatus: 'Escribe el nombre o dominio de tu negocio.',
     searchingStatus: 'Buscando ambiente...',
+    loginTitle: 'Iniciar sesion',
+    loginText: 'Usa el nombre corto de tu negocio, email y contrasena. Si eres admin de Omdexa puedes dejar negocio vacio.',
+    loginBusinessPlaceholder: 'pecas o pecas.mx',
+    loginEmailPlaceholder: 'tu@negocio.com',
+    loginPasswordPlaceholder: 'Contrasena',
+    loginButton: 'Entrar con mi cuenta',
+    loginLoadingStatus: 'Validando acceso...',
+  },
+  sales: {
+    eyebrow: 'Por que Omdexa',
+    title: 'Menos hojas sueltas, menos retrabajo, mas control.',
+    text: 'Omdexa junta venta, operacion y seguimiento para que cada pedido deje rastro: quien compro, cuanto pago, que inventario uso y que hay que atender despues.',
+    metrics: [
+      { value: '1', label: 'catalogo por cliente, sin codigo duplicado' },
+      { value: '24/7', label: 'tienda abierta con reglas de horario' },
+      { value: '100%', label: 'pedidos conectados a CRM y stock' },
+    ],
   },
   live: {
     title: 'Omdexa OS',
@@ -76,6 +94,11 @@ function mergeConfig(config) {
     },
     contact: { ...DEFAULT_CONFIG.contact, ...(config?.contact || {}) },
     access: { ...DEFAULT_CONFIG.access, ...(config?.access || {}) },
+    sales: {
+      ...DEFAULT_CONFIG.sales,
+      ...(config?.sales || {}),
+      metrics: Array.isArray(config?.sales?.metrics) ? config.sales.metrics : DEFAULT_CONFIG.sales.metrics,
+    },
     live: {
       ...DEFAULT_CONFIG.live,
       ...(config?.live || {}),
@@ -110,6 +133,11 @@ export default function OmdexaLanding() {
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loginBusiness, setLoginBusiness] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginStatus, setLoginStatus] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -144,6 +172,33 @@ export default function OmdexaLanding() {
     } catch (error) {
       setStatus(error.message || 'No se pudo abrir el ambiente.');
       setLoading(false);
+    }
+  };
+
+  const portalLogin = async (event) => {
+    event.preventDefault();
+    if (!loginEmail.trim() || !loginPassword) {
+      setLoginStatus('Escribe tu email y contrasena.');
+      return;
+    }
+    setLoginLoading(true);
+    setLoginStatus(config.access.loginLoadingStatus || 'Validando acceso...');
+    try {
+      const response = await fetch('/api/portal-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business: cleanLookup(loginBusiness || lookup),
+          email: loginEmail.trim(),
+          password: loginPassword,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) throw new Error(data.error || 'No se pudo iniciar sesion.');
+      window.location.href = data.redirectUrl;
+    } catch (error) {
+      setLoginStatus(error.message || 'No se pudo iniciar sesion.');
+      setLoginLoading(false);
     }
   };
 
@@ -201,6 +256,22 @@ export default function OmdexaLanding() {
         </div>
       </section>
 
+      <section className="odx-sales" aria-label="Por que elegir Omdexa">
+        <div className="odx-sales-copy">
+          <span className="odx-eyebrow"><CheckCircle2 size={14} /> {config.sales.eyebrow}</span>
+          <h2>{config.sales.title}</h2>
+          <p>{config.sales.text}</p>
+        </div>
+        <div className="odx-sales-metrics">
+          {config.sales.metrics.map((metric, index) => (
+            <article key={`${metric.value}-${index}`}>
+              <strong>{metric.value}</strong>
+              <span>{metric.label}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="odx-modules" id="ops">
         <div className="odx-section-head">
           <span className="odx-eyebrow">Modulos</span>
@@ -246,22 +317,67 @@ export default function OmdexaLanding() {
           <h2>{config.access.title}</h2>
           <p>{config.access.text}</p>
 
-          <form onSubmit={(event) => { event.preventDefault(); resolveTenant('store'); }}>
-            <label>
-              <span>{config.access.inputLabel}</span>
-              <input
-                value={lookup}
-                onChange={(event) => setLookup(event.target.value)}
-                placeholder={config.access.inputPlaceholder}
-                autoComplete="organization"
-              />
-            </label>
-            <div className="odx-access-actions">
-              <button type="submit" className="odx-btn odx-btn-primary" disabled={loading}>{config.access.storeButton}</button>
-              <button type="button" className="odx-btn odx-btn-ghost" onClick={() => resolveTenant('admin')} disabled={loading}>{config.access.adminButton}</button>
-            </div>
-            {status ? <p className="odx-access-status">{status}</p> : null}
-          </form>
+          <div className="odx-access-grid">
+            <form onSubmit={(event) => { event.preventDefault(); resolveTenant('store'); }}>
+              <h3>Buscar ambiente</h3>
+              <label>
+                <span>{config.access.inputLabel}</span>
+                <input
+                  value={lookup}
+                  onChange={(event) => {
+                    setLookup(event.target.value);
+                    if (!loginBusiness) setLoginBusiness(event.target.value);
+                  }}
+                  placeholder={config.access.inputPlaceholder}
+                  autoComplete="organization"
+                />
+              </label>
+              <div className="odx-access-actions">
+                <button type="submit" className="odx-btn odx-btn-primary" disabled={loading}>{config.access.storeButton}</button>
+                <button type="button" className="odx-btn odx-btn-ghost" onClick={() => resolveTenant('admin')} disabled={loading}>{config.access.adminButton}</button>
+              </div>
+              {status ? <p className="odx-access-status">{status}</p> : null}
+            </form>
+
+            <form className="odx-login-form" onSubmit={portalLogin}>
+              <h3>{config.access.loginTitle}</h3>
+              <p>{config.access.loginText}</p>
+              <label>
+                <span>Negocio</span>
+                <input
+                  value={loginBusiness}
+                  onChange={(event) => setLoginBusiness(event.target.value)}
+                  placeholder={config.access.loginBusinessPlaceholder}
+                  autoComplete="organization"
+                />
+              </label>
+              <label>
+                <span>Email</span>
+                <input
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  placeholder={config.access.loginEmailPlaceholder}
+                  autoComplete="email"
+                  inputMode="email"
+                />
+              </label>
+              <label>
+                <span>Contrasena</span>
+                <input
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  placeholder={config.access.loginPasswordPlaceholder}
+                  autoComplete="current-password"
+                  type="password"
+                />
+              </label>
+              <button type="submit" className="odx-btn odx-btn-primary" disabled={loginLoading}>{config.access.loginButton}</button>
+              <small>
+                Al entrar aceptas los <a href="#terminos">Terminos</a> y el <a href="#privacidad">Aviso de privacidad</a>.
+              </small>
+              {loginStatus ? <p className="odx-access-status">{loginStatus}</p> : null}
+            </form>
+          </div>
         </div>
       </section>
 
@@ -277,8 +393,9 @@ export default function OmdexaLanding() {
           </div>
         </div>
         <div className="odx-footer-bottom">
-          <span>© {new Date().getFullYear()} {config.brandName}. Todos los derechos reservados.</span>
+          <span>&copy; {new Date().getFullYear()} {config.brandName}. Todos los derechos reservados.</span>
           <div className="odx-footer-legal">
+            <a href="#access">Iniciar sesion</a>
             <a href="#privacidad">Aviso de privacidad</a>
             <a href="#terminos">Terminos de servicio</a>
           </div>

@@ -3,6 +3,23 @@ import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js'
 
 const AuthContext = createContext(null);
 
+function consumeLoginTokenFromHash() {
+  try {
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#login-token=')) return '';
+    const params = new URLSearchParams(hash.slice(1));
+    const token = params.get('login-token') || '';
+    const next = params.get('next') || 'panel';
+    if (token) setSessionToken(token);
+    const targetHash = next === 'plataforma' ? '#panel/plataforma' : '#panel';
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${targetHash}`);
+    window.dispatchEvent(new Event('hashchange'));
+    return token;
+  } catch {
+    return '';
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,6 +29,7 @@ export function AuthProvider({ children }) {
     // de React se pierde. Se recupera el usuario antes de redirigir a login.
     let cancelled = false;
     async function restore() {
+      consumeLoginTokenFromHash();
       if (!getSessionToken()) {
         setLoading(false);
         return;

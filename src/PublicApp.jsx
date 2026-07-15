@@ -1970,7 +1970,8 @@ export default function PublicApp() {
     const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
     return sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
   }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
-  const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
+  const effectiveSelectedBranchId = branchSettings.multiBranchEnabled ? selectedBranchId : branchSettings.defaultBranchId;
+  const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, effectiveSelectedBranchId), [branchSettings, effectiveSelectedBranchId]);
   // CORREGIDO: antes solo usaba el horario de la sucursal cuando
   // multiBranchEnabled estaba activo. El panel Super (unico lugar donde
   // se edita el horario hoy) siempre guarda en branches[].businessHours,
@@ -2149,7 +2150,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
 
 
 

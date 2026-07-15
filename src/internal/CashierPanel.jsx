@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CashierPanel as CashierPanelBase } from '../LegacyApp.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { CATALOG_PRODUCTS, mergeCategoriesWithExtras, mergeProductsWithExtras, sortByOrder } from '../lib/catalog.js';
-import { DEFAULT_BRANCH_SETTINGS, normalizeBranchSettings } from '../lib/business.js';
+import { DEFAULT_BRANCH_SETTINGS, normalizeBranchSettings, selectedBranchFrom } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 
 function mergeProductsWithOverrides(products, overrides) {
@@ -71,7 +71,15 @@ export default function CashierModule() {
 
   const catalogCategories = useMemo(() => mergeCategoriesWithExtras(baseCatalogEnabled ? categories : [], extraCategories), [baseCatalogEnabled, extraCategories]);
   const catalogProducts = useMemo(() => mergeProductsWithExtras(baseCatalogEnabled ? CATALOG_PRODUCTS : [], extraProducts), [baseCatalogEnabled, extraProducts]);
-  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);
+  const selectedBranch = useMemo(() => {
+    const normalized = normalizeBranchSettings(branchSettings);
+    return selectedBranchFrom(normalized, normalized.defaultBranchId);
+  }, [branchSettings]);
+  const branchSoldOutOverrides = selectedBranch?.soldOut || {};
+  const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder).map((product) => ({
+    ...product,
+    soldOut: Boolean(branchSoldOutOverrides[product.id]),
+  })), [catalogProducts, menuOverrides, productOrder, branchSoldOutOverrides]);
 
   if (status) {
     return <main className="admin-page"><p className="admin-status">{status}</p></main>;

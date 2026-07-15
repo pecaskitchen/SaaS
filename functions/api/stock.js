@@ -43,13 +43,11 @@ function safeDecodeHeader(value) {
 // esta función - ver corrección de orden en onRequestPost más abajo). El PIN
 // por sucursal (branch.stockPassword) se conserva como segundo factor
 // opcional para acotar la vista a una sola sucursal; ya estaba scoped por
-// tenant_id v?a readMenuSettings(env), as? que no representa una fuga.
+// tenant_id via readMenuSettings(env), asi que no representa una fuga.
 async function authFromValues(values, env, request = null) {
-  const name = String(values?.operatorName || values?.name || '').trim();
+  let name = String(values?.operatorName || values?.name || '').trim();
   const shift = String(values?.shift || '').trim() || 'Sin turno';
   const password = String(values?.password || '').trim();
-
-  if (!name) return { ok: false, error: 'Ingresa el nombre de quien opera.' };
 
   if (request) {
     // Rediseno de roles: 'kitchen' se renombra a 'inventory' -- se acepta
@@ -58,9 +56,12 @@ async function authFromValues(values, env, request = null) {
     const jwtAuth = await requireAuth(request, env, ['admin', 'manager', 'inventory', 'kitchen', 'platform_admin']);
     if (jwtAuth.ok) {
       const role = jwtAuth.session.role === 'platform_admin' ? 'admin' : jwtAuth.session.role;
+      if (!name) name = jwtAuth.session.name || jwtAuth.session.email || 'Equipo';
       return { ok: true, role, name, shift, accessScope: role === 'admin' ? 'all' : 'legacy' };
     }
   }
+
+  if (!name) return { ok: false, error: 'Ingresa el nombre de quien opera.' };
 
   // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
   // fallback aquí - eran contraseñas globales compartidas por TODOS los
@@ -1064,13 +1065,13 @@ async function validateFamilyImportRows(env, rows = []) {
     const rowType = String(row.row_type || row.record_type || '').trim().toLowerCase();
     if (rowType === 'family') return;
     if (!familyKey) errors.push({ line, field: 'family_key', message: 'Falta la clave de familia.' });
-    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vac?o'}.` });
+    if (!['option','family_option','component','family_component','product_rule','family_product_rule'].includes(rowType)) errors.push({ line, field: 'row_type', message: `Tipo de fila no reconocido: ${rowType || 'vacío'}.` });
     if (['option','family_option'].includes(rowType)) {
       const optionName = String(row.option_name || '').trim();
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
       if (!optionName) errors.push({ line, field: 'option_name', message: 'Falta el nombre de la opción.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente principal.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente "${ingredient}".` });
       if (!optionNames.has(familyKey)) optionNames.set(familyKey, new Set());
       optionNames.get(familyKey).add(optionName.toLowerCase());
     }
@@ -1079,7 +1080,7 @@ async function validateFamilyImportRows(env, rows = []) {
       const ingredient = String(row.ingredient_name || row.item_name || '').trim();
       if (!optionName) errors.push({ line, field: 'option_name', message: 'El componente debe indicar a qué opción pertenece.' });
       if (!ingredient) errors.push({ line, field: 'ingredient_name', message: 'Falta el ingrediente del componente.' });
-      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente ?${ingredient}?.` });
+      else if (!knownItems.has(ingredient.toLowerCase())) errors.push({ line, field: 'ingredient_name', message: `No existe el ingrediente "${ingredient}".` });
       if (Number(row.quantity || 0) <= 0) errors.push({ line, field: 'quantity', message: 'La cantidad del componente debe ser mayor a 0.' });
     }
     if (['product_rule','family_product_rule'].includes(rowType) && !String(row.product_id || '').trim()) errors.push({ line, field: 'product_id', message: 'Falta product_id.' });
@@ -1384,7 +1385,7 @@ async function listData(env, requestedBranchId = null) {
   const effectiveOverrides = { ...(effectiveCatalog.overrides || {}) };
   // Siempre ignoramos soldOut global legacy en Stock. El estado operativo
   // de agotado debe venir de la sucursal seleccionada, aun si multi-sucursal
-  // est? apagado y se usa la sucursal default.
+  // está apagado y se usa la sucursal default.
   for (const productId of Object.keys(effectiveOverrides)) {
     if (effectiveOverrides[productId]) {
       const { soldOut, ...rest } = effectiveOverrides[productId];
@@ -2592,7 +2593,3 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: error.validationErrors ? 'El archivo tiene errores de validación.' : 'No se pudo procesar stock.', detail: error.message, validationErrors: error.validationErrors || [] }, error.validationErrors ? 400 : 500);
   }
 }
-
-
-
-

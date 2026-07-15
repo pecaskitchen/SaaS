@@ -2338,7 +2338,8 @@ export default function App() {
     const publishedCategoryIds = new Set(currentProducts.filter((product) => !product.unavailable).map((product) => product.category));
     return sortByOrder(catalogCategories, categoryOrder).filter((category) => !categoryHidden[category.id] && publishedCategoryIds.has(category.id));
   }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
-  const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, selectedBranchId), [branchSettings, selectedBranchId]);
+  const effectiveSelectedBranchId = branchSettings.multiBranchEnabled ? selectedBranchId : branchSettings.defaultBranchId;
+  const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, effectiveSelectedBranchId), [branchSettings, effectiveSelectedBranchId]);
   // CORREGIDO: mismo bug que PublicApp.jsx -- el panel Super siempre
   // guarda en branches[].businessHours, nunca en el campo "global", asi
   // que con multiBranchEnabled apagado (una sola sucursal) el cliente
@@ -2502,7 +2503,6 @@ export default function App() {
     </main>
   );
 }
-
 
 
 

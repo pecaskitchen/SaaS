@@ -94,14 +94,24 @@ export async function onRequestPatch({ request, env }) {
 
     const currentSettings = safeJson(current.settings_json, {});
     const incomingSettings = body.settings || {};
+    // CORREGIDO (mismo fix que business-config.js): con `incoming || current`
+    // un campo vaciado a proposito regresaba al valor anterior. Campo
+    // presente en el body = usar ese valor aunque sea vacio.
+    const has = (key) => Object.prototype.hasOwnProperty.call(incomingSettings, key);
     const nextSettings = {
       ...currentSettings,
       timezone: String(incomingSettings.timezone || currentSettings.timezone || 'America/Mexico_City').trim(),
-      whatsappNumber: String(incomingSettings.whatsappNumber || currentSettings.whatsappNumber || '').trim(),
-      supportEmail: String(incomingSettings.supportEmail || currentSettings.supportEmail || '').trim(),
-      paymentMethods: normalizeSettingList(incomingSettings.paymentMethods, currentSettings.paymentMethods || ['Efectivo', 'Transferencia', 'Mercado Pago']),
-      fulfillmentTypes: normalizeSettingList(incomingSettings.fulfillmentTypes, currentSettings.fulfillmentTypes || ['Recoger', 'Entrega a domicilio']),
-      orderSources: normalizeSettingList(incomingSettings.orderSources, currentSettings.orderSources || ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
+      whatsappNumber: has('whatsappNumber') ? String(incomingSettings.whatsappNumber ?? '').trim() : String(currentSettings.whatsappNumber || '').trim(),
+      supportEmail: has('supportEmail') ? String(incomingSettings.supportEmail ?? '').trim() : String(currentSettings.supportEmail || '').trim(),
+      paymentMethods: has('paymentMethods')
+        ? normalizeSettingList(incomingSettings.paymentMethods, [])
+        : normalizeSettingList(currentSettings.paymentMethods, ['Efectivo', 'Transferencia', 'Mercado Pago']),
+      fulfillmentTypes: has('fulfillmentTypes')
+        ? normalizeSettingList(incomingSettings.fulfillmentTypes, [])
+        : normalizeSettingList(currentSettings.fulfillmentTypes, ['Recoger', 'Entrega a domicilio']),
+      orderSources: has('orderSources')
+        ? normalizeSettingList(incomingSettings.orderSources, [])
+        : normalizeSettingList(currentSettings.orderSources, ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
     };
 
     const tenant = await updateTenant(env, current.id, {

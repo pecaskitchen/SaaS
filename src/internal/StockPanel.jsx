@@ -1440,13 +1440,19 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   };
   const productById = new Map(stockMenuProducts.map((product) => [product.id, product]));
   const recipeById = new Map(productRecipes.map((recipe) => [Number(recipe.id), recipe]));
-  const recipeByKey = new Map(productRecipes.map((recipe) => [String(recipe.recipe_key || ''), recipe]));
+  // CORREGIDO: si una receta no tiene recipe_key quedaba guardada bajo la
+  // clave '' y TODO producto sin receta la heredaba via .get('') -- se
+  // omiten claves vacias del Map y solo se consulta con clave no vacia.
+  // Tambien se quito el fallback por nombre: re-introducia el matching por
+  // nombre que ya se elimino del motor de consumo y colgaba recetas ajenas
+  // (sugerencias de agotado falsas).
+  const recipeByKey = new Map(productRecipes.filter((recipe) => recipe.recipe_key).map((recipe) => [String(recipe.recipe_key), recipe]));
+  const productRecipeKey = (product) => String(product.recipeKey || product.recipe_key || '');
   const itemById = new Map(data.items.map((item) => [Number(item.id), item]));
   const productStockSuggestions = stockMenuProducts.map((product) => {
     const recipe = recipeById.get(Number(product.recipeId || product.recipe_id))
-      || recipeByKey.get(String(product.recipeKey || product.recipe_key || ''))
-      || recipeByKey.get(`product:${product.id}`)
-      || productRecipes.find((item) => String(item.name || '').trim().toLowerCase() === String(product.name || '').trim().toLowerCase());
+      || (productRecipeKey(product) ? recipeByKey.get(productRecipeKey(product)) : undefined)
+      || recipeByKey.get(`product:${product.id}`);
     if (!recipe) return null;
     const blockingLines = (recipe.lines || [])
       .filter((line) => Number(line.is_default ?? 1) !== 0 && Number(line.is_optional || 0) === 0 && Number(line.quantity || 0) > 0)
@@ -1464,7 +1470,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const selectedProductSetup = stockMenuProducts.find((product) => product.id === selectedProductSetupId) || stockMenuProducts[0] || null;
   const selectedProductRecipe = selectedProductSetup
     ? (recipeById.get(Number(selectedProductSetup.recipeId || selectedProductSetup.recipe_id))
-      || recipeByKey.get(String(selectedProductSetup.recipeKey || selectedProductSetup.recipe_key || ''))
+      || (productRecipeKey(selectedProductSetup) ? recipeByKey.get(productRecipeKey(selectedProductSetup)) : undefined)
       || recipeByKey.get(`product:${selectedProductSetup.id}`))
     : null;
   const selectedProductFamilyRules = selectedProductSetup ? (data.optionFamilies || []).flatMap((family) => (

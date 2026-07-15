@@ -1,6 +1,7 @@
 import { requireAuth } from '../_shared/auth.js';
 import { ensureCrmSchema, normalizePhone } from '../_shared/crm.js';
 import { jsonResponse, readJson, requireDb } from '../_shared/http.js';
+import { ensureOrderArchiveColumns } from '../_shared/orderColumns.js';
 import { resolveTenantId } from '../_shared/tenant.js';
 
 function parseJson(value, fallback) {
@@ -36,19 +37,6 @@ function mapCustomer(row) {
   };
 }
 
-async function ensureOrderArchiveColumns(db) {
-  try {
-    const info = await db.prepare(`PRAGMA table_info(orders)`).all();
-    const columns = new Set((info.results || []).map((row) => row.name));
-    if (!columns.has('exclude_from_reports')) await db.prepare(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`).run();
-    if (!columns.has('archived_at_utc')) await db.prepare(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`).run();
-    if (!columns.has('archived_reason')) await db.prepare(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`).run();
-    if (!columns.has('deleted_at_utc')) await db.prepare(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`).run();
-  } catch {
-    // orders may not exist yet
-  }
-}
-
 async function requireCrmAccess(request, env) {
   // Rediseno de roles: 'manager' tambien ve el modulo Clientes.
   return requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
@@ -76,7 +64,7 @@ export async function onRequestGet({ request, env }) {
         SELECT id, order_number, status, branch_name, total, order_source, payment_method, payment_status, created_at_utc, created_at_monterrey
         FROM orders
         WHERE tenant_id = ? AND (
-          (? != '' AND replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', '') = ?)
+          (? != '' AND replace(replace(replace(replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', ''), '(', ''), ')', ''), '.', '') = ?)
           OR lower(customer_name) = lower(?)
         )
         AND deleted_at_utc IS NULL

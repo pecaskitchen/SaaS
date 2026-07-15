@@ -1,6 +1,7 @@
 import { jsonResponse, readJson, requireDb, nowIso } from '../_shared/http.js';
 import { verifyPassword, signToken, hashPassword, isLegacyPasswordHash } from '../_shared/crypto.js';
 import { ensureSessionsTable, jwtSecret } from '../_shared/auth.js';
+import { checkLoginRateLimit, clearLoginFailures, recordLoginFailure } from '../_shared/loginRateLimit.js';
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 horas
 
@@ -11,6 +12,11 @@ export async function onRequestPost({ request, env }) {
     const password = String(body.password || '');
     const hostname = new URL(request.url).hostname.toLowerCase();
     if (!email || !password) return jsonResponse({ ok: false, error: 'Email y password son obligatorios.' }, 400);
+
+    const rate = await checkLoginRateLimit(env, request, email);
+    if (rate.limited) {
+      return jsonResponse({ ok: false, error: `Demasiados intentos. Espera ${rate.retryMinutes} minutos e intenta de nuevo.` }, 429);
+    }
 
     const db = requireDb(env);
     await ensureSessionsTable(env);
@@ -25,8 +31,11 @@ export async function onRequestPost({ request, env }) {
       LIMIT 1
     `).bind(email, hostname).first();
     if (!user || !(await verifyPassword(password, user.password_hash))) {
+      await recordLoginFailure(env, request, email);
       return jsonResponse({ ok: false, error: 'Credenciales invalidas.' }, 401);
     }
+
+    await clearLoginFailures(env, request, email);
 
     if (isLegacyPasswordHash(user.password_hash)) {
       try {

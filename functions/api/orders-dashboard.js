@@ -23,17 +23,22 @@ async function resolveOrdersAccess(request, env, tenantId) {
   const auth = await requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
 
   if (auth.ok) {
+    // canArchive: archivar/eliminar excluye pedidos de ventas/reportes/CRM
+    // de forma permanente, asi que se reserva a duenos y gerentes con cuenta
+    // propia (mismo criterio que el DELETE de crm/customers.js). Un PIN
+    // compartido o el rol operativo "orders" no pueden ocultar ventas.
     if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
-      return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all' };
+      return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all', canArchive: true };
     }
+    const canArchive = auth.session.role === 'manager';
     // JWT valido con rol "orders": igual puede acotarse a una sucursal si
     // manda tambien el PIN de esa sucursal; si no, ve todas las que aplique
     // a su tenant.
     const password = getPassword(request);
     const branchSettings = await readBranchSettings(env, tenantId);
     const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings };
-    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy', branchSettings };
+    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings, canArchive };
+    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy', branchSettings, canArchive };
   }
 
   // Sin JWT: unico camino valido es el PIN de sucursal (personal sin cuenta
@@ -42,7 +47,7 @@ async function resolveOrdersAccess(request, env, tenantId) {
   if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
   const branchSettings = await readBranchSettings(env, tenantId);
   const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-  if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings };
+  if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings, canArchive: false };
   return { ok: false, error: 'No autorizado.', response: auth.response };
 }
 
@@ -808,7 +813,7 @@ export async function onRequestGet(context) {
     const branchSettings = access.branchSettings || await readBranchSettings(env, tenantId);
     const branchFilter = access.accessScope === 'branch' ? access.branchFilter : requestedBranchFilter;
     const data = await loadFullOrders(env, status, limit, branchFilter, tenantId);
-    return jsonResponse({ ok: true, role: access.role, accessScope: access.accessScope, lockedBranchId: access.accessScope === 'branch' ? access.branchFilter : null, branchSettings: access.role === 'admin' ? branchSettings : hideBranchPasswords(branchSettings), ...data });
+    return jsonResponse({ ok: true, role: access.role, accessScope: access.accessScope, canArchive: Boolean(access.canArchive), lockedBranchId: access.accessScope === 'branch' ? access.branchFilter : null, branchSettings: access.role === 'admin' ? branchSettings : hideBranchPasswords(branchSettings), ...data });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudieron cargar los pedidos.', detail: error.message }, 500);
   }
@@ -839,6 +844,9 @@ export async function onRequestPatch(context) {
 
     const timestamps = getTimestamps();
     if (action === 'archive' || action === 'delete') {
+      if (!access.canArchive) {
+        return jsonResponse({ ok: false, error: 'Solo el dueño o un gerente pueden archivar o eliminar pedidos.' }, 403);
+      }
       const isDelete = action === 'delete';
       const eventType = isDelete ? 'deleted' : 'archived';
       const eventNote = String(note || (isDelete ? 'Pedido eliminado de reportes y CRM.' : 'Pedido archivado de reportes y CRM.'));

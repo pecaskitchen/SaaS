@@ -55,7 +55,17 @@ const ORDER_STATUS_LABELS = {
   cancelled: 'Cancelados',
 };
 
-const KANBAN_COLUMNS = ['pending', 'confirmed', 'preparing'];
+// Columnas fijas del flujo activo. "ready" es necesaria para poder avanzar
+// un pedido a Entregado desde el tablero; delivered/cancelled se agregan
+// dinamicamente solo si hay pedidos cargados en esos estados, para que
+// ningun pedido devuelto por el filtro quede invisible en la vista Kanban.
+const KANBAN_BASE_COLUMNS = ['pending', 'confirmed', 'preparing', 'ready'];
+const KANBAN_EXTRA_COLUMNS = ['delivered', 'cancelled'];
+
+function kanbanColumnsFor(orders) {
+  const extras = KANBAN_EXTRA_COLUMNS.filter((columnStatus) => orders.some((order) => order.status === columnStatus));
+  return [...KANBAN_BASE_COLUMNS, ...extras];
+}
 
 function minutesSince(value) {
   if (!value) return 0;
@@ -96,6 +106,7 @@ export default function OrdersPanel() {
   const [branchFilter, setBranchFilter] = useState('all');
   const [ordersAccessScope, setOrdersAccessScope] = useState('legacy');
   const [ordersLockedBranchId, setOrdersLockedBranchId] = useState(null);
+  const [canArchive, setCanArchive] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
@@ -132,6 +143,7 @@ export default function OrdersPanel() {
       if (result.branchSettings) setBranchSettings(normalizeBranchSettings(result.branchSettings));
       setOrdersAccessScope(result.accessScope || 'legacy');
       setOrdersLockedBranchId(result.lockedBranchId || null);
+      setCanArchive(Boolean(result.canArchive));
       if (result.lockedBranchId && branchFilter !== result.lockedBranchId) setBranchFilter(result.lockedBranchId);
       setOrders(result.orders || []);
       setStatus('');
@@ -310,12 +322,16 @@ export default function OrdersPanel() {
               </button>
             ))
           )}
-          <button type="button" className="ghost small" onClick={() => archiveOrder(order.id, 'archive')} title="Archivar y excluir de ventas/CRM">
-            <Archive size={15} /> Archivar
-          </button>
-          <button type="button" className="ghost small danger-text" onClick={() => archiveOrder(order.id, 'delete')} title="Eliminar de la vista y excluir de ventas/CRM">
-            <Trash2 size={15} /> Eliminar
-          </button>
+          {canArchive && (
+            <>
+              <button type="button" className="ghost small" onClick={() => archiveOrder(order.id, 'archive')} title="Archivar y excluir de ventas/CRM">
+                <Archive size={15} /> Archivar
+              </button>
+              <button type="button" className="ghost small danger-text" onClick={() => archiveOrder(order.id, 'delete')} title="Eliminar de la vista y excluir de ventas/CRM">
+                <Trash2 size={15} /> Eliminar
+              </button>
+            </>
+          )}
         </div>
       </article>
     );
@@ -414,7 +430,7 @@ export default function OrdersPanel() {
 
         {viewMode === 'kanban' ? (
           <div className="orders-kanban">
-            {KANBAN_COLUMNS.map((columnStatus) => {
+            {kanbanColumnsFor(orders).map((columnStatus) => {
               const columnOrders = orders.filter((order) => order.status === columnStatus);
               return (
                 <section className="orders-kanban-column" key={columnStatus}>

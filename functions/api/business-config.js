@@ -95,14 +95,27 @@ export async function onRequestPatch({ request, env }) {
     };
     if (!THEME_PRESETS.includes(nextBrand.themePreset)) nextBrand.themePreset = 'neutral';
 
+    // CORREGIDO: antes se usaba `incoming || current`, asi que un campo
+    // vaciado a proposito (borrar el WhatsApp o el email de soporte)
+    // regresaba en silencio al valor anterior. Ahora "el campo viene en el
+    // body" significa "usa este valor, aunque sea vacio"; solo se conserva
+    // el actual cuando el campo no se mando. timezone si conserva fallback
+    // porque vacio no es un valor valido para ella.
+    const has = (key) => Object.prototype.hasOwnProperty.call(incomingSettings, key);
     const nextSettings = {
       ...currentSettings,
       timezone: String(incomingSettings.timezone || currentSettings.timezone || 'America/Mexico_City').trim(),
-      whatsappNumber: String(incomingSettings.whatsappNumber || currentSettings.whatsappNumber || '').trim(),
-      supportEmail: String(incomingSettings.supportEmail || currentSettings.supportEmail || '').trim(),
-      paymentMethods: normalizeSettingList(incomingSettings.paymentMethods, currentSettings.paymentMethods || ['Efectivo', 'Transferencia', 'Mercado Pago']),
-      fulfillmentTypes: normalizeSettingList(incomingSettings.fulfillmentTypes, currentSettings.fulfillmentTypes || ['Recoger', 'Entrega a domicilio']),
-      orderSources: normalizeSettingList(incomingSettings.orderSources, currentSettings.orderSources || ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
+      whatsappNumber: has('whatsappNumber') ? String(incomingSettings.whatsappNumber ?? '').trim() : String(currentSettings.whatsappNumber || '').trim(),
+      supportEmail: has('supportEmail') ? String(incomingSettings.supportEmail ?? '').trim() : String(currentSettings.supportEmail || '').trim(),
+      paymentMethods: has('paymentMethods')
+        ? normalizeSettingList(incomingSettings.paymentMethods, [])
+        : normalizeSettingList(currentSettings.paymentMethods, ['Efectivo', 'Transferencia', 'Mercado Pago']),
+      fulfillmentTypes: has('fulfillmentTypes')
+        ? normalizeSettingList(incomingSettings.fulfillmentTypes, [])
+        : normalizeSettingList(currentSettings.fulfillmentTypes, ['Recoger', 'Entrega a domicilio']),
+      orderSources: has('orderSources')
+        ? normalizeSettingList(incomingSettings.orderSources, [])
+        : normalizeSettingList(currentSettings.orderSources, ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
     };
 
     await requireDb(env).prepare(`

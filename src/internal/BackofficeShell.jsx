@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog,
+  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen,
 } from 'lucide-react';
 import '../styles.css';
 import './backoffice-shell.css';
@@ -12,6 +12,7 @@ const OrdersPanel = lazy(() => import('./OrdersPanel.jsx'));
 const CashierModule = lazy(() => import('./CashierPanel.jsx'));
 const AdminRoute = lazy(() => import('./AdminRoute.jsx'));
 const StockPanel = lazy(() => import('./StockPanel.jsx'));
+const RecipesPanel = lazy(() => import('./RecipesPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
 const ReportDownloadsPanel = lazy(() => import('./ReportDownloadsPanel.jsx'));
@@ -27,6 +28,7 @@ const MODULE_ICONS = {
   caja: Wallet,
   menu: UtensilsCrossed,
   inventario: Package,
+  recetas: BookOpen,
   clientes: Users,
   reportes: BarChart3,
   'pagina-publica': Store,
@@ -49,6 +51,7 @@ function ModuleContent({ moduleId }) {
   if (moduleId === 'caja') return <CashierModule />;
   if (moduleId === 'menu') return <AdminRoute view="menu" />;
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
+  if (moduleId === 'recetas') return <RecipesPanel />;
   if (moduleId === 'clientes') return <CrmPanel />;
   if (moduleId === 'reportes') {
     return (

@@ -2,6 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, RefreshCw, Save, Search, Trash2, Users } from 'lucide-react';
 import '../styles.css';
 import { getSessionToken } from '../lib/apiClient.js';
+import { useAuth } from '../auth/AuthContext.jsx';
+
+// El DELETE de /api/crm/customers solo lo permiten admin/manager/platform_admin;
+// el rol "orders" puede ver y editar clientes pero no eliminarlos, asi que el
+// boton se oculta para no ofrecer una accion que el backend va a rechazar.
+const CAN_DELETE_ROLES = ['admin', 'manager', 'platform_admin'];
 
 const currency = (amount) => `$${Number(amount || 0).toLocaleString('es-MX')}`;
 
@@ -41,6 +47,8 @@ function whatsappHref(customer, text) {
 }
 
 export default function CrmPanel() {
+  const { user } = useAuth();
+  const canDelete = Boolean(user && CAN_DELETE_ROLES.includes(user.role));
   const [customers, setCustomers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -194,9 +202,11 @@ export default function CrmPanel() {
                   <button type="button" className="primary small" onClick={saveSelected} disabled={loading}>
                     <Save size={15} /> Guardar
                   </button>
-                  <button type="button" className="ghost small danger-text" onClick={deleteSelected} disabled={loading}>
-                    <Trash2 size={15} /> Eliminar
-                  </button>
+                  {canDelete && (
+                    <button type="button" className="ghost small danger-text" onClick={deleteSelected} disabled={loading}>
+                      <Trash2 size={15} /> Eliminar
+                    </button>
+                  )}
                 </div>
 
                 <div className="admin-promo-grid">

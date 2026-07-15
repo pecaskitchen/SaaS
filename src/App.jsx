@@ -1,7 +1,12 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider } from './auth/AuthContext.jsx';
-import OmdexaLanding from './OmdexaLanding.jsx';
 
+// De vuelta a lazy: el import estatico metia todo el landing de Omdexa al
+// chunk principal que descargan los clientes de los tenants (194->208 kB)
+// aunque nunca lo vean. La carga inestable del landing que motivo el import
+// estatico ya se resuelve de raiz con public/_headers (HTML sin cache) y el
+// handler de vite:preloadError en main.jsx.
+const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
 const PublicApp = lazy(() => import('./PublicApp.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));

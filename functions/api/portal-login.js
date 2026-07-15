@@ -1,6 +1,7 @@
 import { ensureSessionsTable, jwtSecret } from './_shared/auth.js';
 import { hashPassword, isLegacyPasswordHash, signToken, verifyPassword } from './_shared/crypto.js';
 import { jsonResponse, nowIso, readJson, requireDb } from './_shared/http.js';
+import { checkLoginRateLimit, clearLoginFailures, recordLoginFailure } from './_shared/loginRateLimit.js';
 import { ensurePlatformTables } from './_shared/platform.js';
 import { ensureTenantDomainTable } from './_shared/tenant.js';
 
@@ -18,7 +19,12 @@ function normalizeLookup(value) {
 function tenantUrl(tenant, domainRow) {
   const hostname = domainRow?.hostname || tenant?.domain || tenant?.subdomain || '';
   if (!hostname) return '';
-  return `https://${String(hostname).replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+  const clean = String(hostname).replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  // saas_tenants.subdomain puede traer solo el slug ("pecas") si el negocio
+  // aun no tiene dominio; eso no es un hostname usable y produciria un
+  // redirect roto tipo https://pecas -- se trata como "sin dominio" (409).
+  if (!clean.includes('.')) return '';
+  return `https://${clean}`;
 }
 
 async function findTenant(env, lookup) {
@@ -106,6 +112,14 @@ export async function onRequestPost({ request, env }) {
     const password = String(body.password || '');
     if (!email || !password) return jsonResponse({ ok: false, error: 'Email y contrasena son obligatorios.' }, 400);
 
+    // Este endpoint acepta el negocio como parametro del cliente (no hay
+    // amarre por hostname como en /api/auth/login), asi que el rate limit
+    // es la barrera contra fuerza bruta de credenciales de cualquier tenant.
+    const rate = await checkLoginRateLimit(env, request, email);
+    if (rate.limited) {
+      return jsonResponse({ ok: false, error: `Demasiados intentos. Espera ${rate.retryMinutes} minutos e intenta de nuevo.` }, 429);
+    }
+
     const db = requireDb(env);
     await ensurePlatformTables(env);
     await ensureTenantDomainTable(env);
@@ -117,7 +131,11 @@ export async function onRequestPost({ request, env }) {
 
     if (lookup) {
       const resolved = await findTenant(env, lookup);
-      if (!resolved?.tenant) return jsonResponse({ ok: false, error: 'No encontre ese negocio.' }, 404);
+      if (!resolved?.tenant) {
+        // Tambien cuenta como intento: evita enumerar negocios sin costo.
+        await recordLoginFailure(env, request, email);
+        return jsonResponse({ ok: false, error: 'No encontre ese negocio.' }, 404);
+      }
       targetUrl = tenantUrl(resolved.tenant, resolved.domainRow);
       if (!targetUrl) return jsonResponse({ ok: false, error: 'Ese negocio aun no tiene dominio configurado.' }, 409);
       const tenantId = resolved.tenant.tenant_id || resolved.tenant.id;
@@ -139,9 +157,11 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
+      await recordLoginFailure(env, request, email);
       return jsonResponse({ ok: false, error: 'Credenciales invalidas.' }, 401);
     }
 
+    await clearLoginFailures(env, request, email);
     const session = await createSession(env, user, password);
     const redirectUrl = `${targetUrl.replace(/\/+$/, '')}/#login-token=${encodeURIComponent(session.token)}&next=${encodeURIComponent(next)}`;
 

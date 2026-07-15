@@ -1,5 +1,6 @@
 ﻿import { resolveTenantId } from './_shared/tenant.js';
 import { requireAuth } from './_shared/auth.js';
+import { ensureOrderArchiveColumns } from './_shared/orderColumns.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -43,16 +44,8 @@ function validType(value) {
 }
 
 async function ensureOrderColumns(env) {
-  try {
-    const info = await env.DB.prepare(`PRAGMA table_info(orders)`).all();
-    const columns = new Set((info.results || []).map((row) => row.name));
-    if (!columns.has('payment_method')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN payment_method TEXT`).run();
-    if (!columns.has('payment_status')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN payment_status TEXT`).run();
-    if (!columns.has('exclude_from_reports')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`).run();
-    if (!columns.has('archived_at_utc')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`).run();
-    if (!columns.has('archived_reason')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`).run();
-    if (!columns.has('deleted_at_utc')) await env.DB.prepare(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`).run();
-  } catch { /* ignore */ }
+  // Delegado al helper compartido (un solo PRAGMA, cacheado por isolate).
+  await ensureOrderArchiveColumns(env.DB);
 }
 
 // CORREGIDO: antes leia siempre la key fija 'menu_overrides', mezclando

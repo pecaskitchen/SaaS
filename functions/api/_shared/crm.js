@@ -112,11 +112,23 @@ export async function rebuildCustomerFromOrderIdentity(env, tenantId, order = {}
   let identitySql = '';
 
   if (phone) {
-    identitySql = `replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', '') = ?`;
+    // CORREGIDO: antes solo se quitaban espacio/+/- y normalizePhone quita
+    // TODO lo no numerico, asi que un telefono guardado como "(81) 123-4567"
+    // nunca coincidia -> COUNT 0 -> se borraba el cliente aunque tuviera
+    // pedidos activos. Se agregan parentesis y punto a la limpieza SQL para
+    // igualar la normalizacion en los formatos reales de captura.
+    identitySql = `replace(replace(replace(replace(replace(replace(customer_phone, ' ', ''), '+', ''), '-', ''), '(', ''), ')', ''), '.', '') = ?`;
     binds.push(phone);
   } else if (order.id || order.order_number) {
-    identitySql = `id = ?`;
-    binds.push(order.id || 0);
+    // CORREGIDO: si el pedido llega solo con order_number, antes se bindeaba
+    // id = 0 y no coincidia nada (rebuild silenciosamente no hacia nada).
+    if (order.id) {
+      identitySql = `id = ?`;
+      binds.push(order.id);
+    } else {
+      identitySql = `order_number = ?`;
+      binds.push(String(order.order_number));
+    }
   } else {
     identitySql = `lower(customer_name) = lower(?)`;
     binds.push(name || 'Cliente');

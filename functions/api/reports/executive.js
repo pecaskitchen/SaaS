@@ -1,5 +1,6 @@
 ﻿import { requireAuth } from '../_shared/auth.js';
 import { jsonResponse, requireDb } from '../_shared/http.js';
+import { ensureOrderArchiveColumns } from '../_shared/orderColumns.js';
 import { resolveTenantId } from '../_shared/tenant.js';
 
 function dateOnly(value) {
@@ -17,29 +18,6 @@ async function tableExists(db, tableName) {
   return Boolean(row);
 }
 
-async function columnExists(db, tableName, columnName) {
-  try {
-    const info = await db.prepare(`PRAGMA table_info(${tableName})`).all();
-    return (info.results || []).some((row) => row.name === columnName);
-  } catch {
-    return false;
-  }
-}
-
-async function ensureOrderArchiveColumns(db) {
-  const columns = [
-    ['exclude_from_reports', 'INTEGER NOT NULL DEFAULT 0'],
-    ['archived_at_utc', 'TEXT'],
-    ['archived_reason', 'TEXT'],
-    ['deleted_at_utc', 'TEXT'],
-  ];
-  for (const [name, type] of columns) {
-    if (!(await columnExists(db, 'orders', name))) {
-      await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).run();
-    }
-  }
-}
-
 export async function onRequestGet({ request, env }) {
   try {
     // Rediseno de roles: dashboard ejecutivo tambien visible para 'manager'
@@ -52,10 +30,11 @@ export async function onRequestGet({ request, env }) {
     if (!(await tableExists(db, 'orders'))) {
       return jsonResponse({ ok: true, summary: {}, salesByDay: [], topProducts: [], paymentMethods: [], orderSources: [] });
     }
+    // El helper compartido garantiza (y cachea por isolate) las columnas de
+    // archivo + payment_method/payment_status/order_source, asi que ya no
+    // hacen falta los columnExists individuales (antes: 6 PRAGMAs por request).
     await ensureOrderArchiveColumns(db);
     const hasOrderItems = await tableExists(db, 'order_items');
-    const hasPaymentMethod = await columnExists(db, 'orders', 'payment_method');
-    const hasOrderSource = await columnExists(db, 'orders', 'order_source');
 
     const url = new URL(request.url);
     const days = Math.min(120, Math.max(1, Number(url.searchParams.get('days') || 30)));
@@ -90,21 +69,21 @@ export async function onRequestGet({ request, env }) {
       LIMIT 10
     `).bind(tenantId, tenantId, from).all().then((result) => result.results || []).catch(() => []) : [];
 
-    const paymentMethods = hasPaymentMethod ? await db.prepare(`
+    const paymentMethods = await db.prepare(`
       SELECT COALESCE(payment_method, 'Sin registrar') AS name, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
       FROM orders
       WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
       GROUP BY name
       ORDER BY sales DESC
-    `).bind(tenantId, from).all().then((result) => result.results || []) : [];
+    `).bind(tenantId, from).all().then((result) => result.results || []);
 
-    const orderSources = hasOrderSource ? await db.prepare(`
+    const orderSources = await db.prepare(`
       SELECT COALESCE(order_source, 'online') AS name, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
       FROM orders
       WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
       GROUP BY name
       ORDER BY orders DESC
-    `).bind(tenantId, from).all().then((result) => result.results || []) : [];
+    `).bind(tenantId, from).all().then((result) => result.results || []);
 
     return jsonResponse({
       ok: true,

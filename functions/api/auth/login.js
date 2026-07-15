@@ -2,8 +2,32 @@ import { jsonResponse, readJson, requireDb, nowIso } from '../_shared/http.js';
 import { verifyPassword, signToken, hashPassword, isLegacyPasswordHash } from '../_shared/crypto.js';
 import { ensureSessionsTable, jwtSecret } from '../_shared/auth.js';
 import { checkLoginRateLimit, clearLoginFailures, recordLoginFailure } from '../_shared/loginRateLimit.js';
+import { ensurePlatformTables, safeJson } from '../_shared/platform.js';
+import { normalizeTenantSettings } from '../_shared/tenantSettings.js';
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 horas
+
+async function tenantPayload(env, tenantId, role) {
+  if (!tenantId || role === 'platform_admin') return null;
+  try {
+    const row = await requireDb(env).prepare(`
+      SELECT id, slug, name, settings_json
+      FROM saas_tenants
+      WHERE id = ?
+      LIMIT 1
+    `).bind(tenantId).first();
+    if (!row) return null;
+    const settings = safeJson(row.settings_json, {});
+    return {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      settings: { ...settings, ...normalizeTenantSettings(settings, {}) },
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -19,6 +43,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     const db = requireDb(env);
+    await ensurePlatformTables(env);
     await ensureSessionsTable(env);
 
     const user = await db.prepare(`
@@ -68,7 +93,14 @@ export async function onRequestPost({ request, env }) {
       ok: true,
       token,
       expiresAtUtc,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, tenantId: user.tenant_id },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenant_id,
+        tenant: await tenantPayload(env, user.tenant_id, user.role),
+      },
     });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo iniciar sesion.', detail: error.message }, 500);

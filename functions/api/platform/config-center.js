@@ -2,6 +2,7 @@ import { requirePlatformAdmin } from '../_shared/auth.js';
 import { jsonResponse, readJson, requireDb } from '../_shared/http.js';
 import { ensurePlatformTables, safeJson, updateTenant } from '../_shared/platform.js';
 import { writeAudit } from '../_shared/audit.js';
+import { normalizeTenantSettings } from '../_shared/tenantSettings.js';
 
 const PUBLIC_BRAND_FIELDS = [
   'themePreset',
@@ -54,6 +55,8 @@ export async function onRequestGet({ request, env }) {
     const tenant = await readTenant(db, tenantId);
     if (!tenant) return jsonResponse({ ok: false, error: 'Cliente no encontrado.' }, 404);
 
+    const settings = safeJson(tenant.settings_json, {});
+
     return jsonResponse({
       ok: true,
       tenant: {
@@ -69,7 +72,7 @@ export async function onRequestGet({ request, env }) {
         domain: tenant.domain || '',
         subdomain: tenant.subdomain || '',
         brand: safeJson(tenant.brand_json, {}),
-        settings: safeJson(tenant.settings_json, {}),
+        settings: { ...settings, ...normalizeTenantSettings(settings, {}) },
         notes: tenant.notes || '',
       },
     });
@@ -98,8 +101,10 @@ export async function onRequestPatch({ request, env }) {
     // un campo vaciado a proposito regresaba al valor anterior. Campo
     // presente en el body = usar ese valor aunque sea vacio.
     const has = (key) => Object.prototype.hasOwnProperty.call(incomingSettings, key);
+    const normalizedSettings = normalizeTenantSettings(currentSettings, incomingSettings);
     const nextSettings = {
       ...currentSettings,
+      ...normalizedSettings,
       timezone: String(incomingSettings.timezone || currentSettings.timezone || 'America/Mexico_City').trim(),
       whatsappNumber: has('whatsappNumber') ? String(incomingSettings.whatsappNumber ?? '').trim() : String(currentSettings.whatsappNumber || '').trim(),
       supportEmail: has('supportEmail') ? String(incomingSettings.supportEmail ?? '').trim() : String(currentSettings.supportEmail || '').trim(),
@@ -143,4 +148,3 @@ export async function onRequestPatch({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar configuracion.', detail: error.message }, 500);
   }
 }
-

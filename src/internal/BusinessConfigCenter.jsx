@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Save, Upload } from 'lucide-react';
 import { apiFetch, getSessionToken } from '../lib/apiClient.js';
+import {
+  BUSINESS_TYPES,
+  DEFAULT_MODULES_BY_BUSINESS_TYPE,
+  MODULES,
+  businessTypeFromSettings,
+  labelModuleForBusiness,
+  moduleSettingsFromTenant,
+} from './modules.js';
 
 const THEMES = ['neutral', 'gastro', 'floral', 'boutique', 'premium'];
 
@@ -132,6 +140,8 @@ const emptyDraft = {
     accentColor: '#ef4444',
   },
   settings: {
+    businessType: 'food',
+    modules: DEFAULT_MODULES_BY_BUSINESS_TYPE.food,
     timezone: 'America/Mexico_City',
     whatsappNumber: '',
     supportEmail: '',
@@ -171,7 +181,18 @@ export default function BusinessConfigCenter({
       const data = tenantId
         ? await platformFetch(`/api/platform/config-center?tenant_id=${encodeURIComponent(tenantId)}`)
         : await apiFetch('/api/business-config');
-      setDraft({ ...emptyDraft, ...(data.tenant || {}), brand: { ...emptyDraft.brand, ...(data.tenant?.brand || {}) }, settings: { ...emptyDraft.settings, ...(data.tenant?.settings || {}) } });
+      const tenantSettings = { ...emptyDraft.settings, ...(data.tenant?.settings || {}) };
+      const businessType = businessTypeFromSettings(tenantSettings);
+      setDraft({
+        ...emptyDraft,
+        ...(data.tenant || {}),
+        brand: { ...emptyDraft.brand, ...(data.tenant?.brand || {}) },
+        settings: {
+          ...tenantSettings,
+          businessType,
+          modules: moduleSettingsFromTenant({ ...tenantSettings, businessType }),
+        },
+      });
     } catch (err) {
       setError(err.message || 'No se pudo cargar configuracion.');
     } finally {
@@ -188,6 +209,8 @@ export default function BusinessConfigCenter({
       const showBusiness = section === 'all' || section === 'business';
       const nextSettings = {};
       if (showBusiness) {
+        nextSettings.businessType = businessTypeFromSettings(draft.settings);
+        nextSettings.modules = moduleSettingsFromTenant(draft.settings);
         nextSettings.timezone = draft.settings.timezone;
         nextSettings.whatsappNumber = draft.settings.whatsappNumber;
         nextSettings.supportEmail = draft.settings.supportEmail;
@@ -241,6 +264,19 @@ export default function BusinessConfigCenter({
     : section === 'business'
       ? 'Configura contacto operativo, formas de pago, tipos de entrega y origenes de pedido.'
       : 'Configura marca publica y operacion del negocio.');
+  const selectedBusinessType = businessTypeFromSettings(draft.settings);
+  const activeModules = moduleSettingsFromTenant(draft.settings);
+
+  function setBusinessType(value) {
+    const businessType = businessTypeFromSettings({ businessType: value });
+    patch(['settings', 'businessType'], businessType);
+    patch(['settings', 'modules'], { ...DEFAULT_MODULES_BY_BUSINESS_TYPE[businessType] });
+  }
+
+  function toggleModule(moduleId) {
+    if (['inicio', 'negocio', 'usuarios'].includes(moduleId)) return;
+    patch(['settings', 'modules'], { ...activeModules, [moduleId]: !activeModules[moduleId] });
+  }
 
   return (
     <section className="admin-section">
@@ -293,11 +329,32 @@ export default function BusinessConfigCenter({
         <>
           <h3>Operacion</h3>
           <div className="form-grid two">
+            <label className="field"><span>Tipo de negocio</span><select value={selectedBusinessType} onChange={(event) => setBusinessType(event.target.value)}>{BUSINESS_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label>
             <label className="field"><span>WhatsApp principal</span><input value={draft.settings.whatsappNumber || ''} onChange={(event) => patch(['settings', 'whatsappNumber'], event.target.value)} /></label>
             <label className="field"><span>Email soporte</span><input value={draft.settings.supportEmail || ''} onChange={(event) => patch(['settings', 'supportEmail'], event.target.value)} /></label>
             <label className="field wide"><span>Formas de pago</span><input value={draft.settings.paymentMethodsText ?? listToCsv(draft.settings.paymentMethods)} onChange={(event) => patch(['settings', 'paymentMethodsText'], event.target.value)} /></label>
             <label className="field wide"><span>Tipos de entrega</span><input value={draft.settings.fulfillmentTypesText ?? listToCsv(draft.settings.fulfillmentTypes)} onChange={(event) => patch(['settings', 'fulfillmentTypesText'], event.target.value)} /></label>
             {showOrderSources ? <label className="field wide"><span>Origenes de pedido</span><input value={draft.settings.orderSourcesText ?? listToCsv(draft.settings.orderSources)} onChange={(event) => patch(['settings', 'orderSourcesText'], event.target.value)} /></label> : null}
+            <div className="field wide">
+              <span>Modulos activos</span>
+              <div className="module-toggle-grid">
+                {MODULES.filter((module) => module.id !== 'plataforma').map((module) => {
+                  const locked = ['inicio', 'negocio', 'usuarios'].includes(module.id);
+                  return (
+                    <label key={module.id} className={locked ? 'module-toggle locked' : 'module-toggle'}>
+                      <input
+                        type="checkbox"
+                        checked={activeModules[module.id] !== false}
+                        disabled={locked}
+                        onChange={() => toggleModule(module.id)}
+                      />
+                      <span>{labelModuleForBusiness(module, selectedBusinessType)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small className="muted-line">Recetas es opcional para gastronomia; Cobranza habilita apartados, saldos y abonos.</small>
+            </div>
           </div>
         </>
       )}

@@ -4203,6 +4203,39 @@ textarea { resize: vertical; min-height: 48px; }
 .odx-footer-legal a { color: rgba(248,250,252,.72); }
 .odx-footer-legal a:hover { color: #fff; }
 
+.module-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.module-toggle {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-weight: 700;
+}
+.module-toggle input {
+  width: 16px;
+  height: 16px;
+}
+.module-toggle.locked {
+  opacity: .65;
+  background: #f8fafc;
+}
+
+@media (max-width: 760px) {
+  .module-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* CRM */
 .crm-page {
   min-height: 100vh;

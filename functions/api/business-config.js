@@ -3,6 +3,7 @@ import { actorFromSession, writeAudit } from './_shared/audit.js';
 import { jsonResponse, readJson, requireDb } from './_shared/http.js';
 import { ensurePlatformTables, safeJson, THEME_PRESETS } from './_shared/platform.js';
 import { resolveTenantId } from './_shared/tenant.js';
+import { normalizeTenantSettings } from './_shared/tenantSettings.js';
 
 const PUBLIC_BRAND_FIELDS = [
   'themePreset',
@@ -49,12 +50,14 @@ async function readTenant(env, tenantId) {
 }
 
 function publicTenantConfig(tenant) {
+  const settings = safeJson(tenant.settings_json, {});
+  const normalized = normalizeTenantSettings(settings, {});
   return {
     id: tenant.id,
     slug: tenant.slug,
     name: tenant.name,
     brand: safeJson(tenant.brand_json, {}),
-    settings: safeJson(tenant.settings_json, {}),
+    settings: { ...settings, ...normalized },
   };
 }
 
@@ -102,8 +105,10 @@ export async function onRequestPatch({ request, env }) {
     // el actual cuando el campo no se mando. timezone si conserva fallback
     // porque vacio no es un valor valido para ella.
     const has = (key) => Object.prototype.hasOwnProperty.call(incomingSettings, key);
+    const normalizedSettings = normalizeTenantSettings(currentSettings, incomingSettings);
     const nextSettings = {
       ...currentSettings,
+      ...normalizedSettings,
       timezone: String(incomingSettings.timezone || currentSettings.timezone || 'America/Mexico_City').trim(),
       whatsappNumber: has('whatsappNumber') ? String(incomingSettings.whatsappNumber ?? '').trim() : String(currentSettings.whatsappNumber || '').trim(),
       supportEmail: has('supportEmail') ? String(incomingSettings.supportEmail ?? '').trim() : String(currentSettings.supportEmail || '').trim(),

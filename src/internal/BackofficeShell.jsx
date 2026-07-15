@@ -1,15 +1,16 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen,
+  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen, CreditCard,
 } from 'lucide-react';
 import '../styles.css';
 import './backoffice-shell.css';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { MODULES, defaultModuleForRole, modulesForRole } from './modules.js';
+import { defaultModuleForRole, modulesForRole } from './modules.js';
 
 const InicioPanel = lazy(() => import('./InicioPanel.jsx'));
 const OrdersPanel = lazy(() => import('./OrdersPanel.jsx'));
 const CashierModule = lazy(() => import('./CashierPanel.jsx'));
+const ReceivablesPanel = lazy(() => import('./ReceivablesPanel.jsx'));
 const AdminRoute = lazy(() => import('./AdminRoute.jsx'));
 const StockPanel = lazy(() => import('./StockPanel.jsx'));
 const RecipesPanel = lazy(() => import('./RecipesPanel.jsx'));
@@ -26,6 +27,7 @@ const MODULE_ICONS = {
   inicio: Home,
   pedidos: ShoppingBag,
   caja: Wallet,
+  cobranza: CreditCard,
   menu: UtensilsCrossed,
   inventario: Package,
   recetas: BookOpen,
@@ -49,6 +51,7 @@ function ModuleContent({ moduleId }) {
   if (moduleId === 'inicio') return <InicioPanel />;
   if (moduleId === 'pedidos') return <OrdersPanel />;
   if (moduleId === 'caja') return <CashierModule />;
+  if (moduleId === 'cobranza') return <ReceivablesPanel />;
   if (moduleId === 'menu') return <AdminRoute view="menu" />;
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
   if (moduleId === 'recetas') return <RecipesPanel />;
@@ -79,9 +82,10 @@ export default function BackofficeShell() {
       window.location.hash = '#login';
       return;
     }
-    const allowed = modulesForRole(user.role);
+    const settings = user.tenant?.settings || {};
+    const allowed = modulesForRole(user.role, settings);
     if (!activeModule || !allowed.some((module) => module.id === activeModule)) {
-      const next = defaultModuleForRole(user.role);
+      const next = defaultModuleForRole(user.role, settings);
       if (next) window.location.hash = `#panel/${next}`;
     }
   }, [loading, user, activeModule]);
@@ -92,7 +96,7 @@ export default function BackofficeShell() {
     return () => window.removeEventListener('hashchange', syncHash);
   }, []);
 
-  const visibleModules = useMemo(() => (user ? modulesForRole(user.role) : []), [user]);
+  const visibleModules = useMemo(() => (user ? modulesForRole(user.role, user.tenant?.settings || {}) : []), [user]);
 
   if (loading) {
     return <main className="app-loading" aria-label="Cargando" />;
@@ -101,7 +105,7 @@ export default function BackofficeShell() {
     return <main className="app-loading" aria-label="Redirigiendo a inicio de sesion" />;
   }
 
-  const currentModule = MODULES.find((module) => module.id === activeModule && visibleModules.includes(module));
+  const currentModule = visibleModules.find((module) => module.id === activeModule);
 
   return (
     <div className="panel-shell">

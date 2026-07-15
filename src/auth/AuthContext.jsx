@@ -8,9 +8,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Al recargar la página el token sigue en sessionStorage, pero el
-    // estado de React se pierde -- se recupera el usuario con /api/auth/me
-    // antes de decidir si el shell nuevo redirige a #login o no.
+    // Al recargar la pagina el token sigue en sessionStorage, pero el estado
+    // de React se pierde. Se recupera el usuario antes de redirigir a login.
     let cancelled = false;
     async function restore() {
       if (!getSessionToken()) {
@@ -44,7 +43,7 @@ export function AuthProvider({ children }) {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {
-      // aunque falle la llamada, igual se limpia la sesión local
+      // aunque falle la llamada, igual se limpia la sesion local
     }
     setSessionToken('');
     setUser(null);

@@ -10,13 +10,12 @@ import { MODULES, defaultModuleForRole, modulesForRole } from './modules.js';
 const InicioPanel = lazy(() => import('./InicioPanel.jsx'));
 const OrdersPanel = lazy(() => import('./OrdersPanel.jsx'));
 const CashierModule = lazy(() => import('./CashierPanel.jsx'));
-const AdminPanel = lazy(() => import('./AdminPanel.jsx'));
+const AdminRoute = lazy(() => import('./AdminRoute.jsx'));
 const StockPanel = lazy(() => import('./StockPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
 const UsersPanel = lazy(() => import('./UsersPanel.jsx'));
 const PlatformAdmin = lazy(() => import('../platform/PlatformAdmin.jsx'));
-const PlatformHealthPanel = lazy(() => import('../platform/PlatformHealthPanel.jsx'));
 
 const MODULE_ICONS = {
   inicio: Home,
@@ -40,20 +39,13 @@ function ModuleContent({ moduleId }) {
   if (moduleId === 'inicio') return <InicioPanel />;
   if (moduleId === 'pedidos') return <OrdersPanel />;
   if (moduleId === 'caja') return <CashierModule />;
-  if (moduleId === 'menu') return <AdminPanel />;
+  if (moduleId === 'menu') return <AdminRoute />;
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
   if (moduleId === 'clientes') return <CrmPanel />;
   if (moduleId === 'reportes') return <ExecutiveDashboard />;
   if (moduleId === 'configuracion') return <UsersPanel />;
-  if (moduleId === 'plataforma') {
-    return (
-      <>
-        <PlatformAdmin />
-        <PlatformHealthPanel />
-      </>
-    );
-  }
-  return <p>Selecciona un módulo.</p>;
+  if (moduleId === 'plataforma') return <PlatformAdmin />;
+  return <p>Selecciona un modulo.</p>;
 }
 
 export default function BackofficeShell() {
@@ -71,7 +63,6 @@ export default function BackofficeShell() {
       const next = defaultModuleForRole(user.role);
       if (next) window.location.hash = `#panel/${next}`;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user, activeModule]);
 
   useEffect(() => {
@@ -86,7 +77,7 @@ export default function BackofficeShell() {
     return <main className="app-loading" aria-label="Cargando" />;
   }
   if (!user) {
-    return <main className="app-loading" aria-label="Redirigiendo a inicio de sesión" />;
+    return <main className="app-loading" aria-label="Redirigiendo a inicio de sesion" />;
   }
 
   const currentModule = MODULES.find((module) => module.id === activeModule && visibleModules.includes(module));
@@ -121,8 +112,8 @@ export default function BackofficeShell() {
         </div>
       </aside>
       <main className="panel-content">
-        <Suspense fallback={<main className="app-loading" aria-label="Cargando módulo" />}>
-          {currentModule ? <ModuleContent moduleId={currentModule.id} /> : <p>No tienes acceso a ningún módulo todavía.</p>}
+        <Suspense fallback={<main className="app-loading" aria-label="Cargando modulo" />}>
+          {currentModule ? <ModuleContent moduleId={currentModule.id} /> : <p>No tienes acceso a ningun modulo todavia.</p>}
         </Suspense>
       </main>
     </div>

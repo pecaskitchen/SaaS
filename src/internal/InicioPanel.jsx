@@ -35,7 +35,7 @@ export default function InicioPanel() {
         <div>
           <p className="eyebrow">Resumen</p>
           <h2>Inicio</h2>
-          <p>Lo más importante de hoy, de un vistazo.</p>
+          <p>Lo mas importante de hoy, de un vistazo.</p>
         </div>
         <button type="button" className="icon-button" onClick={load} disabled={loading} title="Actualizar">
           <RefreshCw size={18} />
@@ -50,7 +50,7 @@ export default function InicioPanel() {
             <strong><ClipboardList size={16} /> Pedidos pendientes</strong>
           </div>
           <p style={{ fontSize: 32, margin: 0, color: 'var(--brown)' }}>
-            {pendingCount === null ? '—' : pendingCount}
+            {pendingCount === null ? '-' : pendingCount}
           </p>
         </div>
         <div className="admin-product">
@@ -58,9 +58,9 @@ export default function InicioPanel() {
             <strong><DollarSign size={16} /> Ventas de hoy</strong>
           </div>
           <p style={{ fontSize: 32, margin: 0, color: 'var(--brown)' }}>
-            {today ? money(today.sales) : '—'}
+            {today ? money(today.sales) : '-'}
           </p>
-          <span>{today ? `${today.orders} pedido(s) · ticket promedio ${money(today.averageTicket)}` : ''}</span>
+          <span>{today ? `${today.orders} pedido(s) - ticket promedio ${money(today.averageTicket)}` : ''}</span>
         </div>
       </div>
     </section>

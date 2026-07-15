@@ -3,7 +3,7 @@ import { UserPlus, RefreshCw } from 'lucide-react';
 import { apiFetch } from '../lib/apiClient.js';
 
 const ROLE_LABELS = {
-  admin: 'Dueño / Admin',
+  admin: 'Dueno / Admin',
   manager: 'Gerente',
   cashier: 'Caja',
   orders: 'Pedidos',
@@ -39,7 +39,7 @@ export default function UsersPanel() {
   const createUser = async (event) => {
     event.preventDefault();
     if (!draft.name.trim() || !draft.email.trim() || !draft.password || !draft.role) {
-      setStatus('Completa nombre, email, contraseña y rol.');
+      setStatus('Completa nombre, email, contrasena y rol.');
       return;
     }
     setLoading(true);
@@ -74,9 +74,9 @@ export default function UsersPanel() {
     <section className="admin-section">
       <div className="section-title-row">
         <div>
-          <p className="eyebrow">Configuración</p>
+          <p className="eyebrow">Configuracion</p>
           <h2>Usuarios y roles</h2>
-          <p>Cuentas de tu equipo para entrar con email y contraseña.</p>
+          <p>Cuentas de tu equipo para entrar con email y contrasena.</p>
         </div>
         <button type="button" className="icon-button" onClick={load} disabled={loading} title="Actualizar">
           <RefreshCw size={18} />
@@ -90,8 +90,8 @@ export default function UsersPanel() {
         <label className="field"><span>Email</span>
           <input type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} placeholder="correo@ejemplo.com" />
         </label>
-        <label className="field"><span>Contraseña</span>
-          <input type="password" value={draft.password} onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))} placeholder="Mínimo 8 caracteres" />
+        <label className="field"><span>Contrasena</span>
+          <input type="password" value={draft.password} onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))} placeholder="Minimo 8 caracteres" />
         </label>
         <label className="field"><span>Rol</span>
           <select value={draft.role} onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))}>
@@ -124,7 +124,7 @@ export default function UsersPanel() {
             </label>
           </div>
         ))}
-        {users.length === 0 && !loading && <p>Todavía no hay cuentas de equipo. Crea la primera arriba.</p>}
+        {users.length === 0 && !loading && <p>Todavia no hay cuentas de equipo. Crea la primera arriba.</p>}
       </div>
     </section>
   );

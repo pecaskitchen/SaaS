@@ -12,7 +12,7 @@ export default function Login() {
   const submit = async (event) => {
     event.preventDefault();
     if (!email.trim() || !password) {
-      setStatus('Escribe tu email y tu contraseña.');
+      setStatus('Escribe tu email y tu contrasena.');
       return;
     }
     setLoading(true);
@@ -21,7 +21,7 @@ export default function Login() {
       await login(email.trim(), password);
       window.location.hash = '#panel';
     } catch (error) {
-      setStatus(error.message || 'No se pudo iniciar sesión.');
+      setStatus(error.message || 'No se pudo iniciar sesion.');
     } finally {
       setLoading(false);
     }
@@ -30,7 +30,7 @@ export default function Login() {
   return (
     <main className="admin-page">
       <section className="admin-card" style={{ maxWidth: 440 }}>
-        <h1 style={{ fontSize: 'clamp(28px, 4vw, 38px)' }}>Iniciar sesión</h1>
+        <h1 style={{ fontSize: 'clamp(28px, 4vw, 38px)' }}>Iniciar sesion</h1>
         <p>Entra con tu cuenta para acceder a tu panel.</p>
         <form className="admin-login" onSubmit={submit}>
           <label className="field full">
@@ -44,13 +44,13 @@ export default function Login() {
             />
           </label>
           <label className="field full">
-            <span>Contraseña</span>
+            <span>Contrasena</span>
             <input
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Contraseña"
+              placeholder="Contrasena"
             />
           </label>
           <button type="submit" className="primary" disabled={loading}>

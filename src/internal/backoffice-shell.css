@@ -2,11 +2,11 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 240px 1fr;
-  background: var(--cream);
+  background: #f6f7fb;
 }
 .panel-sidebar {
-  background: var(--brown);
-  color: var(--white);
+  background: #172033;
+  color: #fffaf2;
   display: flex;
   flex-direction: column;
   padding: 20px 14px;
@@ -15,7 +15,7 @@
 .panel-brand {
   font-weight: 800;
   font-size: 18px;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   padding: 0 8px;
 }
 .panel-nav {
@@ -29,7 +29,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   color: rgba(255, 250, 242, 0.82);
   text-decoration: none;
   font-weight: 600;
@@ -39,8 +39,8 @@
   background: rgba(255, 255, 255, 0.08);
 }
 .panel-nav-item.active {
-  background: var(--orange);
-  color: var(--white);
+  background: #2f6fed;
+  color: #fffaf2;
 }
 .panel-user {
   display: flex;

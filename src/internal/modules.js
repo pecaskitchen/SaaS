@@ -1,21 +1,17 @@
-// Mapa de modulos del backoffice unificado (ver plan de rediseno de
-// roles/menus/login). Cada modulo declara que roles lo pueden ver; el shell
-// (BackofficeShell.jsx) filtra la barra lateral con esto.
+// Mapa de modulos del backoffice unificado. Cada modulo declara que roles lo
+// pueden ver; BackofficeShell.jsx filtra la barra lateral con esto.
 //
-// platform_admin NO ve los modulos de un negocio (Pedidos, Caja, etc.) --
-// tiene su propio modulo "plataforma" cross-tenant, separado a proposito
-// (ver "Riesgo operativo" del plan). Los allow-lists del backend
-// (requireAuth) son mas permisivos que esto a proposito, por compatibilidad;
-// este mapa es solo de navegacion/UX.
+// platform_admin no ve los modulos de un negocio. Tiene su propio modulo
+// cross-tenant separado por seguridad operativa.
 export const MODULES = [
   { id: 'inicio', label: 'Inicio', roles: ['admin', 'manager'] },
   { id: 'pedidos', label: 'Pedidos', roles: ['admin', 'manager', 'orders'] },
   { id: 'caja', label: 'Caja', roles: ['admin', 'manager', 'cashier'] },
-  { id: 'menu', label: 'Menú', roles: ['admin', 'manager'] },
+  { id: 'menu', label: 'Menu', roles: ['admin', 'manager'] },
   { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'clientes', label: 'Clientes', roles: ['admin', 'manager', 'orders'] },
   { id: 'reportes', label: 'Reportes', roles: ['admin', 'manager', 'reports'] },
-  { id: 'configuracion', label: 'Configuración', roles: ['admin'] },
+  { id: 'configuracion', label: 'Configuracion', roles: ['admin'] },
   { id: 'plataforma', label: 'Plataforma', roles: ['platform_admin'] },
 ];
 

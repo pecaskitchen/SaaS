@@ -5,10 +5,6 @@ import { CATALOG_PRODUCTS, mergeCategoriesWithExtras, mergeProductsWithExtras, s
 import { DEFAULT_BRANCH_SETTINGS, normalizeBranchSettings } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 
-// Wrapper del modulo "Caja" del shell nuevo: carga el catalogo publicado
-// (mismo endpoint que usa la storefront/LegacyApp) y monta el componente
-// CashierPanel real, exportado desde LegacyApp.jsx (ver comentario ahi --
-// no se duplico por el arbol de dependencias de ProductCard).
 function mergeProductsWithOverrides(products, overrides) {
   if (!overrides || Object.keys(overrides).length === 0) return products;
   return products.map((product) => {
@@ -33,7 +29,7 @@ export default function CashierModule() {
   const [baseCatalogEnabled, setBaseCatalogEnabled] = useState(false);
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
   const [productCustomizations, setProductCustomizations] = useState({});
-  const [status, setStatus] = useState('Cargando catálogo...');
+  const [status, setStatus] = useState('Cargando catalogo...');
 
   const loadMenuOverrides = async () => {
     try {
@@ -54,7 +50,7 @@ export default function CashierModule() {
         setStatus('');
       }
     } catch {
-      setStatus('No se pudo cargar el catálogo. Recarga la página.');
+      setStatus('No se pudo cargar el catalogo. Recarga la pagina.');
     }
   };
 

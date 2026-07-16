@@ -1598,6 +1598,20 @@ textarea { resize: vertical; min-height: 48px; }
   font-weight: 800;
 }
 
+.promo-variants {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.promo-variant-group span {
+  font-weight: 800;
+  color: var(--brown);
+  font-size: 13px;
+}
+.promo-variant-group select {
+  margin-top: 4px;
+}
+
 .promo-price {
   display: inline-flex;
   width: fit-content;

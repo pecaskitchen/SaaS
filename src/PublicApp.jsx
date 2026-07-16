@@ -1440,14 +1440,22 @@ function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
   );
 }
 
+// promoItems aqui son los renglones YA resueltos con la variante elegida:
+// { product, quantity, extraPrice }.
 function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es') {
   let price = Number(promotion.price || 0);
   const includedLines = includedDetailsToLines(promotion.includedDetails);
   const details = [
-    `${t(lang, 'promoFixed')}`,
-    ...promoItems.map(({ product, quantity }) => `${quantity} x ${productText(product, lang).name}`),
+    ...(promotion.disclaimer ? [String(promotion.disclaimer)] : []),
+    ...promoItems.map(({ product, quantity, extraPrice }) => {
+      const extraText = Number(extraPrice) > 0 ? ` (+${currency(Number(extraPrice))})` : '';
+      return `${quantity} x ${productText(product, lang).name}${extraText}`;
+    }),
     ...includedLines,
   ];
+
+  // Suma el costo extra de las variantes elegidas.
+  for (const { extraPrice } of promoItems) price += Math.max(0, Number(extraPrice || 0));
 
   for (const { product } of promoItems) {
     const extras = extrasByProductId[product.id] || getPromoExtrasInitial(product);
@@ -1499,7 +1507,7 @@ function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es
     details,
     options: {
       promo: true,
-      promoItems: promoItems.map(({ product, quantity }) => ({ productId: product.id, productName: product.name, quantity })),
+      promoItems: promoItems.map(({ product, quantity, extraPrice }) => ({ productId: product.id, productName: product.name, quantity, extraPrice: Math.max(0, Number(extraPrice || 0)) })),
       fixedDetails: includedLines,
       extrasByProductId,
     },
@@ -1508,21 +1516,34 @@ function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es
 }
 
 function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {} }) {
-  const promoItems = useMemo(() => promotionItems(promotion, products), [promotion, products]);
+  const promoGroups = useMemo(() => promotionItems(promotion, products), [promotion, products]);
   const [expanded, setExpanded] = useState(false);
   const [extrasByProductId, setExtrasByProductId] = useState({});
+  // Variante elegida por renglon (indice -> productId). Default: primera opcion.
+  const [selectionByIndex, setSelectionByIndex] = useState({});
+
+  const groupsKey = promotion?.items ? JSON.stringify(promotion.items) : '';
+
+  // Renglones resueltos con la variante elegida (o la primera por default).
+  const selectedItems = useMemo(() => promoGroups.map((group, index) => {
+    const chosenId = selectionByIndex[index] || group.options[0]?.productId;
+    const chosen = group.options.find((option) => option.productId === chosenId) || group.options[0];
+    return { quantity: group.quantity, label: group.label, product: chosen.product, extraPrice: chosen.extraPrice };
+  }), [promoGroups, selectionByIndex]);
 
   useEffect(() => {
+    setSelectionByIndex({});
     const next = {};
-    for (const item of promoItems) {
-      next[item.product.id] = getPromoExtrasInitial(item.product);
+    for (const group of promoGroups) {
+      for (const option of group.options) next[option.product.id] = getPromoExtrasInitial(option.product);
     }
     setExtrasByProductId(next);
-  }, [promotion?.items?.map((item) => `${item.productId}:${item.quantity}`).join('|')]);
+  }, [groupsKey]);
 
   const livePrice = useMemo(() => {
     let price = Number(promotion?.price || 0);
-    for (const { product } of promoItems) {
+    for (const { product, extraPrice } of selectedItems) {
+      price += Math.max(0, Number(extraPrice || 0));
       const extras = extrasByProductId[product.id] || {};
       if (product.type === 'crepe') price += (extras.extraToppings || []).length * 10;
       if ((product.type === 'panini' || product.type === 'wrap' || product.type === 'salad') && extras.extraDressing && extras.extraDressing !== 'Ninguno') price += 10;
@@ -1530,20 +1551,27 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
       if (product.id === 'frappe' && extras.whippedCream) price += 10;
     }
     return price;
-  }, [promotion, promoItems, extrasByProductId]);
+  }, [promotion, selectedItems, extrasByProductId]);
 
-  if (!promotion?.active || promoItems.length === 0) return null;
-  if (promoItems.some(({ product }) => product.unavailable || product.soldOut || categoryHidden[product.category])) return null;
+  if (!promotion?.active || promoGroups.length === 0) return null;
+  // Solo se oculta la promo si TODAS las opciones de un renglon estan agotadas
+  // o el renglon no tiene ninguna elegible; una variante agotada individual no
+  // tumba toda la promo.
+  const groupUnavailable = (group) => group.options.every(({ product }) => product.unavailable || product.soldOut || categoryHidden[product.category]);
+  if (promoGroups.some(groupUnavailable)) return null;
 
   const handleAddPromo = () => {
-    onAdd(buildPromoCartItem(promotion, promoItems, extrasByProductId, lang));
+    onAdd(buildPromoCartItem(promotion, selectedItems, extrasByProductId, lang));
+    setSelectionByIndex({});
     const next = {};
-    for (const item of promoItems) next[item.product.id] = getPromoExtrasInitial(item.product);
+    for (const group of promoGroups) {
+      for (const option of group.options) next[option.product.id] = getPromoExtrasInitial(option.product);
+    }
     setExtrasByProductId(next);
     setExpanded(false);
   };
 
-  const image = promotion.image || promoItems.find(({ product }) => product.image)?.product.image;
+  const image = promotion.image || selectedItems.find(({ product }) => product.image)?.product.image;
   const includedLines = includedDetailsToLines(promotion.includedDetails);
 
   const updateExtrasForProduct = (productId, updater) => {
@@ -1553,6 +1581,8 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
       return { ...current, [productId]: nextExtras };
     });
   };
+
+  const hasChoices = promoGroups.some((group) => group.hasChoices);
 
   return (
     <section className="promo-section" id="promo">
@@ -1564,21 +1594,42 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
           <h2>{promotion.title}</h2>
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
           <ul className="promo-included">
-            {promoItems.map(({ product, quantity }) => (
-              <li key={product.id}>{quantity} x {productText(product, lang).name}</li>
+            {selectedItems.map((item, index) => (
+              <li key={index}>{item.quantity} x {productText(item.product, lang).name}{Number(item.extraPrice) > 0 ? ` (+${currency(Number(item.extraPrice))})` : ''}</li>
             ))}
             {includedLines.map((line) => <li key={line}>{line}</li>)}
           </ul>
+
+          {hasChoices && (
+            <div className="promo-variants">
+              {promoGroups.map((group, index) => group.hasChoices ? (
+                <label className="promo-variant-group field" key={index}>
+                  <span>{group.label || `Elige tu opción ${index + 1}`}</span>
+                  <select
+                    value={selectionByIndex[index] || group.options[0].productId}
+                    onChange={(e) => setSelectionByIndex((current) => ({ ...current, [index]: e.target.value }))}
+                  >
+                    {group.options.map((option) => (
+                      <option key={option.productId} value={option.productId} disabled={option.product.unavailable || option.product.soldOut}>
+                        {productText(option.product, lang).name}{Number(option.extraPrice) > 0 ? ` (+${currency(Number(option.extraPrice))})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null)}
+            </div>
+          )}
+
           <strong className="promo-price">{currency(livePrice)}</strong>
           {expanded && (
             <div className="promo-combo-extras">
-              {promoItems.map(({ product }) => (
-                <div className="promo-item-extras" key={product.id}>
-                  <h4>{productText(product, lang).name}</h4>
+              {selectedItems.map((item, index) => (
+                <div className="promo-item-extras" key={index}>
+                  <h4>{productText(item.product, lang).name}</h4>
                   <PromoExtrasOptions
-                    product={product}
-                    state={extrasByProductId[product.id] || getPromoExtrasInitial(product)}
-                    setState={(updater) => updateExtrasForProduct(product.id, updater)}
+                    product={item.product}
+                    state={extrasByProductId[item.product.id] || getPromoExtrasInitial(item.product)}
+                    setState={(updater) => updateExtrasForProduct(item.product.id, updater)}
                     lang={lang}
                   />
                 </div>

@@ -678,29 +678,43 @@ export default function AdminPanel({
                     <label className="field full"><span>Aviso bajo el titulo (en la pagina del cliente)</span><input value={promotionDraft.disclaimer ?? ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, disclaimer: e.target.value }))} placeholder="Dejalo vacio para no mostrar ningun aviso" /></label>
                     <label className="field full"><span>Lo que incluye / notas (una linea por renglon)</span><textarea rows="3" value={promotionDraft.includedDetails || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, includedDetails: e.target.value }))} placeholder={'Ej: Elige los sabores de tu crepa en las notas al finalizar tu pedido!'} /></label>
                   </div>
+                  <AdminSectionIntro title="Renglones de la promo" description="Cada renglón puede ser un producto fijo o varias opciones para que el cliente elija una. Una opción puede sumar precio (ej. chapata premium +$20)." />
                   <div className="admin-products">
-                    {(promotionDraft.items || []).map((item, index) => (
-                      <article className="admin-product" key={`promo-${index}`}>
-                        <label className="field"><span>Producto</span>
-                          <select value={item.productId || ''} onChange={(e) => setPromotionDraft((current) => {
-                            const items = [...(current.items || [])];
-                            items[index] = { ...items[index], productId: e.target.value };
-                            return { ...current, items };
-                          })}>
-                            <option value="">Selecciona producto</option>
-                            {orderedDrafts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                          </select>
-                        </label>
-                        <label className="field"><span>Cantidad</span><input type="number" min="1" value={item.quantity || 1} onChange={(e) => setPromotionDraft((current) => {
-                          const items = [...(current.items || [])];
-                          items[index] = { ...items[index], quantity: Math.max(1, Number(e.target.value || 1)) };
-                          return { ...current, items };
-                        })} /></label>
-                        <button type="button" className="ghost danger-text" onClick={() => setPromotionDraft((current) => ({ ...current, items: (current.items || []).filter((_, itemIndex) => itemIndex !== index) }))}>Quitar</button>
-                      </article>
-                    ))}
+                    {(promotionDraft.items || []).map((item, index) => {
+                      const options = Array.isArray(item.options) && item.options.length ? item.options : [{ productId: item.productId || '', extraPrice: 0 }];
+                      const setItem = (patch) => setPromotionDraft((current) => {
+                        const items = [...(current.items || [])];
+                        items[index] = { ...items[index], ...patch };
+                        return { ...current, items };
+                      });
+                      const setOptions = (nextOptions) => setItem({ options: nextOptions, productId: undefined });
+                      return (
+                        <article className="admin-product" key={`promo-${index}`}>
+                          <div className="admin-product-head">
+                            <strong>Renglón {index + 1}{options.length > 1 ? ' · el cliente elige 1' : ''}</strong>
+                            <button type="button" className="ghost mini danger-text" onClick={() => setPromotionDraft((current) => ({ ...current, items: (current.items || []).filter((_, itemIndex) => itemIndex !== index) }))}>Quitar renglón</button>
+                          </div>
+                          <label className="field"><span>Cantidad</span><input type="number" min="1" value={item.quantity || 1} onChange={(e) => setItem({ quantity: Math.max(1, Number(e.target.value || 1)) })} /></label>
+                          <label className="field"><span>Etiqueta (opcional)</span><input value={item.label || ''} onChange={(e) => setItem({ label: e.target.value })} placeholder="Ej. Elige tu chapata" /></label>
+                          <div className="field full">
+                            <span>Opciones (producto + costo extra)</span>
+                            {options.map((option, optionIndex) => (
+                              <div className="admin-promo-item-row" key={optionIndex}>
+                                <select value={option.productId || ''} onChange={(e) => setOptions(options.map((o, i) => i === optionIndex ? { ...o, productId: e.target.value } : o))}>
+                                  <option value="">Selecciona producto</option>
+                                  {orderedDrafts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                                </select>
+                                <input type="number" min="0" title="Costo extra" value={Number(option.extraPrice || 0)} onChange={(e) => setOptions(options.map((o, i) => i === optionIndex ? { ...o, extraPrice: Math.max(0, Number(e.target.value || 0)) } : o))} placeholder="+$" />
+                                {options.length > 1 ? <button type="button" className="ghost mini danger-text" onClick={() => setOptions(options.filter((_, i) => i !== optionIndex))}>×</button> : null}
+                              </div>
+                            ))}
+                            <button type="button" className="ghost mini" onClick={() => setOptions([...options, { productId: orderedDrafts[0]?.id || '', extraPrice: 0 }])}>+ Agregar opción a este renglón</button>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
-                  <button type="button" className="ghost" onClick={() => setPromotionDraft((current) => ({ ...current, items: [...(current.items || []), { productId: orderedDrafts[0]?.id || '', quantity: 1 }] }))}>+ Agregar producto a promo</button>
+                  <button type="button" className="ghost" onClick={() => setPromotionDraft((current) => ({ ...current, items: [...(current.items || []), { quantity: 1, label: '', options: [{ productId: orderedDrafts[0]?.id || '', extraPrice: 0 }] }] }))}>+ Agregar renglón a promo</button>
                 </div>
               )}
             </section>}

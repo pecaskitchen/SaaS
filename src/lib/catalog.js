@@ -87,38 +87,73 @@ export function makeDefaultPromotion(products = CATALOG_PRODUCTS) {
   };
 }
 
+// Una opcion de variante dentro de un renglon de promo: un producto elegible
+// y cuanto suma al precio de la promo si el cliente lo elige.
+function normalizePromoOption(option) {
+  const productId = String(option?.productId || option?.product_id || '').trim();
+  if (!productId) return null;
+  return { productId, extraPrice: Math.max(0, Math.round(Number(option?.extraPrice ?? option?.extra_price ?? 0))) };
+}
+
+// Un renglon de promo puede ser:
+//  - producto fijo (legacy): { productId, quantity }
+//  - grupo de variantes: { quantity, label?, options: [{ productId, extraPrice }] }
+// Se normaliza SIEMPRE a la forma de grupo con `options` (el producto fijo es
+// un grupo de una sola opcion con extraPrice 0), para que el cliente y el
+// editor manejen un solo modelo.
+export function normalizePromoItem(item) {
+  const quantity = Math.max(1, Number(item?.quantity || 1));
+  const label = String(item?.label || '').trim();
+  if (Array.isArray(item?.options) && item.options.length > 0) {
+    const options = item.options.map(normalizePromoOption).filter(Boolean);
+    if (options.length > 0) return { quantity, label, options };
+  }
+  const productId = String(item?.productId || '').trim();
+  return productId ? { quantity, label, options: [{ productId, extraPrice: 0 }] } : null;
+}
+
 export function normalizePromotion(promotion, products = CATALOG_PRODUCTS) {
   const base = makeDefaultPromotion(products);
   const legacyItems = promotion?.productId
     ? [{ productId: promotion.productId, quantity: Number(promotion.quantity || 1) }]
     : [];
-  const items = Array.isArray(promotion?.items) && promotion.items.length > 0
-    ? promotion.items.map((item) => ({
-        productId: item.productId || '',
-        quantity: Math.max(1, Number(item.quantity || 1)),
-      })).filter((item) => item.productId)
-    : legacyItems;
+  const rawItems = Array.isArray(promotion?.items) && promotion.items.length > 0 ? promotion.items : legacyItems;
+  const items = rawItems.map(normalizePromoItem).filter(Boolean);
 
   return {
     ...base,
     ...(promotion || {}),
     active: Boolean(promotion?.active),
-    items: items.length ? items : base.items,
+    items: items.length ? items : base.items.map(normalizePromoItem).filter(Boolean),
     price: Number(promotion?.price || 0),
   };
 }
 
+// Resuelve cada renglon a un grupo con sus opciones expandidas a productos
+// reales. `options` = todas las variantes elegibles; `product` = la primera
+// (default) para compatibilidad con codigo que lee `.product`.
 export function promotionItems(promotion, products = []) {
   if (!promotion || !Array.isArray(promotion.items)) return [];
   const productList = Array.isArray(products) ? products : [];
+  const findProduct = (id) => productList.find((productItem) => productItem.id === id);
   return promotion.items
-    .map((item) => {
-      const product = productList.find((productItem) => productItem.id === item.productId);
-      if (!product) return null;
+    .map((rawItem) => {
+      const item = normalizePromoItem(rawItem);
+      if (!item) return null;
+      const options = item.options
+        .map((option) => {
+          const product = findProduct(option.productId);
+          return product ? { productId: option.productId, extraPrice: option.extraPrice, product } : null;
+        })
+        .filter(Boolean);
+      if (options.length === 0) return null;
       return {
-        ...item,
-        quantity: Math.max(1, Number(item.quantity || 1)),
-        product,
+        quantity: item.quantity,
+        label: item.label,
+        options,
+        hasChoices: options.length > 1,
+        product: options[0].product,
+        productId: options[0].productId,
       };
     })
     .filter(Boolean);

@@ -13,6 +13,18 @@ function startDate(days) {
   return date.toISOString();
 }
 
+// Dia calendario actual EN LA ZONA HORARIA DEL NEGOCIO (Monterrey), no en UTC.
+// "Ventas de hoy" debe ser el dia natural del local; una ventana de "ultimas
+// 24h UTC" arrastraba pedidos de ayer por la tarde (Monterrey es UTC-6).
+function todayMonterrey() {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Monterrey', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+// Un pedido "activo" no fue eliminado/archivado ni marcado para excluir.
+const ACTIVE_ORDER = `deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0`;
+// Un pedido cancelado no representa dinero cobrado: no debe sumar como venta.
+const NOT_CANCELLED = `status NOT IN ('cancelled', 'canceled')`;
+
 async function tableExists(db, tableName) {
   const row = await db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`).bind(tableName).first();
   return Boolean(row);
@@ -40,20 +52,31 @@ export async function onRequestGet({ request, env }) {
     const days = Math.min(120, Math.max(1, Number(url.searchParams.get('days') || 30)));
     const from = startDate(days);
 
+    // sales/orders excluyen cancelados (no es dinero cobrado); cancelled se
+    // cuenta aparte para poder mostrar cuantos se cancelaron.
     const summary = await db.prepare(`
       SELECT
-        COUNT(*) AS orders,
-        COALESCE(SUM(total), 0) AS sales,
-        COALESCE(AVG(total), 0) AS averageTicket,
+        SUM(CASE WHEN ${NOT_CANCELLED} THEN 1 ELSE 0 END) AS orders,
+        COALESCE(SUM(CASE WHEN ${NOT_CANCELLED} THEN total ELSE 0 END), 0) AS sales,
         SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) AS cancelled
       FROM orders
-      WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
+      WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND created_at_utc >= ?
     `).bind(tenantId, from).first();
 
-    const salesByDay = await db.prepare(`
-      SELECT SUBSTR(created_at_utc, 1, 10) AS day, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
+    // Ventas del dia natural de Monterrey (lo que muestra "Ventas de hoy" en
+    // Inicio). Se filtra por created_at_monterrey, no por la ventana UTC.
+    const today = await db.prepare(`
+      SELECT
+        SUM(CASE WHEN ${NOT_CANCELLED} THEN 1 ELSE 0 END) AS orders,
+        COALESCE(SUM(CASE WHEN ${NOT_CANCELLED} THEN total ELSE 0 END), 0) AS sales
       FROM orders
-      WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
+      WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND SUBSTR(created_at_monterrey, 1, 10) = ?
+    `).bind(tenantId, todayMonterrey()).first();
+
+    const salesByDay = await db.prepare(`
+      SELECT SUBSTR(created_at_monterrey, 1, 10) AS day, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
+      FROM orders
+      WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND ${NOT_CANCELLED} AND created_at_utc >= ?
       GROUP BY day
       ORDER BY day ASC
     `).bind(tenantId, from).all().then((result) => result.results || []);
@@ -62,7 +85,7 @@ export async function onRequestGet({ request, env }) {
       SELECT product_name AS name, SUM(quantity) AS quantity, SUM(line_total) AS sales
       FROM order_items
       WHERE tenant_id = ? AND order_id IN (
-        SELECT id FROM orders WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
+        SELECT id FROM orders WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND ${NOT_CANCELLED} AND created_at_utc >= ?
       )
       GROUP BY product_name
       ORDER BY quantity DESC, sales DESC
@@ -72,7 +95,7 @@ export async function onRequestGet({ request, env }) {
     const paymentMethods = await db.prepare(`
       SELECT COALESCE(payment_method, 'Sin registrar') AS name, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
       FROM orders
-      WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
+      WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND ${NOT_CANCELLED} AND created_at_utc >= ?
       GROUP BY name
       ORDER BY sales DESC
     `).bind(tenantId, from).all().then((result) => result.results || []);
@@ -80,19 +103,26 @@ export async function onRequestGet({ request, env }) {
     const orderSources = await db.prepare(`
       SELECT COALESCE(order_source, 'online') AS name, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
       FROM orders
-      WHERE tenant_id = ? AND deleted_at_utc IS NULL AND archived_at_utc IS NULL AND COALESCE(exclude_from_reports, 0) = 0 AND created_at_utc >= ?
+      WHERE tenant_id = ? AND ${ACTIVE_ORDER} AND ${NOT_CANCELLED} AND created_at_utc >= ?
       GROUP BY name
       ORDER BY orders DESC
     `).bind(tenantId, from).all().then((result) => result.results || []);
 
+    const summaryOrders = Number(summary?.orders || 0);
+    const summarySales = Number(summary?.sales || 0);
     return jsonResponse({
       ok: true,
       range: { days, from: dateOnly(from), to: dateOnly(new Date().toISOString()) },
       summary: {
-        orders: Number(summary?.orders || 0),
-        sales: Number(summary?.sales || 0),
-        averageTicket: Math.round(Number(summary?.averageTicket || 0)),
+        orders: summaryOrders,
+        sales: summarySales,
+        averageTicket: summaryOrders > 0 ? Math.round(summarySales / summaryOrders) : 0,
         cancelled: Number(summary?.cancelled || 0),
+      },
+      today: {
+        orders: Number(today?.orders || 0),
+        sales: Number(today?.sales || 0),
+        date: todayMonterrey(),
       },
       salesByDay,
       topProducts,

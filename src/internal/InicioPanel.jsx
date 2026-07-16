@@ -18,7 +18,9 @@ export default function InicioPanel() {
         apiFetch('/api/reports/executive?days=1'),
         apiFetch('/api/orders-dashboard?status=pending&limit=100'),
       ]);
-      setToday(executive.summary || null);
+      // "Ventas de hoy" usa el metrico today (dia natural de Monterrey, sin
+      // cancelados), no summary (ventana de 24h UTC que arrastraba ayer).
+      setToday(executive.today || executive.summary || null);
       setPendingCount((orders.orders || []).length);
     } catch (err) {
       setError(err.message || 'No se pudo cargar el resumen.');

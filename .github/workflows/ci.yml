@@ -1,0 +1,29 @@
+name: CI
+
+# Corre en cada push a main y en cada PR: valida sintaxis de las Functions,
+# corre los tests de logica critica (promos, cobranza, CRM, horarios) y el
+# build de produccion. Si algo falla, el push queda marcado en rojo en GitHub
+# antes de que el problema llegue a produccion.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Sintaxis de Functions
+        run: npm run check:functions
+      - name: Tests
+        run: npm test
+      - name: Build de produccion
+        run: npm run build

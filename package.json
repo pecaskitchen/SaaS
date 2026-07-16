@@ -8,7 +8,8 @@
         "build": "vite build",
         "preview": "vite preview --host 0.0.0.0",
         "check:functions": "node scripts/check-functions.mjs",
-        "validate": "npm run check:functions && npm run build"
+        "test": "node --test",
+        "validate": "npm run check:functions && npm test && npm run build"
     },
     "dependencies": {
         "@vitejs/plugin-react": "latest",

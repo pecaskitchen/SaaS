@@ -15,6 +15,7 @@ import {
   MessageCircle,
   PackageCheck,
   Phone,
+  PlayCircle,
   Rocket,
   ShieldCheck,
   Sparkles,
@@ -325,6 +326,9 @@ export default function OmdexaLanding() {
             </a>
             <a className="odx-btn odx-btn-ghost" href="#funcionalidades">
               {config.hero.secondaryActionLabel}
+            </a>
+            <a className="odx-btn odx-btn-ghost" href="/presentacion" target="_blank" rel="noreferrer">
+              <PlayCircle size={17} /> Ver presentación
             </a>
           </div>
 

@@ -69,6 +69,11 @@ export function sortByOrder(items, order, key = 'id') {
   });
 }
 
+// Texto fijo que aparece bajo el titulo de la promo en la pagina del cliente.
+// Antes estaba hardcodeado en PublicApp/LegacyApp; ahora es un campo editable
+// de la promo con este valor por defecto (vaciarlo lo oculta).
+export const DEFAULT_PROMO_DISCLAIMER = 'Esta promoción no permite cambiar ingredientes incluidos.';
+
 export function makeDefaultPromotion(products = CATALOG_PRODUCTS) {
   const firstProduct = products[0] || {};
   return {
@@ -77,6 +82,7 @@ export function makeDefaultPromotion(products = CATALOG_PRODUCTS) {
     items: firstProduct.id ? [{ productId: firstProduct.id, quantity: 1 }] : [],
     price: 0,
     includedDetails: '',
+    disclaimer: DEFAULT_PROMO_DISCLAIMER,
     image: '',
   };
 }

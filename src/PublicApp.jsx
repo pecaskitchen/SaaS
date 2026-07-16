@@ -1562,7 +1562,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
         </div>
         <div className="promo-content">
           <h2>{promotion.title}</h2>
-          <p>{t(lang, 'promoFixed')}</p>
+          {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
           <ul className="promo-included">
             {promoItems.map(({ product, quantity }) => (
               <li key={product.id}>{quantity} x {productText(product, lang).name}</li>

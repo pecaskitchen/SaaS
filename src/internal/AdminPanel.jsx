@@ -690,6 +690,8 @@ export default function AdminPanel({
                     <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>
                     <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+                    <label className="field full"><span>Aviso bajo el titulo (en la pagina del cliente)</span><input value={promotionDraft.disclaimer ?? ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, disclaimer: e.target.value }))} placeholder="Dejalo vacio para no mostrar ningun aviso" /></label>
+                    <label className="field full"><span>Lo que incluye / notas (una linea por renglon)</span><textarea rows="3" value={promotionDraft.includedDetails || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, includedDetails: e.target.value }))} placeholder={'Ej: Elige los sabores de tu crepa en las notas al finalizar tu pedido!'} /></label>
                   </div>
                   <div className="admin-products">
                     {(promotionDraft.items || []).map((item, index) => (

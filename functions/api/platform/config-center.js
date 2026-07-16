@@ -8,6 +8,8 @@ const PUBLIC_BRAND_FIELDS = [
   'themePreset',
   'displayName',
   'tagline',
+  'pageTitle',
+  'metaDescription',
   'logoUrl',
   'heroImageUrl',
   'heroEyebrow',

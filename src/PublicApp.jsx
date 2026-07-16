@@ -1963,6 +1963,20 @@ export default function PublicApp() {
     loadProductCustomizations();
   }, []);
 
+  // Titulo y descripcion del tab del storefront, controlables por negocio
+  // desde el panel de plataforma (brand.pageTitle / brand.metaDescription).
+  // Si no se define pageTitle, cae al nombre visible (+ tagline). Antes el
+  // storefront heredaba el <title> estatico "Omdexa..." de index.html.
+  useEffect(() => {
+    const tagline = String(publicBrand.tagline || '').trim();
+    const fallbackTitle = tagline ? `${publicBrand.displayName} · ${tagline}` : publicBrand.displayName;
+    const title = String(publicBrand.pageTitle || '').trim() || fallbackTitle;
+    if (title) document.title = title;
+    const description = String(publicBrand.metaDescription || tagline || '').trim();
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta && description) meta.setAttribute('content', description);
+  }, [publicBrand.pageTitle, publicBrand.metaDescription, publicBrand.displayName, publicBrand.tagline]);
+
   const catalogCategories = useMemo(() => mergeCategoriesWithExtras(baseCatalogEnabled ? categories : [], extraCategories), [baseCatalogEnabled, extraCategories]);
   const catalogProducts = useMemo(() => mergeProductsWithExtras(baseCatalogEnabled ? CATALOG_PRODUCTS : [], extraProducts), [baseCatalogEnabled, extraProducts]);
   const currentProducts = useMemo(() => sortByOrder(mergeProductsWithOverrides(catalogProducts, menuOverrides), productOrder), [catalogProducts, menuOverrides, productOrder]);

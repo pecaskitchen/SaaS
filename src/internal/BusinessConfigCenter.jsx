@@ -124,6 +124,8 @@ const emptyDraft = {
     themePreset: 'neutral',
     displayName: '',
     tagline: '',
+    pageTitle: '',
+    metaDescription: '',
     logoUrl: '',
     heroImageUrl: '',
     heroEyebrow: '',
@@ -303,6 +305,8 @@ export default function BusinessConfigCenter({
             <label className="field"><span>Estilo visual</span><select value={draft.brand.themePreset} onChange={(event) => patch(['brand', 'themePreset'], event.target.value)}>{THEMES.map((theme) => <option key={theme}>{theme}</option>)}</select></label>
             <label className="field"><span>Nombre visible</span><input value={draft.brand.displayName} onChange={(event) => patch(['brand', 'displayName'], event.target.value)} /></label>
             <label className="field"><span>Tagline</span><input value={draft.brand.tagline} onChange={(event) => patch(['brand', 'tagline'], event.target.value)} /></label>
+            <label className="field wide"><span>Titulo de la pestaña (storefront)</span><input value={draft.brand.pageTitle || ''} onChange={(event) => patch(['brand', 'pageTitle'], event.target.value)} placeholder="Ej. Pecas · Crepas y café a domicilio" /></label>
+            <label className="field wide"><span>Descripción SEO (meta description)</span><input value={draft.brand.metaDescription || ''} onChange={(event) => patch(['brand', 'metaDescription'], event.target.value)} placeholder="Vacío = usa el tagline" /></label>
             <label className="field"><span>Logo URL</span><input value={draft.brand.logoUrl} onChange={(event) => patch(['brand', 'logoUrl'], event.target.value)} /></label>
             <label className="field"><span>Imagen portada URL</span><input value={draft.brand.heroImageUrl} onChange={(event) => patch(['brand', 'heroImageUrl'], event.target.value)} /></label>
             <label className="field"><span>Etiqueta portada</span><input value={draft.brand.heroEyebrow} onChange={(event) => patch(['brand', 'heroEyebrow'], event.target.value)} /></label>

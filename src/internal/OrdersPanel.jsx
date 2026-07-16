@@ -11,8 +11,6 @@ import {
 import { getSessionToken } from '../lib/apiClient.js';
 
 const currency = (amount) => `$${amount}`;
-const ORDERS_PASSWORD_STORAGE_KEY = 'saas_orders_password';
-
 // Si hay sesión de personal (login por email/password), se manda como
 // Bearer y el backend la prioriza sobre el PIN de sucursal (ver
 // auditoria-saas-multitenant.md). El PIN sigue funcionando igual para
@@ -92,13 +90,6 @@ function parseOptions(value) {
 }
 
 export default function OrdersPanel() {
-  const [password, setPassword] = useState(() => {
-    try {
-      return window.sessionStorage.getItem(ORDERS_PASSWORD_STORAGE_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
   // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
   const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
   const [orders, setOrders] = useState([]);
@@ -113,9 +104,9 @@ export default function OrdersPanel() {
   const [status, setStatus] = useState('');
 
   const fetchOrders = async (nextFilter = statusFilter) => {
-    if (!password && !getSessionToken()) {
+    if (!getSessionToken()) {
       setUnlocked(false);
-      setStatus('Ingresa la contraseña de pedidos.');
+      setStatus('Inicia sesión con tu cuenta.');
       return;
     }
 
@@ -124,7 +115,7 @@ export default function OrdersPanel() {
 
     try {
       const response = await fetch(`/api/orders-dashboard?status=${nextFilter}&limit=100&branch=${encodeURIComponent(branchFilter)}`, {
-        headers: { ...authHeaders(), ...(password ? { 'x-orders-password': password } : {}) },
+        headers: { ...authHeaders() },
       });
       const result = await response.json();
 
@@ -132,12 +123,6 @@ export default function OrdersPanel() {
         setUnlocked(false);
         setStatus(result.error || 'No se pudieron cargar los pedidos.');
         return;
-      }
-
-      try {
-        window.sessionStorage.setItem(ORDERS_PASSWORD_STORAGE_KEY, password);
-      } catch {
-        // ignore storage errors
       }
 
       setUnlocked(true);
@@ -156,10 +141,7 @@ export default function OrdersPanel() {
   };
 
   useEffect(() => {
-    // Si ya hay sesion de personal (login unificado nuevo) el panel entra
-    // desbloqueado desde el primer render, pero sin este chequeo del token
-    // se quedaba sin pedir la carga inicial hasta el primer click manual.
-    if (password || getSessionToken()) fetchOrders(statusFilter);
+    if (getSessionToken()) fetchOrders(statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -177,7 +159,6 @@ export default function OrdersPanel() {
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
-          ...(password ? { 'x-orders-password': password } : {}),
         },
         body: JSON.stringify({
           orderId,
@@ -209,7 +190,6 @@ export default function OrdersPanel() {
         headers: {
           ...authHeaders(),
           'Content-Type': 'application/json',
-          ...(password ? { 'x-orders-password': password } : {}),
         },
         body: JSON.stringify({
           orderId,
@@ -232,12 +212,6 @@ export default function OrdersPanel() {
   };
 
   const logout = () => {
-    try {
-      window.sessionStorage.removeItem(ORDERS_PASSWORD_STORAGE_KEY);
-    } catch {
-      // ignore storage errors
-    }
-    setPassword('');
     setUnlocked(false);
     setOrders([]);
     setOrdersAccessScope('legacy');

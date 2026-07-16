@@ -275,24 +275,13 @@ export default function PlatformAdmin() {
     return (
       <main className="platform-page">
         <section className="platform-shell">
-          <form className="platform-panel" onSubmit={(event) => { event.preventDefault(); loginPlatform(); }}>
+          <div className="platform-panel">
             <span className="eyebrow"><Shield size={14} /> Admin global</span>
             <h1>Acceso de plataforma</h1>
-            <label className="field">
-              <span>Contraseña</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Contraseña de plataforma"
-                autoFocus
-              />
-            </label>
-            <button type="submit" className="primary" disabled={loading}>
-              <Shield size={16} /> Entrar
-            </button>
+            <p>Se retiro el acceso por contraseña de plataforma. Entra con tu cuenta de administrador de plataforma.</p>
+            <a className="primary" href="#login"><Shield size={16} /> Iniciar sesión</a>
             {status && <p className="admin-status">{status}</p>}
-          </form>
+          </div>
         </section>
       </main>
     );

@@ -203,16 +203,6 @@ async function nextOrderNumber(env, branch, tenantId) {
 }
 
 
-function resolveCashierAccess(settings, password) {
-  const clean = String(password || '').trim();
-  if (!clean) return { ok: false, error: 'Ingresa contraseña de caja.' };
-  if (settings && Array.isArray(settings.branches)) {
-    const branch = settings.branches.find((item) => item.active !== false && item.cashierPassword && item.cashierPassword === clean);
-    if (branch) return { ok: true, branch };
-  }
-  return { ok: false, error: 'Contraseña de caja inválida.' };
-}
-
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
@@ -232,14 +222,14 @@ export async function onRequestPost({ request, env }) {
     let orderSource = 'online';
     if (source === 'cashier') {
       const cashierAuth = body.cashierAuth || {};
-      // Rediseno de roles: 'manager' tambien puede crear pedidos de caja.
+      // Solo JWT: se retiro el login por PIN de caja. Crear pedidos de caja
+      // exige cuenta individual. Rediseno de roles: 'manager' tambien puede.
       const jwtAccess = await requireAuth(request, env, ['admin', 'manager', 'cashier', 'platform_admin']);
-      const pinAccess = jwtAccess.ok ? null : resolveCashierAccess(settings, cashierAuth.password);
-      if (!jwtAccess.ok && !pinAccess?.ok) {
-        return jsonResponse({ ok: false, error: pinAccess?.error || 'No autorizado para crear pedidos de caja.' }, 401);
+      if (!jwtAccess.ok) {
+        return jsonResponse({ ok: false, error: 'Inicia sesion con tu cuenta para crear pedidos de caja.' }, 401);
       }
-      branch = pinAccess?.branch || resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
-      cashier = { name: String(cashierAuth.name || '').trim(), shift: String(cashierAuth.shift || '').trim() };
+      branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
+      cashier = { name: String(cashierAuth.name || '').trim() || jwtAccess.session.name || jwtAccess.session.email || 'Caja', shift: String(cashierAuth.shift || '').trim() };
       body.paymentMethod = String(body.paymentMethod || 'efectivo').trim();
       body.paymentStatus = String(body.paymentStatus || 'paid').trim();
       const allowedSources = normalizeCashierOrderSources(settings.cashierOrderSources);

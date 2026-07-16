@@ -99,7 +99,8 @@ export default function OrdersPanel() {
       return '';
     }
   });
-  const [unlocked, setUnlocked] = useState(Boolean(password) || Boolean(getSessionToken()));
+  // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
+  const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
   const [orders, setOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -343,21 +344,9 @@ export default function OrdersPanel() {
         <section className="orders-shell">
           <Logo />
           <h1>Pedidos</h1>
-          <p>Consulta la cola de pedidos y cambia el estatus de operación.</p>
-
+          <p>Inicia sesión con tu cuenta para ver la cola de pedidos.</p>
           <div className="orders-login">
-            <label className="field full">
-              <span>Contraseña de pedidos</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña"
-              />
-            </label>
-            <button type="button" className="primary" onClick={() => fetchOrders(statusFilter)}>
-              Entrar
-            </button>
+            <a className="primary" href="#login">Iniciar sesión</a>
             {status && <p className="admin-status">{status}</p>}
           </div>
         </section>

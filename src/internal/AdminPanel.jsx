@@ -645,21 +645,6 @@ export default function AdminPanel({
                         <small>No lo cambies si ya hay pedidos de esta sucursal.</small>
                       </label>
                       <label className="field">
-                        <span>Contraseña Orders</span>
-                        <input type="text" value={branch.ordersPassword || ''} onChange={(e) => updateBranch(index, 'ordersPassword', e.target.value)} placeholder="Ej. pedidos-dominio" />
-                        <small>Quien use esta contraseña solo verá pedidos de esta sucursal.</small>
-                      </label>
-                      <label className="field">
-                        <span>Contraseña Stock</span>
-                        <input type="text" value={branch.stockPassword || ''} onChange={(e) => updateBranch(index, 'stockPassword', e.target.value)} placeholder="Ej. stock-dominio" />
-                        <small>Quien use esta contraseña solo operará stock de esta sucursal.</small>
-                      </label>
-                      <label className="field">
-                        <span>Contraseña Caja</span>
-                        <input type="text" value={branch.cashierPassword || ''} onChange={(e) => updateBranch(index, 'cashierPassword', e.target.value)} placeholder="Ej. caja-dominio" />
-                        <small>Quien use esta contraseña capturará pedidos de caja para esta sucursal.</small>
-                      </label>
-                      <label className="field">
                         <span>WhatsApp pedidos</span>
                         <input type="text" value={branch.whatsappNumber || ''} onChange={(e) => updateBranch(index, 'whatsappNumber', e.target.value)} placeholder="Ej. 528441234567" />
                         <small>Los pedidos de esta sucursal se enviarán a este número. Si lo dejas vacío, usa el WhatsApp global.</small>

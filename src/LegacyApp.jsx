@@ -1713,9 +1713,8 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
   const [password, setPassword] = useState(savedSession.password || '');
   const [cashierName, setCashierName] = useState(savedSession.cashierName || employeeName || savedEmployeeName || '');
   const [shift, setShift] = useState(savedSession.shift || savedEmployeeShift || 'Turno');
-  // Con sesion de personal (login unificado nuevo) no hace falta PIN ni
-  // nombre guardado -- entra directo, cubriendo el modulo Caja del shell.
-  const [unlocked, setUnlocked] = useState(Boolean((savedSession.password && savedSession.cashierName) || getSessionToken()));
+  // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
+  const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
   const [activeCategory, setActiveCategory] = useState(categoriesList[0]?.id || '');
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({ name: '', phone: '', notes: '' });
@@ -1840,12 +1839,9 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
         <section className="orders-shell">
           <Logo />
           <h1>Caja</h1>
-          <p>Captura pedidos internos de sucursal sin enviarlos a WhatsApp.</p>
+          <p>Inicia sesión con tu cuenta para capturar pedidos de caja.</p>
           <div className="orders-login">
-            <label className="field full"><span>Nombre del cajero</span><input value={cashierName} onChange={(e) => setCashierName(e.target.value)} placeholder="Ej. César" /></label>
-            <label className="field full"><span>Turno</span><input value={shift} onChange={(e) => setShift(e.target.value)} placeholder="Ej. Noche" /></label>
-            <label className="field full"><span>Contraseña de caja</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña de caja de la sucursal" /></label>
-            <button type="button" className="primary" onClick={login}>Entrar a caja</button>
+            <a className="primary" href="#login">Iniciar sesión</a>
             {status && <p className="admin-status">{status}</p>}
           </div>
         </section>
@@ -2079,10 +2075,9 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
         <section className="admin-card">
           <Logo />
           <h1>Super usuario</h1>
-          <p>Controla horarios y promociones por sucursal activa.</p>
+          <p>Inicia sesión con tu cuenta para controlar horarios y promociones.</p>
           <div className="admin-login">
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña super usuario / admin" />
-            <button type="button" className="primary" onClick={login}>Entrar</button>
+            <a className="primary" href="#login">Iniciar sesión</a>
             {status && <p className="admin-status">{status}</p>}
           </div>
         </section>
@@ -2409,10 +2404,9 @@ export default function App() {
 
   return (
     <main>
-      <EmployeeLoginModal open={employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} />
       <section className="hero">
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => setEmployeeLoginOpen(true)} />
+          <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>

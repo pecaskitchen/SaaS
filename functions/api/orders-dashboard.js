@@ -11,44 +11,21 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function getPassword(request) {
-  return request.headers.get('x-orders-password') || '';
-}
-
-// MIGRADO a JWT: ya no se aceptan contrasenas globales del deployment.
-// El acceso se valida con usuario del tenant o con PIN de sucursal acotado
-// al tenant resuelto por hostname.
-async function resolveOrdersAccess(request, env, tenantId) {
+// Solo JWT: se retiro el login por PIN de sucursal. El acceso a pedidos es
+// exclusivamente por cuenta individual (email + contrasena).
+async function resolveOrdersAccess(request, env) {
   // Rediseno de roles: 'manager' tambien ve el modulo Pedidos.
   const auth = await requireAuth(request, env, ['admin', 'manager', 'orders', 'platform_admin']);
+  if (!auth.ok) return { ok: false, error: 'No autorizado.', response: auth.response };
 
-  if (auth.ok) {
-    // canArchive: archivar/eliminar excluye pedidos de ventas/reportes/CRM
-    // de forma permanente, asi que se reserva a duenos y gerentes con cuenta
-    // propia (mismo criterio que el DELETE de crm/customers.js). Un PIN
-    // compartido o el rol operativo "orders" no pueden ocultar ventas.
-    if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
-      return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all', canArchive: true };
-    }
-    const canArchive = auth.session.role === 'manager';
-    // JWT valido con rol "orders": igual puede acotarse a una sucursal si
-    // manda tambien el PIN de esa sucursal; si no, ve todas las que aplique
-    // a su tenant.
-    const password = getPassword(request);
-    const branchSettings = await readBranchSettings(env, tenantId);
-    const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-    if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings, canArchive };
-    return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy', branchSettings, canArchive };
+  // canArchive: archivar/eliminar excluye pedidos de ventas/reportes/CRM de
+  // forma permanente, asi que se reserva a duenos y gerentes (mismo criterio
+  // que el DELETE de crm/customers.js). El rol operativo "orders" no puede
+  // ocultar ventas.
+  if (auth.session.role === 'admin' || auth.session.role === 'platform_admin') {
+    return { ok: true, role: 'admin', branchFilter: 'all', accessScope: 'all', canArchive: true };
   }
-
-  // Sin JWT: unico camino valido es el PIN de sucursal (personal sin cuenta
-  // propia), siempre acotado al tenant resuelto por hostname.
-  const password = getPassword(request);
-  if (!password) return { ok: false, error: 'No autorizado.', response: auth.response };
-  const branchSettings = await readBranchSettings(env, tenantId);
-  const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.ordersPassword && item.ordersPassword === password);
-  if (branch) return { ok: true, role: 'orders', branchFilter: branch.id, branch, accessScope: 'branch', branchSettings, canArchive: false };
-  return { ok: false, error: 'No autorizado.', response: auth.response };
+  return { ok: true, role: 'orders', branchFilter: 'all', accessScope: 'legacy', canArchive: auth.session.role === 'manager' };
 }
 
 

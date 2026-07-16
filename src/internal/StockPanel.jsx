@@ -618,7 +618,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [role, setRole] = useState(isAdminConfigMode ? 'admin' : (savedSession.role || ''));
   const [stockAccessScope, setStockAccessScope] = useState(savedSession.accessScope || 'legacy');
   const [stockLockedBranchId, setStockLockedBranchId] = useState(savedSession.lockedBranchId || null);
-  const [unlocked, setUnlocked] = useState(isAdminConfigMode ? hasSession : (hasSession || Boolean(savedSession.password)));
+  // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
+  const [unlocked, setUnlocked] = useState(hasSession);
   const [activeTab, setActiveTab] = useState(isAdminConfigMode ? 'productSetup' : 'dashboard');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1505,23 +1506,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       <main className="stock-page">
         <section className="stock-shell stock-login-shell">
           <Logo />
-          <h1>Stock</h1>
-          <p>Inventario, mermas, entradas de compra y alertas operativas.</p>
-          <div className="stock-login-grid">
-            <label className="field full">
-              <span>Nombre de quien entra</span>
-              <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="Ej. César" />
-            </label>
-            <label className="field">
-              <span>Turno</span>
-              <input value={shift} onChange={(e) => setShift(e.target.value)} placeholder="Ej. Noche" />
-            </label>
-            <label className="field">
-              <span>Contraseña</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin o cocina" />
-            </label>
-          </div>
-          <button type="button" className="primary" onClick={loadStock}>Entrar</button>
+          <h1>Inventario</h1>
+          <p>Inicia sesión con tu cuenta para ver inventario, mermas y alertas.</p>
+          <a className="primary" href="#login">Iniciar sesión</a>
           {status && <p className="admin-status">{status}</p>}
         </section>
       </main>

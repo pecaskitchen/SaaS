@@ -2033,10 +2033,9 @@ export default function PublicApp() {
 
   return (
     <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'}`} style={publicThemeStyle(publicBrand)}>
-      <EmployeeLoginModal open={employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} brandName={publicBrand.displayName} />
       <section className="hero">
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => setEmployeeLoginOpen(true)} brand={publicBrand} />
+          <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} brand={publicBrand} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>

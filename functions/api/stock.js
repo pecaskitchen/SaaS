@@ -47,35 +47,23 @@ function safeDecodeHeader(value) {
 async function authFromValues(values, env, request = null) {
   let name = String(values?.operatorName || values?.name || '').trim();
   const shift = String(values?.shift || '').trim() || 'Sin turno';
-  const password = String(values?.password || '').trim();
 
+  // Solo JWT: se retiro el login por PIN de sucursal. El acceso a inventario
+  // es exclusivamente por cuenta individual (email + contrasena).
   if (request) {
     // Rediseno de roles: 'kitchen' se renombra a 'inventory' -- se acepta
-    // el rol viejo tambien mientras dura la coexistencia (Fase A). 'manager'
-    // tambien ve el modulo Inventario.
+    // el rol viejo tambien mientras dura la coexistencia. 'manager' tambien
+    // ve el modulo Inventario.
     const jwtAuth = await requireAuth(request, env, ['admin', 'manager', 'inventory', 'kitchen', 'platform_admin']);
     if (jwtAuth.ok) {
       const role = jwtAuth.session.role === 'platform_admin' ? 'admin' : jwtAuth.session.role;
       if (!name) name = jwtAuth.session.name || jwtAuth.session.email || 'Equipo';
       return { ok: true, role, name, shift, accessScope: role === 'admin' ? 'all' : 'legacy' };
     }
+    return { ok: false, error: 'Inicia sesion con tu cuenta.', response: jwtAuth.response };
   }
 
-  if (!name) return { ok: false, error: 'Ingresa el nombre de quien opera.' };
-
-  // IMPORTANTE: no reintroducir env.ADMIN_PASSWORD/env.KITCHEN_PASSWORD como
-  // fallback aquí - eran contraseñas globales compartidas por TODOS los
-  // tenants (hallazgo crítico #3). El único fallback válido sin JWT es el
-  // PIN por sucursal de abajo, que ya está scoped por tenant_id.
-  try {
-    const settings = await readMenuSettings(env);
-    const branchSettings = normalizeBranchSettings(settings.branchSettings || DEFAULT_BRANCH_SETTINGS);
-    const branch = (branchSettings.branches || []).find((item) => item.active !== false && item.stockPassword && item.stockPassword === password);
-    if (branch) return { ok: true, role: 'kitchen', name, shift, accessScope: 'branch', lockedBranchId: branch.id, lockedBranchName: branch.name };
-  } catch {
-    // If menu settings are not initialized yet, fall through to invalid password.
-  }
-  return { ok: false, error: 'Sesión inválida o contraseña de sucursal incorrecta.' };
+  return { ok: false, error: 'Inicia sesion con tu cuenta.' };
 }
 
 async function auth(request, env) {

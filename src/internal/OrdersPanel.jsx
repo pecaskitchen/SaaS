@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
-import { Archive, Columns3, List, ShoppingBag, Trash2 } from 'lucide-react';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import { Archive, Bell, BellOff, Columns3, List, ShoppingBag, Trash2 } from 'lucide-react';
 import '../styles.css';
 import { formatOrderDate } from '../lib/dates.js';
 import {
@@ -102,16 +102,85 @@ export default function OrdersPanel() {
   const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
+  // Avisos de pedido nuevo: sonido + notificacion del navegador + resaltado.
+  const [alertsOn, setAlertsOn] = useState(false);
+  const [newOrderPulse, setNewOrderPulse] = useState(0);
+  const knownOrderIds = useRef(null); // null = todavia no cargo la primera vez
+  const audioCtxRef = useRef(null);
+  const alertsOnRef = useRef(false);
+  alertsOnRef.current = alertsOn;
 
-  const fetchOrders = async (nextFilter = statusFilter) => {
+  const playBeep = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+      // Dos tonos cortos, tipo "ding-dong", para que se escuche en cocina.
+      [880, 1175].forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + index * 0.18;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.4, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.18);
+      });
+    } catch {
+      // Si el audio esta bloqueado, el resaltado visual sigue avisando.
+    }
+  };
+
+  const notifyNewOrders = (newOrders) => {
+    playBeep();
+    setNewOrderPulse(Date.now());
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const count = newOrders.length;
+        const first = newOrders[0];
+        new Notification(count > 1 ? `${count} pedidos nuevos` : 'Nuevo pedido', {
+          body: first ? `${first.order_number || ''} · ${first.customer_name || 'Cliente'} · ${currency(first.total)}` : 'Tienes un pedido nuevo.',
+          tag: 'nuevo-pedido',
+          renotify: true,
+        });
+      }
+    } catch {
+      // La notificacion es best-effort; el sonido y el resaltado ya avisaron.
+    }
+  };
+
+  const enableAlerts = async () => {
+    // Requiere gesto del usuario: desbloquea el audio y pide permiso de aviso.
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx && !audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+      if (audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    } catch {
+      // aun sin permiso de notificacion, el sonido + resaltado funcionan
+    }
+    setAlertsOn(true);
+    playBeep();
+  };
+
+  const fetchOrders = async (nextFilter = statusFilter, { silent = false } = {}) => {
     if (!getSessionToken()) {
       setUnlocked(false);
       setStatus('Inicia sesión con tu cuenta.');
       return;
     }
 
-    setLoading(true);
-    setStatus('Cargando pedidos...');
+    if (!silent) {
+      setLoading(true);
+      setStatus('Cargando pedidos...');
+    }
 
     try {
       const response = await fetch(`/api/orders-dashboard?status=${nextFilter}&limit=100&branch=${encodeURIComponent(branchFilter)}`, {
@@ -120,8 +189,10 @@ export default function OrdersPanel() {
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        setUnlocked(false);
-        setStatus(result.error || 'No se pudieron cargar los pedidos.');
+        if (!silent) {
+          setUnlocked(false);
+          setStatus(result.error || 'No se pudieron cargar los pedidos.');
+        }
         return;
       }
 
@@ -131,12 +202,25 @@ export default function OrdersPanel() {
       setOrdersLockedBranchId(result.lockedBranchId || null);
       setCanArchive(Boolean(result.canArchive));
       if (result.lockedBranchId && branchFilter !== result.lockedBranchId) setBranchFilter(result.lockedBranchId);
-      setOrders(result.orders || []);
-      setStatus('');
+      const nextOrders = result.orders || [];
+
+      // Detecta pedidos NUEVOS (ids no vistos antes). En la primera carga solo
+      // se registra el estado base, sin avisar, para no sonar al abrir.
+      const nextIds = new Set(nextOrders.map((order) => order.id));
+      if (knownOrderIds.current === null) {
+        knownOrderIds.current = nextIds;
+      } else {
+        const fresh = nextOrders.filter((order) => !knownOrderIds.current.has(order.id));
+        knownOrderIds.current = nextIds;
+        if (fresh.length > 0 && alertsOnRef.current) notifyNewOrders(fresh);
+      }
+
+      setOrders(nextOrders);
+      if (!silent) setStatus('');
     } catch (error) {
-      setStatus(`No se pudieron cargar los pedidos: ${error.message}`);
+      if (!silent) setStatus(`No se pudieron cargar los pedidos: ${error.message}`);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -149,6 +233,18 @@ export default function OrdersPanel() {
     if (unlocked) fetchOrders(statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
+
+  // Auto-refresco cada 15s para que entren los pedidos nuevos sin picar
+  // "Actualizar". Es silencioso (no muestra "Cargando...") y respeta el
+  // filtro/sucursal actual.
+  useEffect(() => {
+    if (!unlocked) return undefined;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible' || alertsOnRef.current) fetchOrders(statusFilter, { silent: true });
+    }, 15000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlocked, statusFilter, branchFilter]);
 
   const changeStatus = async (orderId, nextStatus) => {
     setStatus('Actualizando pedido...');
@@ -338,6 +434,15 @@ export default function OrdersPanel() {
             <p>Cola de operación, tiempos y estatus.</p>
           </div>
           <div className="orders-header-actions">
+            {alertsOn ? (
+              <button type="button" className="ghost" onClick={() => setAlertsOn(false)} title="Silenciar avisos de pedido nuevo">
+                <Bell size={16} /> Avisos activos
+              </button>
+            ) : (
+              <button type="button" className="primary" onClick={enableAlerts} title="Sonar y notificar cuando entre un pedido">
+                <BellOff size={16} /> Activar avisos
+              </button>
+            )}
             <button type="button" className="ghost" onClick={() => fetchOrders(statusFilter)} disabled={loading}>
               {loading ? 'Cargando...' : 'Actualizar'}
             </button>
@@ -346,6 +451,12 @@ export default function OrdersPanel() {
             </button>
           </div>
         </div>
+
+        {newOrderPulse > 0 && (
+          <div className="orders-new-flash" key={newOrderPulse} onAnimationEnd={() => setNewOrderPulse(0)}>
+            <Bell size={16} /> ¡Pedido nuevo!
+          </div>
+        )}
 
         {branchSettings.multiBranchEnabled && ordersAccessScope !== 'branch' && (
           <label className="field orders-branch-filter">

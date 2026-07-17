@@ -1,6 +1,15 @@
+const SESSION_TOKEN_KEY = 'app_session_token';
+
+// La sesion se guarda en localStorage (no sessionStorage) para que persista
+// entre pestañas y al cerrar/reabrir el navegador. Antes vivia en
+// sessionStorage, que es por-pestaña: al abrir un modulo en otra pestaña o
+// reabrir el navegador se perdia y volvia a pedir contraseña. Se sigue
+// leyendo sessionStorage como respaldo para migrar sesiones ya abiertas.
 export function getSessionToken() {
   try {
-    return window.sessionStorage.getItem('app_session_token') || '';
+    return window.localStorage.getItem(SESSION_TOKEN_KEY)
+      || window.sessionStorage.getItem(SESSION_TOKEN_KEY)
+      || '';
   } catch {
     return '';
   }
@@ -8,8 +17,13 @@ export function getSessionToken() {
 
 export function setSessionToken(token) {
   try {
-    if (token) window.sessionStorage.setItem('app_session_token', token);
-    else window.sessionStorage.removeItem('app_session_token');
+    if (token) {
+      window.localStorage.setItem(SESSION_TOKEN_KEY, token);
+      window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    } else {
+      window.localStorage.removeItem(SESSION_TOKEN_KEY);
+      window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
   } catch {
     // ignore storage errors
   }

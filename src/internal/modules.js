@@ -13,7 +13,7 @@ export const MODULES = [
   { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'recetas', label: 'Recetas', roles: ['admin', 'manager'] },
   { id: 'reportes', label: 'Reportes', roles: ['admin', 'manager', 'reports'] },
-  { id: 'pagina-publica', label: 'Pagina publica', roles: ['admin', 'manager'] },
+  { id: 'pagina-publica', label: 'Pagina publica', roles: ['platform_admin'] },
   { id: 'negocio', label: 'Negocio', roles: ['admin', 'manager'] },
   { id: 'integraciones', label: 'Integraciones', roles: ['admin'] },
   { id: 'usuarios', label: 'Usuarios', roles: ['admin'] },

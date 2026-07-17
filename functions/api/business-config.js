@@ -94,10 +94,14 @@ export async function onRequestPatch({ request, env }) {
     const currentSettings = safeJson(tenant.settings_json, {});
     const incomingSettings = body.settings || {};
 
-    const nextBrand = {
-      ...currentBrand,
-      ...pickPublicBrand(body.brand || {}),
-    };
+    // La pagina publica (brand: portada, estilo, textos, imagenes, SEO) solo
+    // la controla el dueno de la plataforma (Omdexa). Un admin/manager del
+    // negocio no puede cambiarla por aqui; solo edita sus ajustes operativos
+    // mas abajo (contacto, pagos, tipos de entrega, origenes de pedido).
+    const isPlatformAdmin = auth.session.role === 'platform_admin';
+    const nextBrand = isPlatformAdmin
+      ? { ...currentBrand, ...pickPublicBrand(body.brand || {}) }
+      : { ...currentBrand };
     if (!THEME_PRESETS.includes(nextBrand.themePreset)) nextBrand.themePreset = 'neutral';
 
     // CORREGIDO: antes se usaba `incoming || current`, asi que un campo

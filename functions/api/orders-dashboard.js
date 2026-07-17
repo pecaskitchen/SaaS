@@ -227,6 +227,8 @@ async function ensureOrderStockColumns(env) {
   if (!columns.has('archived_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`);
   if (!columns.has('archived_reason')) alters.push(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`);
   if (!columns.has('deleted_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN deleted_at_utc TEXT`);
+  if (!columns.has('custom_fields_json')) alters.push(`ALTER TABLE orders ADD COLUMN custom_fields_json TEXT`);
+  if (!columns.has('customer_neighborhood')) alters.push(`ALTER TABLE orders ADD COLUMN customer_neighborhood TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
   orderStockColumnsEnsured = true;
 }

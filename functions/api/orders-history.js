@@ -1,6 +1,7 @@
 import { requireAuth } from './_shared/auth.js';
 import { jsonResponse, requireDb } from './_shared/http.js';
 import { resolveTenantId } from './_shared/tenant.js';
+import { ensureSchema } from './orders.js';
 
 // Historial buscable de pedidos/ventas (admin, gerente, reports). A
 // diferencia de /api/orders-dashboard (que muestra la cola del dia), esto
@@ -24,6 +25,10 @@ export async function onRequestGet({ request, env }) {
 
     const tenantId = await resolveTenantId(request, env);
     const db = requireDb(env);
+    // Garantiza que existan las columnas nuevas (customer_neighborhood,
+    // custom_fields_json) aunque aun no se haya creado ningun pedido nuevo
+    // desde el deploy. ensureSchema esta cacheado por isolate.
+    await ensureSchema(env);
     const url = new URL(request.url);
 
     const today = todayMonterrey();

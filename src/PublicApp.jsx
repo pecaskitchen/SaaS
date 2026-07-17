@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Sparkles, Utensils } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Utensils } from 'lucide-react';
 import './styles.css';
 import { CATALOG_PRODUCTS, categoryMeta, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
 import {
@@ -12,7 +12,13 @@ import {
   normalizeBusinessHours,
   normalizeWhatsAppNumber,
   selectedBranchFrom,
+  ORDER_FORM_FIELD_DEFS,
+  customerFieldValue,
+  firstMissingRequiredField,
+  customFieldsPayload,
+  normalizeFormFields,
 } from './lib/business.js';
+import OrderFormFields from './components/OrderFormFields.jsx';
 
 const WHATSAPP_NUMBER = '';
 const categories = [];
@@ -96,10 +102,25 @@ function normalizeThemePreset(value) {
   return PUBLIC_THEME_PRESETS[key] ? key : DEFAULT_PUBLIC_BRAND.themePreset;
 }
 
+// Colores genericos que createTenant asigna por defecto. Si el color de
+// marca sigue igual a estos, el tenant NO lo personalizo, asi que la
+// plantilla debe mandar (antes el color generico pisaba a la plantilla y por
+// eso "no se notaban" los estilos).
+const GENERIC_BRAND_PRIMARY = '#111827';
+const GENERIC_BRAND_ACCENT = '#ef4444';
+
+function customColorOr(value, genericDefault, presetColor) {
+  const clean = String(value || '').trim();
+  if (clean && clean.toLowerCase() !== genericDefault.toLowerCase()) return clean;
+  return presetColor;
+}
+
 function publicThemeStyle(brand) {
   const preset = PUBLIC_THEME_PRESETS[normalizeThemePreset(brand.themePreset)] || PUBLIC_THEME_PRESETS.neutral;
-  const primaryColor = String(brand.primaryColor || preset.primaryColor).trim();
-  const accentColor = String(brand.accentColor || preset.accentColor).trim();
+  // La plantilla define la paleta; el color de marca solo la pisa si el
+  // tenant lo cambio a proposito (distinto al generico por defecto).
+  const primaryColor = customColorOr(brand.primaryColor, GENERIC_BRAND_PRIMARY, preset.primaryColor);
+  const accentColor = customColorOr(brand.accentColor, GENERIC_BRAND_ACCENT, preset.accentColor);
   return {
     '--brown': primaryColor,
     '--brown-2': primaryColor,
@@ -239,6 +260,7 @@ const TEXT = {
     clearData: 'Borrar datos',
     savedDataAlert: 'Tus datos quedaron guardados solo en este dispositivo.',
     completeDataAlert: 'Completa nombre, WhatsApp, tipo de entrega, forma de pago y dirección si es entrega a domicilio.',
+    completeFieldAlert: 'Falta completar:',
     saveOrderError: 'No se pudo guardar el pedido. Intenta de nuevo.',
     connectionOrderError: (message) => `No se pudo guardar el pedido: ${message}`,
     total: 'Total',
@@ -339,6 +361,7 @@ const TEXT = {
     clearData: 'Clear details',
     savedDataAlert: 'Your details were saved only on this device.',
     completeDataAlert: 'Complete name, WhatsApp, pickup/delivery, payment method, and address if delivery is selected.',
+    completeFieldAlert: 'Please complete:',
     saveOrderError: 'Could not save the order. Please try again.',
     connectionOrderError: (message) => `Could not save the order: ${message}`,
     total: 'Total',
@@ -1650,7 +1673,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND }) {
+function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND, orderFormFields = normalizeFormFields({}, 'order') }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
@@ -1693,14 +1716,18 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       `Total: ${currency(subtotal)}`,
       '',
       t(lang, 'orderData'),
-      `${t(lang, 'nameLabel')}: ${customer.name || ''}`,
-      customer.phone ? `WhatsApp: ${customer.phone}` : '',
-      `${t(lang, 'fulfillmentLabel')}: ${customer.fulfillmentType ? optionLabel(lang, customer.fulfillmentType) : ''}`,
-      `${t(lang, 'addressLabel')}: ${customer.address || ''}`,
-      `${t(lang, 'neighborhoodLabel')}: ${customer.neighborhood || ''}`,
-      `${t(lang, 'sectorLabel')}: ${customer.sector || ''}`,
-      `${t(lang, 'paymentLabel')}: ${optionLabel(lang, customer.payment) || ''}`,
-      customer.orderNote ? `${t(lang, 'generalNoteLabel')}: ${customer.orderNote}` : '',
+      // Solo los campos visibles para este tenant, con su etiqueta y (para
+      // entrega/pago) su texto legible. Incluye los 2 campos extra.
+      ...ORDER_FORM_FIELD_DEFS
+        .filter((def) => orderFormFields?.[def.key]?.visible)
+        .map((def) => {
+          const raw = customerFieldValue(customer, def.key);
+          const value = (def.key === 'fulfillment' || def.key === 'payment')
+            ? (raw ? optionLabel(lang, raw) : '')
+            : String(raw ?? '');
+          if (!String(value).trim()) return '';
+          return `${orderFormFields[def.key].label}: ${value}`;
+        }),
     ];
     return lines.filter(Boolean).join('\n');
   };
@@ -1710,8 +1737,9 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const sendOrder = async () => {
     if (!canSend) return;
 
-    if (!customer.name || !customer.phone || !customer.fulfillmentType || !customer.payment || (customer.fulfillmentType === 'Entrega a domicilio' && !customer.address)) {
-      alert(t(lang, 'completeDataAlert'));
+    const missingField = firstMissingRequiredField(customer, orderFormFields);
+    if (missingField) {
+      alert(`${t(lang, 'completeFieldAlert')} ${missingField}`);
       return;
     }
 
@@ -1730,6 +1758,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         fulfillmentType: customer.fulfillmentType,
         paymentMethod: customer.payment,
         notes: customer.orderNote || '',
+        customFields: customFieldsPayload(customer, orderFormFields),
       },
       items: cart.map((item) => ({
         id: item.productId || item.id,
@@ -1840,24 +1869,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         <h3>{t(lang, 'customerDataTitle')}</h3>
         {hasSavedProfile && <p className="welcome-back">{t(lang, 'welcomeBack', customer.name)}</p>}
         <p className="privacy-note">{t(lang, 'privacyNote')}</p>
-        <input required value={customer.name} onChange={(e) => updateCustomer('name', e.target.value)} placeholder={t(lang, 'namePlaceholder')} />
-        <input required value={customer.phone || ''} onChange={(e) => updateCustomer('phone', e.target.value)} placeholder={t(lang, 'phonePlaceholder')} inputMode="tel" />
-        <select required value={customer.fulfillmentType || ''} onChange={(e) => updateCustomer('fulfillmentType', e.target.value)}>
-          <option value="">{t(lang, 'fulfillmentPlaceholder')}</option>
-          <option value="Recoger">{t(lang, 'fulfillmentPickup')}</option>
-          <option value="Entrega a domicilio">{t(lang, 'fulfillmentDelivery')}</option>
-        </select>
-        <input required={customer.fulfillmentType === 'Entrega a domicilio'} value={customer.address} onChange={(e) => updateCustomer('address', e.target.value)} placeholder={t(lang, 'addressPlaceholder')} />
-        <input value={customer.neighborhood} onChange={(e) => updateCustomer('neighborhood', e.target.value)} placeholder={t(lang, 'neighborhoodPlaceholder')} />
-        <input value={customer.sector} onChange={(e) => updateCustomer('sector', e.target.value)} placeholder={t(lang, 'sectorPlaceholder')} />
-        <select required value={customer.payment} onChange={(e) => updateCustomer('payment', e.target.value)}>
-          <option value="">{t(lang, 'paymentPlaceholder')}</option>
-          <option value="Transferencia">{t(lang, 'paymentTransfer')}</option>
-          <option value="Efectivo">{t(lang, 'paymentCash')}</option>
-          <option value="Tarjeta">{t(lang, 'paymentCard')}</option>
-          <option value="Mercado Pago">{t(lang, 'paymentMercadoPago')}</option>
-        </select>
-        <textarea value={customer.orderNote} onChange={(e) => updateCustomer('orderNote', e.target.value)} placeholder={t(lang, 'orderNotePlaceholder')} rows="2" />
+        <OrderFormFields config={orderFormFields} customer={customer} onChange={updateCustomer} />
         <div className="profile-actions">
           <button type="button" className="ghost" onClick={saveCustomerProfile}>{t(lang, 'saveMyData')}</button>
           <button type="button" className="ghost danger-text" onClick={clearCustomerProfile}>{t(lang, 'clearData')}</button>
@@ -1934,7 +1946,7 @@ export default function PublicApp() {
   };
 
   const [customer, setCustomer] = useState(() => {
-    const fallback = { name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', profileLoaded: false };
+    const fallback = { name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', custom1: '', custom2: '', profileLoaded: false };
     try {
       const saved = window.localStorage.getItem(CUSTOMER_STORAGE_KEY);
       return saved ? { ...fallback, ...JSON.parse(saved), profileLoaded: true } : fallback;
@@ -2108,15 +2120,11 @@ export default function PublicApp() {
 
         <div className="hero-grid">
           <div className="hero-copy">
-            <span className="eyebrow">
-              <Sparkles size={14} /> {publicBrand.heroEyebrow || t(lang, 'heroEyebrow')}
-            </span>
+            <div className={`open-status-pill ${currentBusinessStatus.open ? 'open' : 'closed'}`}>{currentBusinessStatus.label}</div>
 
             {customer.profileLoaded && customer.name && (
               <p className="hero-welcome">{t(lang, 'welcomeBack', customer.name)}</p>
             )}
-
-            <div className={`open-status-pill ${currentBusinessStatus.open ? 'open' : 'closed'}`}>{currentBusinessStatus.label}</div>
 
             {branchSettings.multiBranchEnabled && (
               <label className="branch-selector-card">
@@ -2203,7 +2211,7 @@ export default function PublicApp() {
           </div>
         </div>
 
-        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} />
+        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} orderFormFields={branchSettings.orderFormFields} />
       </section>
 
       <a href="#cart" className="mobile-cart-bar">

@@ -96,6 +96,7 @@ export default function CashierModule() {
       productCustomizations={productCustomizations}
       reloadMenu={loadMenuOverrides}
       employeeName={user?.name || ''}
+      canBackdate={['admin', 'manager', 'platform_admin'].includes(user?.role)}
     />
   );
 }

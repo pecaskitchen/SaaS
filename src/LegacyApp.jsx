@@ -1703,7 +1703,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
 // con una sesion ya autenticada, sin duplicar ProductCard y su arbol de
 // dependencias (personalizaciones, familias de opciones, etc.), que es
 // demasiado riesgo mover en esta pasada (ver plan de rediseno de roles).
-export function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu, employeeName = '' }) {
+export function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu, employeeName = '', canBackdate = false }) {
   const savedSession = (() => {
     try { return JSON.parse(window.sessionStorage.getItem(CASHIER_SESSION_STORAGE_KEY) || '{}'); } catch { return {}; }
   })();
@@ -1722,6 +1722,8 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', custom1: '', custom2: '' });
   const updateCustomer = (key, value) => setCustomer((current) => ({ ...current, [key]: value }));
+  const [orderDate, setOrderDate] = useState('');
+  const todayMonterrey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
   const normalizedCashierSettings = useMemo(() => normalizeBranchSettings(branchSettings), [branchSettings]);
   const cashierFormFields = normalizedCashierSettings.cashierFormFields;
   const orderSources = useMemo(() => normalizeCashierOrderSources(normalizedCashierSettings.cashierOrderSources), [normalizedCashierSettings.cashierOrderSources]);
@@ -1826,6 +1828,7 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
           paymentMethod,
           paymentStatus,
           orderOrigin,
+          orderDate: orderDate || '',
           whatsappMessage: '',
         }),
       });
@@ -1836,6 +1839,7 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
       }
       setCart([]);
       setCustomer({ name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', custom1: '', custom2: '' });
+      setOrderDate('');
       setPaymentMethod('efectivo');
       setPaymentStatus('paid');
       setStatus(`Pedido de caja creado: ${result.orderNumber}. Ya aparece en Orders.`);
@@ -1893,6 +1897,9 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
               }}>{orderSources.map((sourceName) => <option key={sourceName} value={sourceName}>{sourceName}</option>)}</select></label>
               <label className="field"><span>Método de pago</span><select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select></label>
               <label className="field"><span>Estado de pago</span><select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
+              {canBackdate && (
+                <label className="field full"><span>Fecha del pedido (vacío = hoy)</span><input type="date" max={todayMonterrey} value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></label>
+              )}
               <label className="field full"><span>Notas</span><textarea value={customer.notes} onChange={(e) => setCustomer((c) => ({ ...c, notes: e.target.value }))} placeholder="Notas para cocina" /></label>
             </div>
             <div className="cart-items">

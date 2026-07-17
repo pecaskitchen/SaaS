@@ -226,6 +226,7 @@ export async function onRequestPost({ request, env }) {
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
     let cashier = { name: '', shift: '' };
     let orderSource = 'online';
+    let sessionRole = '';
     if (source === 'cashier') {
       const cashierAuth = body.cashierAuth || {};
       // Solo JWT: se retiro el login por PIN de caja. Crear pedidos de caja
@@ -236,6 +237,7 @@ export async function onRequestPost({ request, env }) {
       }
       branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
       cashier = { name: String(cashierAuth.name || '').trim() || jwtAccess.session.name || jwtAccess.session.email || 'Caja', shift: String(cashierAuth.shift || '').trim() };
+      sessionRole = jwtAccess.session.role || '';
       body.paymentMethod = String(body.paymentMethod || 'efectivo').trim();
       body.paymentStatus = String(body.paymentStatus || 'paid').trim();
       const allowedSources = normalizeCashierOrderSources(settings.cashierOrderSources);
@@ -245,7 +247,19 @@ export async function onRequestPost({ request, env }) {
         : (allowedSources.includes(settings.defaultCashierOrderSource) ? settings.defaultCashierOrderSource : allowedSources[0]);
       if (!cashier.name) return jsonResponse({ ok: false, error: 'Ingresa nombre del cajero.' }, 400);
     }
-    const timestamps = getTimestamps();
+    let timestamps = getTimestamps();
+    // Backdatear: admin/gerente pueden capturar un pedido de caja con fecha
+    // anterior (para registrar ventas que no se capturaron ese dia). Se
+    // ignora si lo manda un cajero normal, o si la fecha es invalida/futura.
+    if (source === 'cashier' && body.orderDate && ['admin', 'manager', 'platform_admin'].includes(sessionRole)) {
+      const chosenDate = String(body.orderDate).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(chosenDate)) {
+        const chosen = new Date(`${chosenDate}T12:00:00-06:00`); // mediodia hora Monterrey (UTC-6)
+        if (!Number.isNaN(chosen.getTime()) && chosen.getTime() <= Date.now() + 60000) {
+          timestamps = { utc: chosen.toISOString(), monterrey: `${chosenDate} 12:00:00` };
+        }
+      }
+    }
     let orderNumber = await nextOrderNumber(env, branch, tenantId);
 
     let createdOrder = null;

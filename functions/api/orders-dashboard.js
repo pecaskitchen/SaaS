@@ -716,7 +716,7 @@ async function deductOrderStock(env, orderId, orderNumber, tenantId) {
 async function loadFullOrders(env, status, limit, branchFilter = 'all', tenantId) {
   const businessWindow = getBusinessWindowMonterrey();
   let ordersQuery = `
-    SELECT id, order_number, status, customer_name, customer_phone, customer_address, customer_notes,
+    SELECT id, order_number, status, customer_name, customer_phone, customer_address, customer_notes, custom_fields_json,
       subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey,
       updated_at_utc, updated_at_monterrey, branch_id, branch_name, order_source, cashier_name, cashier_shift, payment_method, payment_status,
       stock_deducted, stock_deducted_at_monterrey, stock_deduction_error, exclude_from_reports, archived_at_utc, deleted_at_utc

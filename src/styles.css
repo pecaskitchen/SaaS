@@ -4786,3 +4786,26 @@ textarea { resize: vertical; min-height: 48px; }
 .privacy-page-inner ul {
   padding-left: 22px;
 }
+
+/* Editor de campos del formulario de pedidos (Admin > Formulario de pedidos) */
+.form-fields-title { margin: 16px 0 4px; font-size: 15px; }
+.form-fields-editor { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.form-field-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.6fr 0.8fr 2fr 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.form-field-row.head {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  color: #8590a0; font-weight: 700;
+}
+.form-field-row .ff-name { font-weight: 600; }
+.form-field-row .ff-check { display: flex; justify-content: center; margin: 0; }
+.form-field-row .ff-label { width: 100%; }
+.form-field-row .ff-type-empty { text-align: center; color: #c0c6d2; }
+@media (max-width: 640px) {
+  .form-field-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .form-field-row.head { display: none; }
+  .form-field-row .ff-label { grid-column: 1 / -1; }
+}

@@ -15,7 +15,10 @@ import {
   normalizeCashierOrderSources,
   normalizeWhatsAppNumber,
   selectedBranchFrom,
+  firstMissingRequiredField,
+  customFieldsPayload,
 } from './lib/business.js';
+import OrderFormFields from './components/OrderFormFields.jsx';
 const OrdersPanel = React.lazy(() => import('./internal/OrdersPanel.jsx'));
 const StockPanel = React.lazy(() => import('./internal/StockPanel.jsx'));
 const AdminPanel = React.lazy(() => import('./internal/AdminPanel.jsx'));
@@ -1717,8 +1720,10 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
   const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
   const [activeCategory, setActiveCategory] = useState(categoriesList[0]?.id || '');
   const [cart, setCart] = useState([]);
-  const [customer, setCustomer] = useState({ name: '', phone: '', notes: '' });
+  const [customer, setCustomer] = useState({ name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', custom1: '', custom2: '' });
+  const updateCustomer = (key, value) => setCustomer((current) => ({ ...current, [key]: value }));
   const normalizedCashierSettings = useMemo(() => normalizeBranchSettings(branchSettings), [branchSettings]);
+  const cashierFormFields = normalizedCashierSettings.cashierFormFields;
   const orderSources = useMemo(() => normalizeCashierOrderSources(normalizedCashierSettings.cashierOrderSources), [normalizedCashierSettings.cashierOrderSources]);
   const defaultOrderSource = orderSources.includes(normalizedCashierSettings.defaultCashierOrderSource) ? normalizedCashierSettings.defaultCashierOrderSource : orderSources[0];
   const [orderOrigin, setOrderOrigin] = useState(savedSession.orderOrigin || defaultOrderSource);
@@ -1779,6 +1784,11 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
       setStatus('Agrega productos al pedido.');
       return;
     }
+    const missingField = firstMissingRequiredField(customer, cashierFormFields);
+    if (missingField) {
+      setStatus(`Falta completar: ${missingField}`);
+      return;
+    }
     setSaving(true);
     setStatus('Creando pedido de caja...');
     try {
@@ -1794,8 +1804,11 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
           customer: {
             name: customer.name || 'Cliente caja',
             phone: customer.phone || '',
-            address: 'Caja',
-            notes: customer.notes || '',
+            address: customer.address || 'Caja',
+            neighborhood: customer.neighborhood || '',
+            sector: customer.sector || '',
+            notes: customer.orderNote || '',
+            customFields: customFieldsPayload(customer, cashierFormFields),
           },
           items: cart.map((item) => ({
             id: item.productId || item.id,
@@ -1822,7 +1835,7 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
         return;
       }
       setCart([]);
-      setCustomer({ name: '', phone: '', notes: '' });
+      setCustomer({ name: '', phone: '', address: '', neighborhood: '', sector: '', payment: '', fulfillmentType: '', orderNote: '', custom1: '', custom2: '' });
       setPaymentMethod('efectivo');
       setPaymentStatus('paid');
       setStatus(`Pedido de caja creado: ${result.orderNumber}. Ya aparece en Orders.`);
@@ -1873,8 +1886,7 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
           <aside className="cart-panel cashier-cart">
             <div className="cart-header"><div><span className="eyebrow">Caja</span><h2>Pedido</h2></div><span className="cart-count"><ShoppingBag size={18} /> {itemCount}</span></div>
             <div className="customer-card">
-              <label className="field full"><span>Cliente opcional</span><input value={customer.name} onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))} placeholder="Cliente caja" /></label>
-              <label className="field full"><span>Teléfono opcional</span><input value={customer.phone} onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))} placeholder="Opcional" /></label>
+              <OrderFormFields config={cashierFormFields} customer={customer} onChange={updateCustomer} />
               <label className="field"><span>Origen del pedido</span><select value={orderOrigin} onChange={(e) => {
                 setOrderOrigin(e.target.value);
                 try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift, orderOrigin: e.target.value })); } catch { /* ignore */ }

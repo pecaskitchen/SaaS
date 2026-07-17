@@ -9,6 +9,7 @@ import {
   normalizeBranchId,
   normalizeBranchSettings,
   normalizeBusinessHours,
+  ORDER_FORM_FIELD_DEFS,
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js';
@@ -31,16 +32,60 @@ const ADMIN_VIEW_CONFIG = {
   business: {
     title: 'Negocio',
     description: 'Configura sucursales, horarios y reglas operativas del pedido.',
-    sections: ['branches', 'hours'],
-    open: { branches: true, hours: true },
+    sections: ['branches', 'orderForm', 'hours'],
+    open: { branches: true, orderForm: false, hours: true },
   },
   all: {
     title: 'Administrador',
     description: 'Configura sucursales, menu, ingredientes, recetas, familias e importaciones. Para operacion diaria usa Pedidos, Stock o Caja.',
-    sections: ['executive', 'payments', 'whatsapp', 'metaPage', 'instagramLogin', 'itemsCosts', 'catalog', 'branches', 'promo', 'hours', 'sections'],
-    open: { executive: true, branches: true, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
+    sections: ['executive', 'payments', 'whatsapp', 'metaPage', 'instagramLogin', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
+    open: { executive: true, branches: true, orderForm: false, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
   },
 };
+
+const FORM_FIELD_NAMES = {
+  name: 'Nombre', phone: 'Teléfono', fulfillment: 'Tipo de entrega', address: 'Dirección',
+  neighborhood: 'Colonia', sector: 'Sector', payment: 'Forma de pago', note: 'Nota',
+  custom1: 'Campo extra 1', custom2: 'Campo extra 2',
+};
+
+function FormFieldsEditor({ config = {}, onChange }) {
+  return (
+    <div className="form-fields-editor">
+      <div className="form-field-row head">
+        <span>Campo</span><span>Visible</span><span>Obligatorio</span><span>Nombre a mostrar</span><span>Tipo</span>
+      </div>
+      {ORDER_FORM_FIELD_DEFS.map((def) => {
+        const field = config[def.key] || {};
+        const isCustom = def.kind === 'custom';
+        return (
+          <div className="form-field-row" key={def.key}>
+            <span className="ff-name">{FORM_FIELD_NAMES[def.key] || def.key}</span>
+            <label className="ff-check">
+              <input type="checkbox" disabled={def.lockVisible} checked={def.lockVisible ? true : Boolean(field.visible)} onChange={(e) => onChange(def.key, { visible: e.target.checked })} />
+            </label>
+            <label className="ff-check">
+              <input type="checkbox" disabled={def.lockRequired} checked={def.lockRequired ? true : Boolean(field.required)} onChange={(e) => onChange(def.key, { required: e.target.checked })} />
+            </label>
+            <input
+              className="ff-label"
+              value={field.label || ''}
+              onChange={(e) => onChange(def.key, { label: e.target.value })}
+              placeholder={isCustom ? 'Nombre del campo (ej. RFC)' : def.defaultLabel}
+            />
+            {isCustom ? (
+              <select className="ff-type" value={field.type || 'text'} onChange={(e) => onChange(def.key, { type: e.target.value })}>
+                <option value="text">Texto</option>
+                <option value="number">Número</option>
+                <option value="tel">Teléfono</option>
+              </select>
+            ) : <span className="ff-type-empty">—</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function AdminSectionIntro({ title, description, children }) {
   return (
@@ -365,6 +410,20 @@ export default function AdminPanel({
     setBranchSettingsDraft((current) => normalizeBranchSettings({ ...current, [key]: value }));
   };
 
+  // Actualiza un campo del formulario de pedido. Se guarda "en crudo" (sin
+  // re-normalizar) para que el toggle "visible" de un campo extra no se
+  // apague solo mientras el tenant aun no escribe su etiqueta.
+  const updateFormField = (context, fieldKey, patch) => {
+    const settingsKey = context === 'cashier' ? 'cashierFormFields' : 'orderFormFields';
+    setBranchSettingsDraft((current) => {
+      const fields = current[settingsKey] || {};
+      return {
+        ...current,
+        [settingsKey]: { ...fields, [fieldKey]: { ...(fields[fieldKey] || {}), ...patch } },
+      };
+    });
+  };
+
   const updateBranch = (index, key, value) => {
     setBranchSettingsDraft((current) => {
       const branches = [...(current.branches || [])];
@@ -658,6 +717,20 @@ export default function AdminPanel({
                   ))}
                 </div>
                 <button type="button" className="ghost" onClick={addBranch}>+ Agregar sucursal</button>
+              </div>
+              )}
+            </section>}
+
+            {hasAdminSection('orderForm') && <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('orderForm')}>Formulario de pedidos <span>{openAdminSections.orderForm ? '-' : '+'}</span></button>
+              {openAdminSections.orderForm && (
+              <div className="admin-order-box">
+                <AdminSectionIntro title="Formulario de pedidos" description="Elige qué campos ve y debe llenar el cliente en tu página de pedidos y en caja (por separado). Puedes cambiarle el nombre a cada campo y activar 2 campos extra para pedir la información que necesites." />
+                <h3 className="form-fields-title">Página de pedidos (clientes)</h3>
+                <FormFieldsEditor config={branchSettingsDraft.orderFormFields} onChange={(key, patch) => updateFormField('order', key, patch)} />
+                <h3 className="form-fields-title">Caja</h3>
+                <FormFieldsEditor config={branchSettingsDraft.cashierFormFields} onChange={(key, patch) => updateFormField('cashier', key, patch)} />
+                <p className="admin-hint">Un campo extra solo aparece cuando le pones un nombre. El campo Nombre siempre se muestra.</p>
               </div>
               )}
             </section>}

@@ -204,14 +204,17 @@ export async function onRequestPost({ request, env }) {
     const timestamps = getTimestamps();
     const orderNumber = `MP-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 900 + 100)}`;
 
+    const customFieldsList = Array.isArray(customer.customFields) ? customer.customFields.filter((f) => f && String(f.value ?? '').trim()) : [];
+    const customFieldsJson = customFieldsList.length ? JSON.stringify(customFieldsList) : null;
+
     const inserted = await env.DB.prepare(`
       INSERT INTO orders (
         tenant_id, order_number, status, branch_id, branch_name, order_source,
-        customer_name, customer_phone, customer_address, customer_notes,
+        customer_name, customer_phone, customer_address, customer_notes, custom_fields_json,
         payment_provider, payment_status,
         subtotal, delivery_fee, total, payment_amount,
         created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
-      ) VALUES (?, ?, 'pending', ?, ?, 'online', ?, ?, ?, ?, 'mercado_pago', 'unpaid', ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
+      ) VALUES (?, ?, 'pending', ?, ?, 'online', ?, ?, ?, ?, ?, 'mercado_pago', 'unpaid', ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
     `).bind(
       tenantId,
       orderNumber,
@@ -221,6 +224,7 @@ export async function onRequestPost({ request, env }) {
       String(customer.phone || '').trim(),
       String(customer.address || (fulfillmentType === 'Recoger' ? 'Recoger' : '')).trim(),
       String(customer.notes || body.customerNotes || '').trim(),
+      customFieldsJson,
       subtotal,
       deliveryFee,
       total,

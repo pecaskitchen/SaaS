@@ -89,6 +89,17 @@ function parseOptions(value) {
   }
 }
 
+// Campos extra configurables por el tenant, guardados como [{label,value}].
+function parseCustomFields(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((f) => f && String(f.value ?? '').trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function OrdersPanel() {
   // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
   const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
@@ -348,6 +359,9 @@ export default function OrdersPanel() {
           <p><b>Cliente:</b> {order.customer_name}</p>
           <p><b>Direccion:</b> {order.customer_address}</p>
           {order.customer_notes ? <p><b>Nota:</b> {order.customer_notes}</p> : null}
+          {parseCustomFields(order.custom_fields_json).map((field) => (
+            <p key={field.key || field.label}><b>{field.label}:</b> {field.value}</p>
+          ))}
         </div>
 
         <div className="order-items">

@@ -181,6 +181,7 @@ export async function ensureSchema(env) {
   if (!columns.has('payment_amount')) alters.push(`ALTER TABLE orders ADD COLUMN payment_amount INTEGER`);
   if (!columns.has('marketplace_fee')) alters.push(`ALTER TABLE orders ADD COLUMN marketplace_fee INTEGER DEFAULT 0`);
   if (!columns.has('paid_at')) alters.push(`ALTER TABLE orders ADD COLUMN paid_at TEXT`);
+  if (!columns.has('custom_fields_json')) alters.push(`ALTER TABLE orders ADD COLUMN custom_fields_json TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
   ordersSchemaEnsured = true;
 }
@@ -213,6 +214,11 @@ export async function onRequestPost({ request, env }) {
     const source = body.source === 'cashier' ? 'cashier' : 'online';
     const customer = body.customer || {};
     if (source === 'online' && (!customer.name || !customer.address)) return jsonResponse({ ok: false, error: 'Faltan datos del cliente.' }, 400);
+    // Campos extra configurables por el tenant (custom1/custom2). Se guardan
+    // como JSON estructurado [{key,label,type,value}] para mostrarlos en el
+    // detalle del pedido.
+    const customFieldsList = Array.isArray(customer.customFields) ? customer.customFields.filter((f) => f && String(f.value ?? '').trim()) : [];
+    const customFieldsJson = customFieldsList.length ? JSON.stringify(customFieldsList) : null;
     const items = Array.isArray(body.items) ? body.items : [];
     if (!items.length) return jsonResponse({ ok: false, error: 'El pedido está vacío.' }, 400);
 
@@ -247,9 +253,9 @@ export async function onRequestPost({ request, env }) {
       try {
         const result = await env.DB.prepare(`
           INSERT INTO orders (
-            tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_notes, payment_method, payment_status,
+            tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_notes, custom_fields_json, payment_method, payment_status,
             subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
         `).bind(
           tenantId,
           orderNumber,
@@ -263,6 +269,7 @@ export async function onRequestPost({ request, env }) {
           String(customer.phone || '').trim(),
           String(customer.address || (source === 'cashier' ? 'Caja' : '')).trim(),
           String(customer.notes || '').trim(),
+          customFieldsJson,
           source === 'cashier' ? String(body.paymentMethod || 'efectivo') : null,
           source === 'cashier' ? String(body.paymentStatus || 'paid') : null,
           Number(body.subtotal || 0),

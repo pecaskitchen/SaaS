@@ -171,6 +171,16 @@ export default function AdminPanel({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [unlocked, setUnlocked] = useState(false);
+  // Crear/quitar sucursales lo maneja el dueno de Omdexa (plataforma), no el
+  // admin/gerente del negocio. Se consulta el rol de la sesion para eso.
+  const [sessionRole, setSessionRole] = useState('');
+  const canManageBranches = sessionRole === 'platform_admin';
+  useEffect(() => {
+    if (!unlocked) return undefined;
+    let alive = true;
+    apiFetch('/api/auth/me').then((data) => { if (alive) setSessionRole(data?.user?.role || ''); }).catch(() => {});
+    return () => { alive = false; };
+  }, [unlocked]);
   const [drafts, setDrafts] = useState(() => safeProducts.map((product) => ({ ...product })));
   const [categoryItems, setCategoryItems] = useState(() => safeCategoriesList.map((category) => ({ ...category })));
   const [categoryDraft, setCategoryDraft] = useState(() => safeCategoryOrder.length ? safeCategoryOrder : safeCategoriesList.map((category) => category.id));
@@ -450,13 +460,34 @@ export default function AdminPanel({
     });
   };
 
-  const updateCashierOrderSources = (value) => {
-    const list = String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
-    setBranchSettingsDraft((current) => normalizeBranchSettings({
+  // Editor de origenes de pedido como lista (una fila por origen). Antes era
+  // un input con comas que al reformatear (join) se comia la coma final, asi
+  // que nunca dejaba empezar a escribir uno nuevo. Ahora: editar en su cuadro,
+  // quitar, y "+ Agregar" para uno nuevo. No se normaliza al teclear (para no
+  // borrar filas vacias a medio escribir); el backend normaliza al guardar.
+  const setOrderSourceAt = (index, value) => {
+    setBranchSettingsDraft((current) => {
+      const list = [...(current.cashierOrderSources || [])];
+      list[index] = value;
+      return { ...current, cashierOrderSources: list };
+    });
+  };
+  const addOrderSourceRow = () => {
+    setBranchSettingsDraft((current) => ({
       ...current,
-      cashierOrderSources: list,
-      defaultCashierOrderSource: list.includes(current.defaultCashierOrderSource) ? current.defaultCashierOrderSource : list[0],
+      cashierOrderSources: [...(current.cashierOrderSources || []), ''],
     }));
+  };
+  const removeOrderSourceAt = (index) => {
+    setBranchSettingsDraft((current) => {
+      const list = (current.cashierOrderSources || []).filter((_, i) => i !== index);
+      const clean = list.map((s) => String(s || '').trim()).filter(Boolean);
+      return normalizeBranchSettings({
+        ...current,
+        cashierOrderSources: clean.length ? clean : current.cashierOrderSources,
+        defaultCashierOrderSource: clean.includes(current.defaultCashierOrderSource) ? current.defaultCashierOrderSource : (clean[0] || current.defaultCashierOrderSource),
+      });
+    });
   };
 
   const orderedDrafts = useMemo(() => sortByOrder(drafts, productOrderDraft), [drafts, productOrderDraft]);
@@ -712,11 +743,13 @@ export default function AdminPanel({
                         <input type="checkbox" checked={branch.active !== false} onChange={(e) => updateBranch(index, 'active', e.target.checked)} />
                         <span>Sucursal activa</span>
                       </label>
-                      <button type="button" className="ghost danger-text" onClick={() => removeBranch(index)} disabled={(branchSettingsDraft.branches || []).length <= 1}>Quitar sucursal</button>
+                      {canManageBranches ? <button type="button" className="ghost danger-text" onClick={() => removeBranch(index)} disabled={(branchSettingsDraft.branches || []).length <= 1}>Quitar sucursal</button> : null}
                     </article>
                   ))}
                 </div>
-                <button type="button" className="ghost" onClick={addBranch}>+ Agregar sucursal</button>
+                {canManageBranches
+                  ? <button type="button" className="ghost" onClick={addBranch}>+ Agregar sucursal</button>
+                  : <small className="muted-line">¿Necesitas otra sucursal? Contacta a Omdexa para agregarla.</small>}
               </div>
               )}
             </section>}
@@ -815,7 +848,18 @@ export default function AdminPanel({
                     ))}
                   </div>
                   <div className="admin-promo-grid">
-                    <label className="field full"><span>Origenes de pedido en Caja</span><input value={(branchSettingsDraft.cashierOrderSources || []).join(', ')} onChange={(e) => updateCashierOrderSources(e.target.value)} placeholder="Tienda, WhatsApp, Facebook, Instagram, Llamada" /></label>
+                    <div className="field full">
+                      <span>Origenes de pedido en Caja</span>
+                      <div className="order-sources-editor">
+                        {(branchSettingsDraft.cashierOrderSources || []).map((source, index) => (
+                          <div className="order-source-row" key={index}>
+                            <input value={source} onChange={(e) => setOrderSourceAt(index, e.target.value)} placeholder="Ej. Uber Eats" />
+                            <button type="button" className="ghost small danger-text" onClick={() => removeOrderSourceAt(index)} disabled={(branchSettingsDraft.cashierOrderSources || []).length <= 1}>Quitar</button>
+                          </div>
+                        ))}
+                        <button type="button" className="ghost small" onClick={addOrderSourceRow}>+ Agregar origen</button>
+                      </div>
+                    </div>
                     <label className="field"><span>Origen default</span>
                       <select value={branchSettingsDraft.defaultCashierOrderSource || ''} onChange={(e) => updateBranchSettings('defaultCashierOrderSource', e.target.value)}>
                         {(branchSettingsDraft.cashierOrderSources || []).map((source) => <option key={source} value={source}>{source}</option>)}

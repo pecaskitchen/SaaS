@@ -4809,3 +4809,8 @@ textarea { resize: vertical; min-height: 48px; }
   .form-field-row.head { display: none; }
   .form-field-row .ff-label { grid-column: 1 / -1; }
 }
+
+/* Editor de origenes de pedido (Admin > Negocio) */
+.order-sources-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.order-source-row { display: flex; gap: 8px; align-items: center; }
+.order-source-row input { flex: 1; }

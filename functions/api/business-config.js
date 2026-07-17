@@ -129,6 +129,16 @@ export async function onRequestPatch({ request, env }) {
         : normalizeSettingList(currentSettings.orderSources, ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
     };
 
+    // El tipo de negocio y los modulos activos solo los controla el dueno de
+    // la plataforma; un admin/manager del negocio no puede cambiarlos por
+    // aqui (se conservan los actuales).
+    if (!isPlatformAdmin) {
+      if (Object.prototype.hasOwnProperty.call(currentSettings, 'businessType')) nextSettings.businessType = currentSettings.businessType;
+      else delete nextSettings.businessType;
+      if (Object.prototype.hasOwnProperty.call(currentSettings, 'modules')) nextSettings.modules = currentSettings.modules;
+      else delete nextSettings.modules;
+    }
+
     await requireDb(env).prepare(`
       UPDATE saas_tenants
       SET brand_json = ?, settings_json = ?, updated_at_utc = ?

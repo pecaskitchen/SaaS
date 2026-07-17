@@ -259,6 +259,10 @@ export default function BusinessConfigCenter({
   const showPublicPage = section === 'all' || section === 'public';
   const showBusiness = section === 'all' || section === 'business';
   const showOrderSources = section === 'all';
+  // Solo el dueno de Omdexa (modo plataforma: se abre con tenantId desde el
+  // panel de Plataforma) controla el tipo de negocio y los modulos activos.
+  // El admin/gerente del negocio no los ve ni los cambia.
+  const isPlatformMode = Boolean(tenantId);
   const eyebrow = section === 'public' ? 'Pagina publica' : section === 'business' ? 'Negocio' : 'Marca y operacion';
   const heading = title || (section === 'public' ? 'Pagina publica' : section === 'business' ? 'Ajustes del negocio' : 'Centro de configuracion');
   const helper = description || (section === 'public'
@@ -333,13 +337,13 @@ export default function BusinessConfigCenter({
         <>
           <h3>Operacion</h3>
           <div className="form-grid two">
-            <label className="field"><span>Tipo de negocio</span><select value={selectedBusinessType} onChange={(event) => setBusinessType(event.target.value)}>{BUSINESS_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label>
+            {isPlatformMode ? <label className="field"><span>Tipo de negocio</span><select value={selectedBusinessType} onChange={(event) => setBusinessType(event.target.value)}>{BUSINESS_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label> : null}
             <label className="field"><span>WhatsApp principal</span><input value={draft.settings.whatsappNumber || ''} onChange={(event) => patch(['settings', 'whatsappNumber'], event.target.value)} /></label>
             <label className="field"><span>Email soporte</span><input value={draft.settings.supportEmail || ''} onChange={(event) => patch(['settings', 'supportEmail'], event.target.value)} /></label>
             <label className="field wide"><span>Formas de pago</span><input value={draft.settings.paymentMethodsText ?? listToCsv(draft.settings.paymentMethods)} onChange={(event) => patch(['settings', 'paymentMethodsText'], event.target.value)} /></label>
             <label className="field wide"><span>Tipos de entrega</span><input value={draft.settings.fulfillmentTypesText ?? listToCsv(draft.settings.fulfillmentTypes)} onChange={(event) => patch(['settings', 'fulfillmentTypesText'], event.target.value)} /></label>
             {showOrderSources ? <label className="field wide"><span>Origenes de pedido</span><input value={draft.settings.orderSourcesText ?? listToCsv(draft.settings.orderSources)} onChange={(event) => patch(['settings', 'orderSourcesText'], event.target.value)} /></label> : null}
-            <div className="field wide">
+            {isPlatformMode ? <div className="field wide">
               <span>Modulos activos</span>
               <div className="module-toggle-grid">
                 {MODULES.filter((module) => module.id !== 'plataforma').map((module) => {
@@ -358,7 +362,7 @@ export default function BusinessConfigCenter({
                 })}
               </div>
               <small className="muted-line">Recetas es opcional para gastronomia; Cobranza habilita apartados, saldos y abonos.</small>
-            </div>
+            </div> : null}
           </div>
         </>
       )}

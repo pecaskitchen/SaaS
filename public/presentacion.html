@@ -61,6 +61,10 @@
   .pad{position:absolute; inset:0; padding:7.5cqw 6.5cqw; display:flex; flex-direction:column}
   .eyebrow{display:flex; align-items:center; justify-content:space-between; font-size:2.5cqw}
   .brandmark{display:flex; align-items:center; gap:2.2cqw; letter-spacing:.02em; font-weight:600}
+  .logo-chip{display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:1.7cqw;
+    padding:1.1cqw;box-shadow:0 1cqw 3cqw rgba(6,10,30,.18)}
+  .g-light .logo-chip{box-shadow:0 0 0 1px var(--line)}
+  .logo-chip img{width:4.2cqw;height:4.2cqw;object-fit:contain;display:block}
   .dot{width:3.4cqw;height:3.4cqw;border-radius:1.1cqw;
     background:conic-gradient(from 210deg,#6b7cff,#5367f1,#9cf0be,#6b7cff);
     box-shadow:0 0 0 .5cqw rgba(255,255,255,.14) inset}
@@ -136,6 +140,7 @@
   .aside{background:#f6f8fc;border-right:1px solid #eef1f7;padding:2.4cqw 2cqw;display:flex;flex-direction:column;gap:1.5cqw}
   .brandrow{display:flex;align-items:center;gap:1.4cqw;font-size:2.5cqw;font-weight:700;margin-bottom:1cqw}
   .brandrow .dot{width:2.8cqw;height:2.8cqw;border-radius:.9cqw}
+  .brandrow img.mk{width:3.4cqw;height:3.4cqw;object-fit:contain}
   .navi{display:flex;align-items:center;gap:1.6cqw;font-size:2.2cqw;color:#71809a;padding:1.4cqw 1.8cqw;border-radius:1.8cqw;font-weight:600}
   .navi svg{width:2.8cqw;height:2.8cqw}
   .navi.on{background:#e9edfb;color:var(--primary)}
@@ -231,10 +236,9 @@
   .contactline .sep{opacity:.4}
 
   .wordmark{display:flex;align-items:center;gap:2.6cqw}
-  .wordmark .dot{width:6cqw;height:6cqw;border-radius:2cqw}
-  .wordmark .nm{font-size:5.4cqw;font-weight:800;letter-spacing:-.01em}
-  .wordmark .nm span{color:var(--mint)}
-  .g-light .wordmark .nm span{color:var(--primary)}
+  .wordmark-img{display:inline-flex;background:#fff;border-radius:3cqw;padding:2.8cqw 4.2cqw;
+    box-shadow:0 3cqw 9cqw rgba(6,10,30,.28)}
+  .wordmark-img img{height:6.4cqw;object-fit:contain;display:block}
 
   /* ---------- chrome / controls ---------- */
   .chrome{position:fixed;inset:0;pointer-events:none;z-index:20}
@@ -282,7 +286,7 @@
     <section class="slide g-navy active" aria-label="Portada">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">01 / 11</span>
         </div>
         <div class="grow col" style="justify-content:center;gap:5cqw">
@@ -295,7 +299,7 @@
             <div class="screen"><div class="glass">
               <div class="app">
                 <div class="aside">
-                  <div class="brandrow"><span class="dot"></span> Omdexa</div>
+                  <div class="brandrow"><img class="mk" src="/omdexa-mark.png" alt="" /> Omdexa</div>
                   <div class="navi on">%ICON_HOME% Inicio</div>
                   <div class="navi">%ICON_BAG% Pedidos</div>
                   <div class="navi">%ICON_USERS% Clientes</div>
@@ -326,7 +330,7 @@
     <section class="slide g-light" aria-label="El problema">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">02 / 11</span>
         </div>
         <div class="col" style="gap:2cqw;margin-top:2cqw">
@@ -358,7 +362,7 @@
     <section class="slide g-navy" aria-label="La solución">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">03 / 11</span>
         </div>
         <div class="col" style="gap:2cqw;margin-top:1cqw">
@@ -371,7 +375,7 @@
             <div class="screen"><div class="glass">
               <div class="app">
                 <div class="aside">
-                  <div class="brandrow"><span class="dot"></span> Omdexa</div>
+                  <div class="brandrow"><img class="mk" src="/omdexa-mark.png" alt="" /> Omdexa</div>
                   <div class="navi on">%ICON_HOME% Inicio</div>
                   <div class="navi">%ICON_BAG% Pedidos</div>
                   <div class="navi">%ICON_USERS% Clientes</div>
@@ -403,7 +407,7 @@
     <section class="slide g-light" aria-label="Pedidos">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">04 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -438,7 +442,7 @@
     <section class="slide g-light" aria-label="Clientes">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">05 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -450,7 +454,7 @@
             <div class="screen"><div class="glass">
               <div class="app">
                 <div class="aside">
-                  <div class="brandrow"><span class="dot"></span> Omdexa</div>
+                  <div class="brandrow"><img class="mk" src="/omdexa-mark.png" alt="" /> Omdexa</div>
                   <div class="navi">%ICON_HOME% Inicio</div>
                   <div class="navi on">%ICON_USERS% Clientes</div>
                   <div class="navi">%ICON_BAG% Pedidos</div>
@@ -486,7 +490,7 @@
     <section class="slide g-light" aria-label="Inventario">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">06 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -523,7 +527,7 @@
     <section class="slide g-light" aria-label="Caja">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">07 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -564,7 +568,7 @@
     <section class="slide g-navy" aria-label="Reportes">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">08 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -605,7 +609,7 @@
     <section class="slide g-light" aria-label="Página web">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">09 / 11</span>
         </div>
         <div class="col" style="gap:1.6cqw;margin-top:1cqw">
@@ -648,7 +652,7 @@
     <section class="slide g-navy" aria-label="Escalable">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">10 / 11</span>
         </div>
         <div class="col" style="gap:2cqw;margin-top:1cqw">
@@ -673,7 +677,7 @@
     <section class="slide g-brand" aria-label="Cierre">
       <div class="pad">
         <div class="eyebrow" data-rise style="--i:0">
-          <span class="brandmark"><span class="dot"></span> Omdexa</span>
+          <span class="brandmark"><span class="logo-chip"><img src="/omdexa-mark.png" alt="" /></span> Omdexa</span>
           <span class="counter">11 / 11</span>
         </div>
         <div class="grow col" style="justify-content:center;gap:4cqw">
@@ -683,7 +687,7 @@
           <div class="contactline" data-rise style="--i:3">%ICON_PHONE% <b>81&nbsp;1392&nbsp;7548</b> <span class="sep">·</span> WhatsApp</div>
         </div>
         <div class="wordmark" data-rise style="--i:4">
-          <span class="dot"></span><span class="nm">Omd<span>e</span>xa</span>
+          <span class="wordmark-img"><img src="/omdexa-wordmark.png" alt="Omdexa" /></span>
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen, CreditCard,
+  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen, CreditCard, Receipt,
 } from 'lucide-react';
 import '../styles.css';
 import './backoffice-shell.css';
@@ -17,6 +17,7 @@ const RecipesPanel = lazy(() => import('./RecipesPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
 const ReportDownloadsPanel = lazy(() => import('./ReportDownloadsPanel.jsx'));
+const OrdersHistoryPanel = lazy(() => import('./OrdersHistoryPanel.jsx'));
 const PublicPagePanel = lazy(() => import('./PublicPagePanel.jsx'));
 const BusinessSettingsPanel = lazy(() => import('./BusinessSettingsPanel.jsx'));
 const IntegrationsPanel = lazy(() => import('./IntegrationsPanel.jsx'));
@@ -33,6 +34,7 @@ const MODULE_ICONS = {
   recetas: BookOpen,
   clientes: Users,
   reportes: BarChart3,
+  historial: Receipt,
   'pagina-publica': Store,
   negocio: Building2,
   integraciones: PlugZap,
@@ -64,6 +66,7 @@ function ModuleContent({ moduleId }) {
       </>
     );
   }
+  if (moduleId === 'historial') return <OrdersHistoryPanel />;
   if (moduleId === 'pagina-publica') return <PublicPagePanel />;
   if (moduleId === 'negocio') return <BusinessSettingsPanel />;
   if (moduleId === 'integraciones') return <IntegrationsPanel />;

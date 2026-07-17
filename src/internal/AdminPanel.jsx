@@ -763,6 +763,10 @@ export default function AdminPanel({
                 <FormFieldsEditor config={branchSettingsDraft.orderFormFields} onChange={(key, patch) => updateFormField('order', key, patch)} />
                 <h3 className="form-fields-title">Caja</h3>
                 <FormFieldsEditor config={branchSettingsDraft.cashierFormFields} onChange={(key, patch) => updateFormField('cashier', key, patch)} />
+                <label className="check-row full" style={{ marginTop: '10px' }}>
+                  <input type="checkbox" checked={Boolean(branchSettingsDraft.highlightNeighborhood)} onChange={(e) => updateBranchSettings('highlightNeighborhood', e.target.checked)} />
+                  <span>Resaltar la colonia en cada pedido (útil para reparto a domicilio). Aplica a Pedidos y a los pedidos de Caja.</span>
+                </label>
                 <p className="admin-hint">Un campo extra solo aparece cuando le pones un nombre. El campo Nombre siempre se muestra.</p>
               </div>
               )}

@@ -103,6 +103,7 @@ export function normalizeBranchSettings(settings = {}) {
     branches,
     orderFormFields: normalizeFormFields(settings.orderFormFields, 'order'),
     cashierFormFields: normalizeFormFields(settings.cashierFormFields, 'cashier'),
+    highlightNeighborhood: Boolean(settings.highlightNeighborhood),
   };
 }
 

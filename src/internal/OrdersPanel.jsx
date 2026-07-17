@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { Archive, Bell, BellOff, Columns3, List, ShoppingBag, Trash2 } from 'lucide-react';
+import { Archive, Bell, BellOff, Columns3, List, MapPin, ShoppingBag, Trash2 } from 'lucide-react';
 import '../styles.css';
 import { formatOrderDate } from '../lib/dates.js';
 import {
@@ -344,6 +344,10 @@ export default function OrdersPanel() {
             {statusMeta.label}
           </div>
         </div>
+
+        {branchSettings.highlightNeighborhood && order.customer_neighborhood
+          ? <div className="order-colonia"><MapPin size={16} /> {order.customer_neighborhood}</div>
+          : null}
 
         <div className="order-metrics">
           <span>Tiempo total: <b>{formatElapsed(createdMinutes)}</b></span>

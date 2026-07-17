@@ -4814,3 +4814,11 @@ textarea { resize: vertical; min-height: 48px; }
 .order-sources-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .order-source-row { display: flex; gap: 8px; align-items: center; }
 .order-source-row input { flex: 1; }
+
+/* Colonia resaltada en tarjeta de pedido (negocios con reparto) */
+.order-colonia {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #e7efff; color: #1d3a8a;
+  font-weight: 700; font-size: 14px;
+  padding: 6px 12px; border-radius: 8px; margin-top: 8px;
+}

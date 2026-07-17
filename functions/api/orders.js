@@ -182,6 +182,7 @@ export async function ensureSchema(env) {
   if (!columns.has('marketplace_fee')) alters.push(`ALTER TABLE orders ADD COLUMN marketplace_fee INTEGER DEFAULT 0`);
   if (!columns.has('paid_at')) alters.push(`ALTER TABLE orders ADD COLUMN paid_at TEXT`);
   if (!columns.has('custom_fields_json')) alters.push(`ALTER TABLE orders ADD COLUMN custom_fields_json TEXT`);
+  if (!columns.has('customer_neighborhood')) alters.push(`ALTER TABLE orders ADD COLUMN customer_neighborhood TEXT`);
   for (const sql of alters) await env.DB.prepare(sql).run();
   ordersSchemaEnsured = true;
 }
@@ -267,9 +268,9 @@ export async function onRequestPost({ request, env }) {
       try {
         const result = await env.DB.prepare(`
           INSERT INTO orders (
-            tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_notes, custom_fields_json, payment_method, payment_status,
+            tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_neighborhood, customer_notes, custom_fields_json, payment_method, payment_status,
             subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
         `).bind(
           tenantId,
           orderNumber,
@@ -282,6 +283,7 @@ export async function onRequestPost({ request, env }) {
           String(customer.name || (source === 'cashier' ? 'Cliente caja' : '')).trim(),
           String(customer.phone || '').trim(),
           String(customer.address || (source === 'cashier' ? 'Caja' : '')).trim(),
+          String(customer.neighborhood || body.neighborhood || '').trim(),
           String(customer.notes || '').trim(),
           customFieldsJson,
           source === 'cashier' ? String(body.paymentMethod || 'efectivo') : null,

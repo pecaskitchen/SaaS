@@ -219,6 +219,9 @@ export function normalizeBranchSettings(settings = {}) {
     branches,
     orderFormFields: normalizeFormFields(settings.orderFormFields, 'order'),
     cashierFormFields: normalizeFormFields(settings.cashierFormFields, 'cashier'),
+    // Resaltar la colonia en las tarjetas de pedido (util para negocios con
+    // reparto, como Pecas; otros lo dejan apagado).
+    highlightNeighborhood: Boolean(settings.highlightNeighborhood),
   };
 }
 

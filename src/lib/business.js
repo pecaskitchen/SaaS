@@ -222,7 +222,21 @@ export function normalizeBranchSettings(settings = {}) {
     // Resaltar la colonia en las tarjetas de pedido (util para negocios con
     // reparto, como Pecas; otros lo dejan apagado).
     highlightNeighborhood: Boolean(settings.highlightNeighborhood),
+    // Corte de ventas para Inicio: dia de inicio de semana (0=domingo..6=sabado,
+    // default 1=lunes) y dia de inicio de mes (1..28, default 1=calendario).
+    salesWeekStartDay: normalizeWeekStartDay(settings.salesWeekStartDay),
+    salesMonthStartDay: normalizeMonthStartDay(settings.salesMonthStartDay),
   };
+}
+
+export function normalizeWeekStartDay(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 6 ? n : 1;
+}
+
+export function normalizeMonthStartDay(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 28 ? n : 1;
 }
 
 export function activeBranches(settings = DEFAULT_BRANCH_SETTINGS) {

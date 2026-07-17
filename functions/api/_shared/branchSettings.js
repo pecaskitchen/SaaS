@@ -104,6 +104,8 @@ export function normalizeBranchSettings(settings = {}) {
     orderFormFields: normalizeFormFields(settings.orderFormFields, 'order'),
     cashierFormFields: normalizeFormFields(settings.cashierFormFields, 'cashier'),
     highlightNeighborhood: Boolean(settings.highlightNeighborhood),
+    salesWeekStartDay: (Number.isInteger(Number(settings.salesWeekStartDay)) && Number(settings.salesWeekStartDay) >= 0 && Number(settings.salesWeekStartDay) <= 6) ? Number(settings.salesWeekStartDay) : 1,
+    salesMonthStartDay: (Number.isInteger(Number(settings.salesMonthStartDay)) && Number(settings.salesMonthStartDay) >= 1 && Number(settings.salesMonthStartDay) <= 28) ? Number(settings.salesMonthStartDay) : 1,
   };
 }
 

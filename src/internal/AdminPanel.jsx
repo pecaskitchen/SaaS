@@ -767,7 +767,20 @@ export default function AdminPanel({
                   <input type="checkbox" checked={Boolean(branchSettingsDraft.highlightNeighborhood)} onChange={(e) => updateBranchSettings('highlightNeighborhood', e.target.checked)} />
                   <span>Resaltar la colonia en cada pedido (útil para reparto a domicilio). Aplica a Pedidos y a los pedidos de Caja.</span>
                 </label>
-                <p className="admin-hint">Un campo extra solo aparece cuando le pones un nombre. El campo Nombre siempre se muestra.</p>
+                <h3 className="form-fields-title">Corte de ventas (Inicio)</h3>
+                <div className="admin-promo-grid">
+                  <label className="field"><span>Inicio de semana</span>
+                    <select value={branchSettingsDraft.salesWeekStartDay ?? 1} onChange={(e) => updateBranchSettings('salesWeekStartDay', Number(e.target.value))}>
+                      {WEEKDAY_LABELS.map((label, index) => <option key={index} value={index}>{label}</option>)}
+                    </select>
+                  </label>
+                  <label className="field"><span>Día de inicio del mes</span>
+                    <select value={branchSettingsDraft.salesMonthStartDay ?? 1} onChange={(e) => updateBranchSettings('salesMonthStartDay', Number(e.target.value))}>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => <option key={day} value={day}>{day === 1 ? '1 (mes calendario)' : `Día ${day}`}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p className="admin-hint">Define cómo se cuentan "Ventas de la semana" y "Ventas del mes" en Inicio. Ej: semana de lunes a domingo, o mes del 26 al 25. Un campo extra solo aparece cuando le pones un nombre. El campo Nombre siempre se muestra.</p>
               </div>
               )}
             </section>}

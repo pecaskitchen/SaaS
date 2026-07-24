@@ -214,7 +214,11 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const source = body.source === 'cashier' ? 'cashier' : 'online';
     const customer = body.customer || {};
-    if (source === 'online' && (!customer.name || !customer.address)) return jsonResponse({ ok: false, error: 'Faltan datos del cliente.' }, 400);
+    // Antes se exigia name Y address para todo pedido online. Con el
+    // formulario configurable (y pedidos para recoger) la direccion puede no
+    // aplicar; se exige solo el nombre (siempre visible), y la direccion la
+    // gobierna la config del formulario del lado del cliente.
+    if (source === 'online' && !customer.name) return jsonResponse({ ok: false, error: 'Falta el nombre del cliente.' }, 400);
     // Campos extra configurables por el tenant (custom1/custom2). Se guardan
     // como JSON estructurado [{key,label,type,value}] para mostrarlos en el
     // detalle del pedido.

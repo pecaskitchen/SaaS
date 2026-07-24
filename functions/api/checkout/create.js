@@ -165,7 +165,10 @@ export async function onRequestPost({ request, env }) {
     const body = await readJson(request);
     const customer = body.customer || {};
     const fulfillmentType = String(body.fulfillmentType || customer.fulfillmentType || '').trim();
-    if (!customer.name || !fulfillmentType || (fulfillmentType === 'Entrega a domicilio' && !customer.address)) {
+    // Se exige el nombre (siempre visible) y, solo para entrega a domicilio,
+    // la direccion. El tipo de entrega puede estar oculto en la config del
+    // formulario, asi que ya no se exige de forma dura.
+    if (!customer.name || (fulfillmentType === 'Entrega a domicilio' && !customer.address)) {
       return jsonResponse({ ok: false, error: 'Faltan datos del cliente.' }, 400);
     }
 

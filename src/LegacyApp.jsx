@@ -1566,6 +1566,12 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       return;
     }
 
+    const targetWhatsAppNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp, WHATSAPP_NUMBER);
+    if (!targetWhatsAppNumber) {
+      alert('Este negocio todavía no tiene WhatsApp de pedidos configurado.');
+      return;
+    }
+
     const message = buildMessage();
     const total = subtotal;
     const whatsappWindow = window.open('', '_blank');
@@ -1612,8 +1618,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       }
 
       const finalMessage = `${message}\n\n${t(lang, 'orderNumber')}: ${result.orderNumber}`;
-      const whatsappNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp);
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      const whatsappUrl = `https://wa.me/${targetWhatsAppNumber}?text=${encodeURIComponent(finalMessage)}`;
       if (clearCart) clearCart();
 
       if (whatsappWindow) {
@@ -2516,7 +2521,6 @@ export default function App() {
     </main>
   );
 }
-
 
 
 

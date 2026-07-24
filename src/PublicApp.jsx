@@ -149,6 +149,9 @@ function normalizePublicBrand(tenant) {
 
 const CUSTOMER_STORAGE_KEY = 'saas_customer_profile';
 const MP_PENDING_ORDER_STORAGE_KEY = 'saas_mp_pending_order';
+const DEFAULT_PUBLIC_SETTINGS = {
+  whatsappNumber: '',
+};
 
 function publicApiPath(path, extraParams = {}) {
   try {
@@ -181,6 +184,13 @@ function readMercadoPagoReturn() {
   } catch {
     return null;
   }
+}
+
+function normalizePublicSettings(settings = {}) {
+  return {
+    ...DEFAULT_PUBLIC_SETTINGS,
+    whatsappNumber: String(settings.whatsappNumber || settings.whatsapp_number || settings.whatsapp || '').trim(),
+  };
 }
 
 const LANGUAGE_STORAGE_KEY = 'saas_language';
@@ -1673,7 +1683,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND, orderFormFields = normalizeFormFields({}, 'order') }) {
+function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND, orderFormFields = normalizeFormFields({}, 'order'), whatsappNumber = '' }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
@@ -1743,6 +1753,12 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       return;
     }
 
+    const targetWhatsAppNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp, whatsappNumber);
+    if (!targetWhatsAppNumber) {
+      alert('Este negocio todavía no tiene WhatsApp de pedidos configurado.');
+      return;
+    }
+
     const message = buildMessage();
     const total = subtotal;
     const isMercadoPago = customer.payment === 'Mercado Pago';
@@ -1803,7 +1819,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
             orderId: result.orderId,
             orderNumber: result.orderNumber,
             message: finalMessage,
-            whatsappNumber: normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp),
+            whatsappNumber: targetWhatsAppNumber,
             savedAt: Date.now(),
           }));
         } catch {
@@ -1815,8 +1831,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       }
 
       const finalMessage = `${message}\n\n${t(lang, 'orderNumber')}: ${result.orderNumber}`;
-      const whatsappNumber = normalizeWhatsAppNumber(branch?.whatsappNumber || branch?.whatsapp);
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalMessage)}`;
+      const whatsappUrl = `https://wa.me/${targetWhatsAppNumber}?text=${encodeURIComponent(finalMessage)}`;
       if (clearCart) clearCart();
 
       if (whatsappWindow) {
@@ -1907,6 +1922,7 @@ export default function PublicApp() {
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
   const [baseCatalogEnabled, setBaseCatalogEnabled] = useState(false);
   const [publicBrand, setPublicBrand] = useState(() => normalizePublicBrand(null));
+  const [publicSettings, setPublicSettings] = useState(() => normalizePublicSettings());
   const [selectedBranchId, setSelectedBranchId] = useState(() => {
     try { return window.localStorage.getItem(BRANCH_STORAGE_KEY) || DEFAULT_BRANCH_SETTINGS.defaultBranchId; } catch { return DEFAULT_BRANCH_SETTINGS.defaultBranchId; }
   });
@@ -1986,6 +2002,7 @@ export default function PublicApp() {
         const nextProducts = mergeProductsWithExtras(baseProducts, safeExtraProducts);
 
         setPublicBrand(normalizePublicBrand(result.tenant));
+        setPublicSettings(normalizePublicSettings(result.tenant?.settings));
         setBaseCatalogEnabled(useBaseCatalog);
         setMenuOverrides(result.overrides || {});
         setExtraCategories(safeExtraCategories);
@@ -2012,6 +2029,7 @@ export default function PublicApp() {
       setPromotion(null);
       setBaseCatalogEnabled(false);
       if (!window.__saasLastMenuPayload?.tenant) setPublicBrand(normalizePublicBrand(null));
+      setPublicSettings(normalizePublicSettings());
       setBranchPromotions({});
       setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
       setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -2217,7 +2235,7 @@ export default function PublicApp() {
           </div>
         </div>
 
-        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} orderFormFields={branchSettings.orderFormFields} />
+        <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} orderFormFields={branchSettings.orderFormFields} whatsappNumber={publicSettings.whatsappNumber} />
       </section>
 
       <a href="#cart" className="mobile-cart-bar">
@@ -2228,8 +2246,6 @@ export default function PublicApp() {
     </main>
   );
 }
-
-
 
 
 

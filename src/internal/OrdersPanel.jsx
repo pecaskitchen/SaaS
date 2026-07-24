@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { Archive, Bell, BellOff, Columns3, List, MapPin, ShoppingBag, Trash2 } from 'lucide-react';
+import { Archive, Bell, BellOff, Columns3, List, MapPin, Pencil, Save, ShoppingBag, Trash2, X } from 'lucide-react';
 import '../styles.css';
 import { formatOrderDate } from '../lib/dates.js';
 import {
@@ -100,6 +100,69 @@ function parseCustomFields(value) {
   }
 }
 
+function paymentStatusLabel(value) {
+  const labels = {
+    paid: 'Pagado',
+    pending: 'Pendiente',
+    unpaid: 'No pagado',
+    error: 'Error',
+    refunded: 'Reembolsado',
+  };
+  return labels[value] || value || '';
+}
+
+function visibleOrderMessage(value) {
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd());
+  while (lines.length && !lines[0].trim()) lines.shift();
+  if (/^(hola|hi)\b/i.test(lines[0] || '')) lines.shift();
+  while (lines.length && !lines[0].trim()) lines.shift();
+  return lines.join('\n').trim();
+}
+
+function optionDetailsFromOptions(options = {}) {
+  const details = [];
+  if (Array.isArray(options.details)) details.push(...options.details);
+  if (Array.isArray(options.removed) && options.removed.length) details.push(`Sin: ${options.removed.join(', ')}`);
+  if (Array.isArray(options.extras) && options.extras.length) details.push(`Extras: ${options.extras.join(', ')}`);
+  if (Array.isArray(options.extraDressing) && options.extraDressing.length) details.push(`Extra aderezos: ${options.extraDressing.join(', ')}`);
+  if (Array.isArray(options.extraToppings) && options.extraToppings.length) details.push(`Extra toppings: ${options.extraToppings.join(', ')}`);
+  if (options.optionGroups && typeof options.optionGroups === 'object') {
+    for (const [label, selected] of Object.entries(options.optionGroups)) {
+      const values = Array.isArray(selected) ? selected : [selected].filter(Boolean);
+      if (values.length) details.push(`${label}: ${values.join(', ')}`);
+    }
+  }
+  return [...new Set(details.map((detail) => String(detail || '').trim()).filter(Boolean))];
+}
+
+function createEditDraft(order) {
+  return {
+    id: order.id,
+    orderNumber: order.order_number,
+    stockDeducted: Number(order.stock_deducted || 0) === 1,
+    customerName: order.customer_name || '',
+    customerPhone: order.customer_phone || '',
+    customerAddress: order.customer_address || '',
+    customerNeighborhood: order.customer_neighborhood || '',
+    customerNotes: order.customer_notes || '',
+    branchId: order.branch_id || 'dominio',
+    paymentMethod: order.payment_method || '',
+    paymentStatus: order.payment_status || '',
+    orderSource: order.order_source || '',
+    deliveryFee: Number(order.delivery_fee || 0),
+    items: (order.items || []).map((item) => ({
+      id: item.id,
+      productName: item.product_name,
+      category: item.category,
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.unit_price || 0),
+      itemNotes: item.item_notes || '',
+    })),
+  };
+}
+
 export default function OrdersPanel() {
   // Se retiro el login por PIN: solo cuenta la sesion de cuenta (JWT).
   const [unlocked, setUnlocked] = useState(Boolean(getSessionToken()));
@@ -111,6 +174,7 @@ export default function OrdersPanel() {
   const [ordersLockedBranchId, setOrdersLockedBranchId] = useState(null);
   const [canArchive, setCanArchive] = useState(false);
   const [viewMode, setViewMode] = useState('list');
+  const [editDraft, setEditDraft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   // Avisos de pedido nuevo: sonido + notificacion del navegador + resaltado.
@@ -318,6 +382,81 @@ export default function OrdersPanel() {
     }
   };
 
+  const openEditOrder = (order) => setEditDraft(createEditDraft(order));
+  const closeEditOrder = () => setEditDraft(null);
+
+  const updateEditDraft = (key, value) => {
+    setEditDraft((current) => current ? { ...current, [key]: value } : current);
+  };
+
+  const updateEditItem = (itemId, key, value) => {
+    setEditDraft((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.map((item) => (
+          item.id === itemId ? { ...item, [key]: value } : item
+        )),
+      };
+    });
+  };
+
+  const saveOrderEdits = async () => {
+    if (!editDraft?.id) return;
+    if (!String(editDraft.customerName || '').trim()) {
+      setStatus('El pedido necesita nombre de cliente.');
+      return;
+    }
+
+    setLoading(true);
+    setStatus('Guardando cambios del pedido...');
+    try {
+      const response = await fetch('/api/orders-dashboard', {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: editDraft.id,
+          action: 'edit',
+          note: `Pedido ${editDraft.orderNumber || editDraft.id} editado desde Pedidos.`,
+          order: {
+            customerName: editDraft.customerName,
+            customerPhone: editDraft.customerPhone,
+            customerAddress: editDraft.customerAddress,
+            customerNeighborhood: editDraft.customerNeighborhood,
+            customerNotes: editDraft.customerNotes,
+            branchId: editDraft.branchId,
+            paymentMethod: editDraft.paymentMethod,
+            paymentStatus: editDraft.paymentStatus,
+            orderSource: editDraft.orderSource,
+            deliveryFee: editDraft.deliveryFee,
+          },
+          items: editDraft.stockDeducted ? undefined : editDraft.items.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            itemNotes: item.itemNotes,
+          })),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        setStatus([result.error || 'No se pudo guardar el pedido.', result.detail].filter(Boolean).join(' '));
+        return;
+      }
+      closeEditOrder();
+      await fetchOrders(statusFilter);
+      setStatus('Pedido actualizado.');
+    } catch (error) {
+      setStatus(`No se pudo guardar el pedido: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUnlocked(false);
     setOrders([]);
@@ -333,6 +472,7 @@ export default function OrdersPanel() {
   const renderOrderCard = (order) => {
     const createdMinutes = minutesSince(order.created_at_utc);
     const statusMeta = ORDER_STATUS_META[order.status] || { label: order.status, next: [] };
+    const fullMessage = visibleOrderMessage(order.whatsapp_message);
     return (
       <article className={`order-card status-${order.status}`} key={order.id}>
         <div className="order-card-top">
@@ -359,9 +499,11 @@ export default function OrdersPanel() {
         <div className="order-customer">
           {order.branch_name ? <p><b>Sucursal:</b> {order.branch_name}</p> : null}
           {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` - ${order.cashier_shift}` : ''}</p> : null}
-          {order.order_source === 'cashier' ? <p><b>Pago:</b> {order.payment_method || 'No capturado'} - {order.payment_status === 'pending' ? 'Pendiente' : 'Pagado'}</p> : null}
+          {order.payment_method || order.payment_status ? <p><b>Pago:</b> {[order.payment_method, paymentStatusLabel(order.payment_status)].filter(Boolean).join(' - ') || 'No capturado'}</p> : null}
           <p><b>Cliente:</b> {order.customer_name}</p>
+          {order.customer_phone ? <p><b>WhatsApp:</b> {order.customer_phone}</p> : null}
           <p><b>Direccion:</b> {order.customer_address}</p>
+          {order.customer_neighborhood ? <p><b>Colonia:</b> {order.customer_neighborhood}</p> : null}
           {order.customer_notes ? <p><b>Nota:</b> {order.customer_notes}</p> : null}
           {parseCustomFields(order.custom_fields_json).map((field) => (
             <p key={field.key || field.label}><b>{field.label}:</b> {field.value}</p>
@@ -371,6 +513,7 @@ export default function OrdersPanel() {
         <div className="order-items">
           {(order.items || []).map((item) => {
             const options = parseOptions(item.options_json);
+            const optionDetails = optionDetailsFromOptions(options);
             return (
               <div className="order-item" key={item.id}>
                 <div>
@@ -378,15 +521,22 @@ export default function OrdersPanel() {
                   <span>{item.category} - {currency(item.line_total)}</span>
                 </div>
                 {item.item_notes ? <small>{item.item_notes}</small> : null}
-                {options?.details?.length ? (
+                {optionDetails.length ? (
                   <ul>
-                    {options.details.map((detail) => <li key={detail}>{detail}</li>)}
+                    {optionDetails.map((detail) => <li key={detail}>{detail}</li>)}
                   </ul>
                 ) : null}
               </div>
             );
           })}
         </div>
+
+        {fullMessage ? (
+          <details className="order-message-detail" open>
+            <summary>Ver detalle completo del pedido</summary>
+            <pre>{fullMessage}</pre>
+          </details>
+        ) : null}
 
         <div className="order-events">
           {(order.events || []).slice(-4).map((event) => (
@@ -397,6 +547,9 @@ export default function OrdersPanel() {
         </div>
 
         <div className="order-actions">
+          <button type="button" className="ghost small" onClick={() => openEditOrder(order)}>
+            <Pencil size={15} /> Editar
+          </button>
           {statusMeta.next.length === 0 ? (
             <span className="order-final">Sin acciones pendientes</span>
           ) : (
@@ -547,6 +700,88 @@ export default function OrdersPanel() {
           ) : (
             orders.map(renderOrderCard)
           )}
+          </div>
+        )}
+
+        {editDraft && (
+          <div className="order-edit-overlay" role="presentation" onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeEditOrder();
+          }}>
+            <section className="order-edit-modal" role="dialog" aria-modal="true" aria-label="Editar pedido">
+              <header className="order-edit-header">
+                <div>
+                  <span className="eyebrow">Editar pedido</span>
+                  <h2>{editDraft.orderNumber || `Pedido ${editDraft.id}`}</h2>
+                </div>
+                <button type="button" className="ghost small" onClick={closeEditOrder}>
+                  <X size={16} /> Cerrar
+                </button>
+              </header>
+
+              <div className="order-edit-grid">
+                <section className="order-edit-section">
+                  <h3>Cliente</h3>
+                  <label className="field"><span>Nombre</span><input value={editDraft.customerName} onChange={(e) => updateEditDraft('customerName', e.target.value)} /></label>
+                  <label className="field"><span>WhatsApp</span><input value={editDraft.customerPhone} onChange={(e) => updateEditDraft('customerPhone', e.target.value)} /></label>
+                  <label className="field full"><span>Dirección</span><input value={editDraft.customerAddress} onChange={(e) => updateEditDraft('customerAddress', e.target.value)} /></label>
+                  <label className="field"><span>Colonia</span><input value={editDraft.customerNeighborhood} onChange={(e) => updateEditDraft('customerNeighborhood', e.target.value)} /></label>
+                  <label className="field full"><span>Nota</span><textarea rows="3" value={editDraft.customerNotes} onChange={(e) => updateEditDraft('customerNotes', e.target.value)} /></label>
+                </section>
+
+                <section className="order-edit-section">
+                  <h3>Operación</h3>
+                  <label className="field"><span>Sucursal</span>
+                    <select value={editDraft.branchId} onChange={(e) => updateEditDraft('branchId', e.target.value)}>
+                      {activeBranches(branchSettings).map((branch) => (
+                        <option key={branch.id} value={branch.id}>{branch.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field"><span>Origen</span><input value={editDraft.orderSource} onChange={(e) => updateEditDraft('orderSource', e.target.value)} /></label>
+                  <label className="field"><span>Forma de pago</span><input value={editDraft.paymentMethod} onChange={(e) => updateEditDraft('paymentMethod', e.target.value)} /></label>
+                  <label className="field"><span>Estado de pago</span>
+                    <select value={editDraft.paymentStatus} onChange={(e) => updateEditDraft('paymentStatus', e.target.value)}>
+                      <option value="">Sin estado</option>
+                      <option value="paid">Pagado</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="unpaid">No pagado</option>
+                      <option value="error">Error</option>
+                    </select>
+                  </label>
+                  <label className="field"><span>Entrega</span><input type="number" min="0" value={editDraft.deliveryFee} onChange={(e) => updateEditDraft('deliveryFee', e.target.value)} /></label>
+                </section>
+              </div>
+
+              <section className="order-edit-section order-edit-products">
+                <div className="order-edit-products-head">
+                  <h3>Productos</h3>
+                  {editDraft.stockDeducted ? <small>Stock ya descontado: productos, cantidades y precios están bloqueados.</small> : null}
+                </div>
+                <div className="order-edit-items">
+                  {editDraft.items.map((item) => {
+                    const lineTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+                    return (
+                      <article className="order-edit-item" key={item.id}>
+                        <div>
+                          <strong>{item.productName}</strong>
+                          <span>{item.category} · {currency(lineTotal)}</span>
+                        </div>
+                        <label className="field"><span>Cant.</span><input type="number" min="1" disabled={editDraft.stockDeducted} value={item.quantity} onChange={(e) => updateEditItem(item.id, 'quantity', e.target.value)} /></label>
+                        <label className="field"><span>Precio</span><input type="number" min="0" disabled={editDraft.stockDeducted} value={item.unitPrice} onChange={(e) => updateEditItem(item.id, 'unitPrice', e.target.value)} /></label>
+                        <label className="field full"><span>Nota del producto</span><input disabled={editDraft.stockDeducted} value={item.itemNotes} onChange={(e) => updateEditItem(item.id, 'itemNotes', e.target.value)} /></label>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <footer className="order-edit-actions">
+                <button type="button" className="ghost" onClick={closeEditOrder}>Cancelar</button>
+                <button type="button" className="primary" onClick={saveOrderEdits} disabled={loading}>
+                  <Save size={16} /> Guardar cambios
+                </button>
+              </footer>
+            </section>
           </div>
         )}
       </section>

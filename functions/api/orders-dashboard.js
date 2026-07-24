@@ -48,6 +48,27 @@ function normalizeSavedMenu(raw) {
   }
 }
 
+function cleanEditText(value, fallback = '') {
+  return String(value ?? fallback ?? '').trim();
+}
+
+function cleanEditAmount(value, fallback = 0) {
+  const number = Math.round(Number(value ?? fallback ?? 0));
+  if (!Number.isFinite(number)) return Math.round(Number(fallback || 0));
+  return Math.max(0, number);
+}
+
+function resolveEditableBranch(settings, branchId) {
+  const normalized = normalizeBranchSettings(settings);
+  const requested = cleanEditText(branchId);
+  const branches = (normalized.branches || []).filter((branch) => branch.active !== false);
+  return branches.find((branch) => branch.id === requested)
+    || branches.find((branch) => branch.id === normalized.defaultBranchId)
+    || branches[0]
+    || normalized.branches?.[0]
+    || DEFAULT_BRANCH_SETTINGS.branches[0];
+}
+
 async function readBranchSettings(env, tenantId) {
   try {
     await ensureTenantColumns(env, ['app_settings']);
@@ -812,7 +833,7 @@ export async function onRequestPatch(context) {
     if (!orderId) return jsonResponse({ ok: false, error: 'Falta pedido.' }, 400);
 
     const order = await env.DB.prepare(`
-      SELECT id, order_number, status, stock_deducted, branch_id, customer_name, customer_phone, customer_address, total, created_at_utc
+      SELECT *
       FROM orders
       WHERE tenant_id = ? AND id = ? AND deleted_at_utc IS NULL
     `).bind(tenantId, orderId).first();
@@ -822,6 +843,116 @@ export async function onRequestPatch(context) {
     }
 
     const timestamps = getTimestamps();
+    if (action === 'edit') {
+      const patch = body.order || body.patch || {};
+      const sets = [];
+      const values = [];
+      const addSet = (column, value) => {
+        sets.push(`${column} = ?`);
+        values.push(value);
+      };
+
+      if (Object.prototype.hasOwnProperty.call(patch, 'customerName')) addSet('customer_name', cleanEditText(patch.customerName, order.customer_name));
+      if (Object.prototype.hasOwnProperty.call(patch, 'customerPhone')) addSet('customer_phone', cleanEditText(patch.customerPhone, order.customer_phone));
+      if (Object.prototype.hasOwnProperty.call(patch, 'customerAddress')) addSet('customer_address', cleanEditText(patch.customerAddress, order.customer_address));
+      if (Object.prototype.hasOwnProperty.call(patch, 'customerNeighborhood')) addSet('customer_neighborhood', cleanEditText(patch.customerNeighborhood, order.customer_neighborhood));
+      if (Object.prototype.hasOwnProperty.call(patch, 'customerNotes')) addSet('customer_notes', cleanEditText(patch.customerNotes, order.customer_notes));
+      if (Object.prototype.hasOwnProperty.call(patch, 'paymentMethod')) addSet('payment_method', cleanEditText(patch.paymentMethod, order.payment_method));
+      if (Object.prototype.hasOwnProperty.call(patch, 'paymentStatus')) addSet('payment_status', cleanEditText(patch.paymentStatus, order.payment_status));
+      if (Object.prototype.hasOwnProperty.call(patch, 'orderSource')) addSet('order_source', cleanEditText(patch.orderSource, order.order_source || 'online'));
+      if (Object.prototype.hasOwnProperty.call(patch, 'branchId')) {
+        const branchSettings = await readBranchSettings(env, tenantId);
+        const branch = resolveEditableBranch(branchSettings, patch.branchId);
+        if (!branch?.id) return jsonResponse({ ok: false, error: 'Sucursal invalida.' }, 400);
+        addSet('branch_id', branch.id);
+        addSet('branch_name', branch.name || branch.id);
+      }
+
+      const currentItemsResult = await env.DB.prepare(`
+        SELECT id, quantity, unit_price, line_total, item_notes
+        FROM order_items
+        WHERE tenant_id = ? AND order_id = ?
+        ORDER BY id ASC
+      `).bind(tenantId, orderId).all();
+      const currentItems = currentItemsResult.results || [];
+      const incomingItems = Array.isArray(body.items) ? body.items : null;
+      const itemUpdates = [];
+
+      if (incomingItems) {
+        if (Number(order.stock_deducted || 0) === 1) {
+          return jsonResponse({ ok: false, error: 'Este pedido ya descontó stock. Solo puedes editar datos del cliente, notas, pago o sucursal.' }, 409);
+        }
+        const draftById = new Map(incomingItems.map((item) => [Number(item.id), item]));
+        for (const item of currentItems) {
+          const draft = draftById.get(Number(item.id));
+          if (!draft) continue;
+          const quantity = Math.max(1, cleanEditAmount(draft.quantity, item.quantity || 1));
+          const unitPrice = cleanEditAmount(draft.unitPrice ?? draft.unit_price, item.unit_price || 0);
+          const itemNotes = cleanEditText(draft.itemNotes ?? draft.item_notes, item.item_notes || '');
+          itemUpdates.push({
+            id: item.id,
+            quantity,
+            unitPrice,
+            lineTotal: quantity * unitPrice,
+            itemNotes,
+          });
+        }
+        if (itemUpdates.length !== incomingItems.length) {
+          return jsonResponse({ ok: false, error: 'Uno o más productos del pedido ya no existen.' }, 400);
+        }
+      }
+
+      if (itemUpdates.length) {
+        const subtotal = itemUpdates.reduce((sum, item) => sum + item.lineTotal, 0);
+        const deliveryFee = Object.prototype.hasOwnProperty.call(patch, 'deliveryFee')
+          ? cleanEditAmount(patch.deliveryFee, order.delivery_fee || 0)
+          : cleanEditAmount(order.delivery_fee || 0);
+        addSet('subtotal', subtotal);
+        addSet('delivery_fee', deliveryFee);
+        addSet('total', subtotal + deliveryFee);
+
+        const updateItemStmt = env.DB.prepare(`
+          UPDATE order_items
+          SET quantity = ?, unit_price = ?, line_total = ?, item_notes = ?
+          WHERE tenant_id = ? AND order_id = ? AND id = ?
+        `);
+        await env.DB.batch(itemUpdates.map((item) => updateItemStmt.bind(
+          item.quantity,
+          item.unitPrice,
+          item.lineTotal,
+          item.itemNotes,
+          tenantId,
+          orderId,
+          item.id,
+        )));
+      } else if (Object.prototype.hasOwnProperty.call(patch, 'deliveryFee')) {
+        const deliveryFee = cleanEditAmount(patch.deliveryFee, order.delivery_fee || 0);
+        addSet('delivery_fee', deliveryFee);
+        addSet('total', cleanEditAmount(order.subtotal || 0) + deliveryFee);
+      }
+
+      if (!sets.length) return jsonResponse({ ok: false, error: 'No hay cambios que guardar.' }, 400);
+
+      addSet('updated_at_utc', timestamps.utc);
+      addSet('updated_at_monterrey', timestamps.monterrey);
+      await env.DB.prepare(`
+        UPDATE orders
+        SET ${sets.join(', ')}
+        WHERE tenant_id = ? AND id = ?
+      `).bind(...values, tenantId, orderId).run();
+
+      await env.DB.prepare(
+        `INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
+         VALUES (?, ?, 'edited', ?, ?, ?)`
+      ).bind(tenantId, orderId, cleanEditText(note, 'Pedido editado manualmente.'), timestamps.utc, timestamps.monterrey).run();
+
+      const updatedOrder = await env.DB.prepare(`SELECT * FROM orders WHERE tenant_id = ? AND id = ? LIMIT 1`)
+        .bind(tenantId, orderId).first();
+      await rebuildCustomerFromOrderIdentity(env, tenantId, order);
+      await rebuildCustomerFromOrderIdentity(env, tenantId, updatedOrder);
+      return jsonResponse({ ok: true, orderId, edited: true, updatedAtMonterrey: timestamps.monterrey });
+    }
+
     if (action === 'archive' || action === 'delete') {
       if (!access.canArchive) {
         return jsonResponse({ ok: false, error: 'Solo el dueño o un gerente pueden archivar o eliminar pedidos.' }, 403);
@@ -888,5 +1019,4 @@ export async function onRequestPatch(context) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }
 }
-
 

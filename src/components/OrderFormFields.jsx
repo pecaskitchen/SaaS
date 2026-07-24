@@ -17,12 +17,14 @@ export default function OrderFormFields({
   onChange,
   fulfillmentOptions = DEFAULT_FULFILLMENT_OPTIONS,
   paymentOptions = DEFAULT_PAYMENT_OPTIONS,
+  excludeKeys = [],
 }) {
   const handle = (fieldKey) => (event) => onChange(CUSTOMER_KEY[fieldKey] || fieldKey, event.target.value);
 
   return (
     <>
       {ORDER_FORM_FIELD_DEFS.map((def) => {
+        if (excludeKeys.includes(def.key)) return null;
         const field = config?.[def.key];
         if (!field?.visible) return null;
         const value = customerFieldValue(customer, def.key) || '';

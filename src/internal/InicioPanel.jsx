@@ -15,23 +15,29 @@ export default function InicioPanel() {
   const load = async () => {
     setLoading(true);
     setError('');
+    // Cada tarjeta carga independiente: si falla pedidos, igual cargan las
+    // ventas (y al reves). De pedidos sale el corte de semana/mes que el
+    // negocio configuro; si no llega, se usan los defaults (lun / dia 1).
+    let weekStartDay = 1;
+    let monthStartDay = 1;
     try {
-      // Primero pedidos: de ahi sale el corte de semana/mes que el negocio
-      // configuro (en branchSettings), para pedirle a executive los totales
-      // con ese corte.
       const orders = await apiFetch('/api/orders-dashboard?status=pending&limit=100');
       const bs = orders.branchSettings || {};
-      const weekStartDay = Number.isInteger(bs.salesWeekStartDay) ? bs.salesWeekStartDay : 1;
-      const monthStartDay = Number.isInteger(bs.salesMonthStartDay) ? bs.salesMonthStartDay : 1;
+      weekStartDay = Number.isInteger(bs.salesWeekStartDay) ? bs.salesWeekStartDay : 1;
+      monthStartDay = Number.isInteger(bs.salesMonthStartDay) ? bs.salesMonthStartDay : 1;
+      setPendingCount((orders.orders || []).length);
+    } catch (err) {
+      setError((prev) => prev || err.message || 'No se pudieron cargar los pedidos.');
+    }
+    try {
       const executive = await apiFetch(`/api/reports/executive?days=1&weekStartDay=${weekStartDay}&monthStartDay=${monthStartDay}`);
       // "Ventas de hoy" usa el metrico today (dia natural de Monterrey, sin
       // cancelados), no summary (ventana de 24h UTC que arrastraba ayer).
       setToday(executive.today || executive.summary || null);
       setWeek(executive.week || null);
       setMonth(executive.month || null);
-      setPendingCount((orders.orders || []).length);
     } catch (err) {
-      setError(err.message || 'No se pudo cargar el resumen.');
+      setError((prev) => prev || err.message || 'No se pudieron cargar las ventas.');
     } finally {
       setLoading(false);
     }

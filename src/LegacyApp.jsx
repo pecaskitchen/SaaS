@@ -1890,7 +1890,7 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
           <aside className="cart-panel cashier-cart">
             <div className="cart-header"><div><span className="eyebrow">Caja</span><h2>Pedido</h2></div><span className="cart-count"><ShoppingBag size={18} /> {itemCount}</span></div>
             <div className="customer-card">
-              <OrderFormFields config={cashierFormFields} customer={customer} onChange={updateCustomer} />
+              <OrderFormFields config={cashierFormFields} customer={customer} onChange={updateCustomer} excludeKeys={['payment']} />
               <label className="field"><span>Origen del pedido</span><select value={orderOrigin} onChange={(e) => {
                 setOrderOrigin(e.target.value);
                 try { window.sessionStorage.setItem(CASHIER_SESSION_STORAGE_KEY, JSON.stringify({ password, cashierName, shift, orderOrigin: e.target.value })); } catch { /* ignore */ }

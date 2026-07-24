@@ -49,13 +49,13 @@ const FORM_FIELD_NAMES = {
   custom1: 'Campo extra 1', custom2: 'Campo extra 2',
 };
 
-function FormFieldsEditor({ config = {}, onChange }) {
+function FormFieldsEditor({ config = {}, onChange, excludeKeys = [] }) {
   return (
     <div className="form-fields-editor">
       <div className="form-field-row head">
         <span>Campo</span><span>Visible</span><span>Obligatorio</span><span>Nombre a mostrar</span><span>Tipo</span>
       </div>
-      {ORDER_FORM_FIELD_DEFS.map((def) => {
+      {ORDER_FORM_FIELD_DEFS.filter((def) => !excludeKeys.includes(def.key)).map((def) => {
         const field = config[def.key] || {};
         const isCustom = def.kind === 'custom';
         return (
@@ -468,8 +468,12 @@ export default function AdminPanel({
   const setOrderSourceAt = (index, value) => {
     setBranchSettingsDraft((current) => {
       const list = [...(current.cashierOrderSources || [])];
+      const prev = list[index];
       list[index] = value;
-      return { ...current, cashierOrderSources: list };
+      // Si estabas renombrando el origen que es el "default", muevelo con el
+      // nuevo texto para que el selector de origen default no quede en blanco.
+      const nextDefault = current.defaultCashierOrderSource === prev ? value : current.defaultCashierOrderSource;
+      return { ...current, cashierOrderSources: list, defaultCashierOrderSource: nextDefault };
     });
   };
   const addOrderSourceRow = () => {
@@ -762,7 +766,7 @@ export default function AdminPanel({
                 <h3 className="form-fields-title">Página de pedidos (clientes)</h3>
                 <FormFieldsEditor config={branchSettingsDraft.orderFormFields} onChange={(key, patch) => updateFormField('order', key, patch)} />
                 <h3 className="form-fields-title">Caja</h3>
-                <FormFieldsEditor config={branchSettingsDraft.cashierFormFields} onChange={(key, patch) => updateFormField('cashier', key, patch)} />
+                <FormFieldsEditor config={branchSettingsDraft.cashierFormFields} onChange={(key, patch) => updateFormField('cashier', key, patch)} excludeKeys={['payment']} />
                 <label className="check-row full" style={{ marginTop: '10px' }}>
                   <input type="checkbox" checked={Boolean(branchSettingsDraft.highlightNeighborhood)} onChange={(e) => updateBranchSettings('highlightNeighborhood', e.target.checked)} />
                   <span>Resaltar la colonia en cada pedido (útil para reparto a domicilio). Aplica a Pedidos y a los pedidos de Caja.</span>

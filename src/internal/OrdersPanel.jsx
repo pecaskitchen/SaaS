@@ -137,6 +137,50 @@ function optionDetailsFromOptions(options = {}) {
   return [...new Set(details.map((detail) => String(detail || '').trim()).filter(Boolean))];
 }
 
+function currentOrderDetail(order) {
+  const lines = [];
+  if (order.branch_name) lines.push(`Sucursal: ${order.branch_name}`);
+  lines.push('');
+  for (const [index, item] of (order.items || []).entries()) {
+    const options = parseOptions(item.options_json);
+    const details = optionDetailsFromOptions(options);
+    lines.push(`${index + 1}. ${item.quantity} x ${item.product_name} - ${currency(item.line_total)}`);
+    for (const detail of details) lines.push(`   - ${detail}`);
+    if (item.item_notes) lines.push(`   - Nota: ${item.item_notes}`);
+  }
+  lines.push('', `Total: ${currency(order.total)}`, '', 'Datos del pedido');
+  if (order.customer_name) lines.push(`Cliente: ${order.customer_name}`);
+  if (order.customer_phone) lines.push(`WhatsApp: ${order.customer_phone}`);
+  if (order.customer_address) lines.push(`Direccion: ${order.customer_address}`);
+  if (order.customer_neighborhood) lines.push(`Colonia: ${order.customer_neighborhood}`);
+  if (order.customer_notes) lines.push(`Nota: ${order.customer_notes}`);
+  if (order.payment_method || order.payment_status) {
+    lines.push(`Pago: ${[order.payment_method, paymentStatusLabel(order.payment_status)].filter(Boolean).join(' - ')}`);
+  }
+  for (const field of parseCustomFields(order.custom_fields_json)) {
+    lines.push(`${field.label}: ${field.value}`);
+  }
+  const generated = lines.filter((line, index, all) => line || all[index - 1]).join('\n').trim();
+  return generated || visibleOrderMessage(order.whatsapp_message);
+}
+
+function normalizeEditableCatalog(result = {}) {
+  const categories = new Map((result.extraCategories || []).map((category) => [category.id, category]));
+  return (result.extraProducts || [])
+    .filter((product) => product && product.unavailable !== true)
+    .map((product) => {
+      const category = categories.get(product.category);
+      return {
+        id: product.id,
+        name: product.name || product.id,
+        category: product.category || 'sin-categoria',
+        categoryLabel: category?.label || product.category || 'Sin categoria',
+        price: Number(product.price || 0),
+      };
+    })
+    .sort((a, b) => `${a.categoryLabel} ${a.name}`.localeCompare(`${b.categoryLabel} ${b.name}`, 'es'));
+}
+
 function createEditDraft(order) {
   return {
     id: order.id,
@@ -154,10 +198,12 @@ function createEditDraft(order) {
     deliveryFee: Number(order.delivery_fee || 0),
     items: (order.items || []).map((item) => ({
       id: item.id,
+      productId: item.product_id || '',
       productName: item.product_name,
       category: item.category,
       quantity: Number(item.quantity || 1),
       unitPrice: Number(item.unit_price || 0),
+      optionsJson: item.options_json || '{}',
       itemNotes: item.item_notes || '',
     })),
   };
@@ -175,6 +221,9 @@ export default function OrdersPanel() {
   const [canArchive, setCanArchive] = useState(false);
   const [viewMode, setViewMode] = useState('list');
   const [editDraft, setEditDraft] = useState(null);
+  const [editCatalogProducts, setEditCatalogProducts] = useState([]);
+  const [editAddProductId, setEditAddProductId] = useState('');
+  const [editAddQuantity, setEditAddQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   // Avisos de pedido nuevo: sonido + notificacion del navegador + resaltado.
@@ -382,7 +431,24 @@ export default function OrdersPanel() {
     }
   };
 
-  const openEditOrder = (order) => setEditDraft(createEditDraft(order));
+  const loadEditCatalog = async () => {
+    if (editCatalogProducts.length) return;
+    try {
+      const response = await fetch(`/api/menu?t=${Date.now()}`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'No se pudo cargar el catalogo.');
+      const products = normalizeEditableCatalog(result);
+      setEditCatalogProducts(products);
+      if (products.length && !editAddProductId) setEditAddProductId(products[0].id);
+    } catch (error) {
+      setStatus(error.message || 'No se pudo cargar el catalogo.');
+    }
+  };
+
+  const openEditOrder = (order) => {
+    setEditDraft(createEditDraft(order));
+    loadEditCatalog();
+  };
   const closeEditOrder = () => setEditDraft(null);
 
   const updateEditDraft = (key, value) => {
@@ -399,6 +465,35 @@ export default function OrdersPanel() {
         )),
       };
     });
+  };
+
+  const addCatalogProductToDraft = () => {
+    const product = editCatalogProducts.find((item) => item.id === editAddProductId);
+    if (!product) {
+      setStatus('Selecciona un producto del catalogo.');
+      return;
+    }
+    const quantity = Math.max(1, Number(editAddQuantity || 1));
+    setEditDraft((current) => {
+      if (!current || current.stockDeducted) return current;
+      return {
+        ...current,
+        items: [
+          ...current.items,
+          {
+            id: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            productId: product.id,
+            productName: product.name,
+            category: product.category,
+            quantity,
+            unitPrice: product.price,
+            optionsJson: '{}',
+            itemNotes: '',
+          },
+        ],
+      };
+    });
+    setEditAddQuantity(1);
   };
 
   const saveOrderEdits = async () => {
@@ -435,8 +530,12 @@ export default function OrdersPanel() {
           },
           items: editDraft.stockDeducted ? undefined : editDraft.items.map((item) => ({
             id: item.id,
+            productId: item.productId,
+            productName: item.productName,
+            category: item.category,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
+            optionsJson: item.optionsJson,
             itemNotes: item.itemNotes,
           })),
         }),
@@ -472,7 +571,7 @@ export default function OrdersPanel() {
   const renderOrderCard = (order) => {
     const createdMinutes = minutesSince(order.created_at_utc);
     const statusMeta = ORDER_STATUS_META[order.status] || { label: order.status, next: [] };
-    const fullMessage = visibleOrderMessage(order.whatsapp_message);
+    const fullMessage = currentOrderDetail(order);
     return (
       <article className={`order-card status-${order.status}`} key={order.id}>
         <div className="order-card-top">
@@ -757,6 +856,22 @@ export default function OrdersPanel() {
                   <h3>Productos</h3>
                   {editDraft.stockDeducted ? <small>Stock ya descontado: productos, cantidades y precios están bloqueados.</small> : null}
                 </div>
+                {!editDraft.stockDeducted ? (
+                  <div className="order-edit-add-product">
+                    <label className="field"><span>Agregar producto</span>
+                      <select value={editAddProductId} onChange={(e) => setEditAddProductId(e.target.value)} onFocus={loadEditCatalog}>
+                        {editCatalogProducts.length === 0 ? <option value="">Sin productos cargados</option> : null}
+                        {editCatalogProducts.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.categoryLabel} - {product.name} (${product.price})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field"><span>Cantidad</span><input type="number" min="1" value={editAddQuantity} onChange={(e) => setEditAddQuantity(e.target.value)} /></label>
+                    <button type="button" className="primary small" onClick={addCatalogProductToDraft}>Agregar</button>
+                  </div>
+                ) : null}
                 <div className="order-edit-items">
                   {editDraft.items.map((item) => {
                     const lineTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);

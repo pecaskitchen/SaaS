@@ -869,7 +869,7 @@ export async function onRequestPatch(context) {
       }
 
       const currentItemsResult = await env.DB.prepare(`
-        SELECT id, quantity, unit_price, line_total, item_notes
+        SELECT id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes
         FROM order_items
         WHERE tenant_id = ? AND order_id = ?
         ORDER BY id ASC
@@ -877,33 +877,53 @@ export async function onRequestPatch(context) {
       const currentItems = currentItemsResult.results || [];
       const incomingItems = Array.isArray(body.items) ? body.items : null;
       const itemUpdates = [];
+      const itemInserts = [];
+      let finalItems = currentItems.map((item) => ({
+        id: item.id,
+        productId: item.product_id || '',
+        productName: item.product_name || 'Producto',
+        category: item.category || 'Sin categoria',
+        quantity: Number(item.quantity || 1),
+        unitPrice: Number(item.unit_price || 0),
+        lineTotal: Number(item.line_total || 0),
+        optionsJson: item.options_json || '{}',
+        itemNotes: item.item_notes || '',
+      }));
 
       if (incomingItems) {
         if (Number(order.stock_deducted || 0) === 1) {
           return jsonResponse({ ok: false, error: 'Este pedido ya descontó stock. Solo puedes editar datos del cliente, notas, pago o sucursal.' }, 409);
         }
-        const draftById = new Map(incomingItems.map((item) => [Number(item.id), item]));
-        for (const item of currentItems) {
-          const draft = draftById.get(Number(item.id));
-          if (!draft) continue;
-          const quantity = Math.max(1, cleanEditAmount(draft.quantity, item.quantity || 1));
-          const unitPrice = cleanEditAmount(draft.unitPrice ?? draft.unit_price, item.unit_price || 0);
-          const itemNotes = cleanEditText(draft.itemNotes ?? draft.item_notes, item.item_notes || '');
-          itemUpdates.push({
-            id: item.id,
-            quantity,
-            unitPrice,
-            lineTotal: quantity * unitPrice,
-            itemNotes,
-          });
+        const currentById = new Map(currentItems.map((item) => [Number(item.id), item]));
+        const nextItems = [];
+        for (const draft of incomingItems) {
+          const numericId = Number(draft.id);
+          const currentItem = Number.isFinite(numericId) ? currentById.get(numericId) : null;
+          const quantity = Math.max(1, cleanEditAmount(draft.quantity, currentItem?.quantity || 1));
+          const unitPrice = cleanEditAmount(draft.unitPrice ?? draft.unit_price, currentItem?.unit_price || draft.price || 0);
+          const productId = cleanEditText(draft.productId ?? draft.product_id, currentItem?.product_id || '');
+          const productName = cleanEditText(draft.productName ?? draft.product_name ?? draft.name, currentItem?.product_name || 'Producto');
+          const category = cleanEditText(draft.category, currentItem?.category || 'Sin categoria');
+          const itemNotes = cleanEditText(draft.itemNotes ?? draft.item_notes ?? draft.notes, currentItem?.item_notes || '');
+          const options = draft.options && typeof draft.options === 'object'
+            ? JSON.stringify(draft.options)
+            : cleanEditText(draft.optionsJson ?? draft.options_json, currentItem?.options_json || '{}');
+          const lineTotal = quantity * unitPrice;
+
+          if (currentItem) {
+            itemUpdates.push({ id: currentItem.id, quantity, unitPrice, lineTotal, itemNotes });
+            nextItems.push({ id: currentItem.id, productId, productName, category, quantity, unitPrice, lineTotal, optionsJson: options, itemNotes });
+          } else {
+            itemInserts.push({ productId, productName, category, quantity, unitPrice, lineTotal, optionsJson: options, itemNotes });
+            nextItems.push({ id: null, productId, productName, category, quantity, unitPrice, lineTotal, optionsJson: options, itemNotes });
+          }
         }
-        if (itemUpdates.length !== incomingItems.length) {
-          return jsonResponse({ ok: false, error: 'Uno o más productos del pedido ya no existen.' }, 400);
-        }
+        finalItems = nextItems;
       }
 
-      if (itemUpdates.length) {
-        const subtotal = itemUpdates.reduce((sum, item) => sum + item.lineTotal, 0);
+      if (incomingItems) {
+        if (!finalItems.length) return jsonResponse({ ok: false, error: 'El pedido debe tener al menos un producto.' }, 400);
+        const subtotal = finalItems.reduce((sum, item) => sum + item.lineTotal, 0);
         const deliveryFee = Object.prototype.hasOwnProperty.call(patch, 'deliveryFee')
           ? cleanEditAmount(patch.deliveryFee, order.delivery_fee || 0)
           : cleanEditAmount(order.delivery_fee || 0);
@@ -911,20 +931,43 @@ export async function onRequestPatch(context) {
         addSet('delivery_fee', deliveryFee);
         addSet('total', subtotal + deliveryFee);
 
-        const updateItemStmt = env.DB.prepare(`
-          UPDATE order_items
-          SET quantity = ?, unit_price = ?, line_total = ?, item_notes = ?
-          WHERE tenant_id = ? AND order_id = ? AND id = ?
-        `);
-        await env.DB.batch(itemUpdates.map((item) => updateItemStmt.bind(
-          item.quantity,
-          item.unitPrice,
-          item.lineTotal,
-          item.itemNotes,
-          tenantId,
-          orderId,
-          item.id,
-        )));
+        if (itemUpdates.length) {
+          const updateItemStmt = env.DB.prepare(`
+            UPDATE order_items
+            SET quantity = ?, unit_price = ?, line_total = ?, item_notes = ?
+            WHERE tenant_id = ? AND order_id = ? AND id = ?
+          `);
+          await env.DB.batch(itemUpdates.map((item) => updateItemStmt.bind(
+            item.quantity,
+            item.unitPrice,
+            item.lineTotal,
+            item.itemNotes,
+            tenantId,
+            orderId,
+            item.id,
+          )));
+        }
+        if (itemInserts.length) {
+          const insertItemStmt = env.DB.prepare(`
+            INSERT INTO order_items (
+              tenant_id, order_id, product_id, product_name, category, quantity, unit_price, line_total, options_json, item_notes, created_at_utc, created_at_monterrey
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          await env.DB.batch(itemInserts.map((item) => insertItemStmt.bind(
+            tenantId,
+            orderId,
+            item.productId,
+            item.productName,
+            item.category,
+            item.quantity,
+            item.unitPrice,
+            item.lineTotal,
+            item.optionsJson || '{}',
+            item.itemNotes,
+            timestamps.utc,
+            timestamps.monterrey,
+          )));
+        }
       } else if (Object.prototype.hasOwnProperty.call(patch, 'deliveryFee')) {
         const deliveryFee = cleanEditAmount(patch.deliveryFee, order.delivery_fee || 0);
         addSet('delivery_fee', deliveryFee);
@@ -1019,4 +1062,3 @@ export async function onRequestPatch(context) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }
 }
-

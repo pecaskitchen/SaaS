@@ -1282,6 +1282,17 @@ textarea { resize: vertical; min-height: 48px; }
   color: var(--muted);
   font-weight: 800;
 }
+.order-edit-add-product {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 110px auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(59,31,15,.08);
+  background: rgba(255,255,255,.76);
+}
 .order-edit-items {
   grid-column: 1 / -1;
   display: grid;
@@ -1342,6 +1353,7 @@ textarea { resize: vertical; min-height: 48px; }
 
   .order-edit-grid,
   .order-edit-section,
+  .order-edit-add-product,
   .order-edit-item {
     grid-template-columns: 1fr;
   }

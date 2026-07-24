@@ -2049,13 +2049,19 @@ export default function PublicApp() {
   }, [catalogCategories, categoryOrder, categoryHidden, currentProducts]);
   const effectiveSelectedBranchId = branchSettings.multiBranchEnabled ? selectedBranchId : branchSettings.defaultBranchId;
   const selectedBranch = useMemo(() => selectedBranchFrom(branchSettings, effectiveSelectedBranchId), [branchSettings, effectiveSelectedBranchId]);
-  // CORREGIDO: antes solo usaba el horario de la sucursal cuando
-  // multiBranchEnabled estaba activo. El panel Super (unico lugar donde
-  // se edita el horario hoy) siempre guarda en branches[].businessHours,
-  // nunca en el campo "global" -- con multiBranchEnabled apagado (caso
-  // real de Pecas, una sola sucursal) el cliente seguia viendo el
-  // horario viejo/default sin importar lo que el negocio editara.
-  const effectiveBusinessHours = useMemo(() => normalizeBusinessHours(selectedBranch?.businessHours || businessHours), [selectedBranch, businessHours]);
+  // El horario se edita en el panel de Admin ("Horarios") y se guarda a
+  // nivel de NEGOCIO (businessHours). Solo cuando multi-sucursal esta ACTIVO
+  // cada sucursal puede tener su propio horario; en ese caso gana el de la
+  // sucursal seleccionada. Con una sola sucursal (caso de Pecas) manda el
+  // horario del negocio: antes ganaba el de la sucursal, que se quedaba en
+  // el default (5pm) y la tienda seguia "cerrada" aunque el negocio cambiara
+  // su horario.
+  const effectiveBusinessHours = useMemo(() => {
+    const source = (branchSettings.multiBranchEnabled && selectedBranch?.businessHours)
+      ? selectedBranch.businessHours
+      : businessHours;
+    return normalizeBusinessHours(source);
+  }, [branchSettings.multiBranchEnabled, selectedBranch, businessHours]);
   // CORREGIDO: mismo bug que el horario -- "agotado" tambien se guarda
   // siempre por sucursal (ver stock.js: setProductSoldOut/"Siempre
   // ignoramos soldOut global legacy en Stock"), pero antes solo se leia

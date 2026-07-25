@@ -1451,6 +1451,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
 
   const image = promotion.image || promoItems.find(({ product }) => product.image)?.product.image;
   const includedLines = includedDetailsToLines(promotion.includedDetails);
+  const promoDescription = String(promotion.description || '').trim();
 
   const updateExtrasForProduct = (productId, updater) => {
     setExtrasByProductId((current) => {
@@ -1468,6 +1469,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
         </div>
         <div className="promo-content">
           <h2>{promotion.title}</h2>
+          {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
           <ul className="promo-included">
             {promoItems.map(({ product, quantity }) => (
@@ -2217,6 +2219,7 @@ function SuperPanel({ products, promotion, branchPromotions, businessHours, bran
               <div className="admin-promo-grid">
                 <label className="field"><span>Título</span><input value={selectedPromotion.title || ''} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'title', e.target.value)} /></label>
                 <label className="field"><span>Precio promo</span><input type="number" value={selectedPromotion.price || 0} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'price', Number(e.target.value || 0))} /></label>
+                <label className="field full"><span>Descripcion</span><textarea rows="2" value={selectedPromotion.description || ''} onChange={(e) => updatePromotionForBranch(selectedBranch.id, 'description', e.target.value)} /></label>
                 <div className="field full">
                   <span>Productos incluidos</span>
                   <div className="admin-promo-items">
@@ -2425,7 +2428,12 @@ export default function App() {
   const selectedBranchHasPromotion = Boolean(selectedBranch?.id && Object.prototype.hasOwnProperty.call(branchPromotions, selectedBranch.id));
   const selectedBranchPromotion = selectedBranchHasPromotion ? branchPromotions[selectedBranch.id] : null;
   const defaultBranchPromotion = branchSettings.defaultBranchId && Object.prototype.hasOwnProperty.call(branchPromotions, branchSettings.defaultBranchId) ? branchPromotions[branchSettings.defaultBranchId] : null;
-  const activePromotionSource = selectedBranchHasPromotion ? selectedBranchPromotion : (defaultBranchPromotion || promotion);
+  const activePromotionSource = useMemo(() => {
+    if (selectedBranchHasPromotion) {
+      return selectedBranchPromotion ? { ...(promotion || {}), ...selectedBranchPromotion } : selectedBranchPromotion;
+    }
+    return defaultBranchPromotion ? { ...(promotion || {}), ...defaultBranchPromotion } : promotion;
+  }, [selectedBranchHasPromotion, selectedBranchPromotion, defaultBranchPromotion, promotion]);
   const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
@@ -2555,9 +2563,6 @@ export default function App() {
     </main>
   );
 }
-
-
-
 
 
 

@@ -1754,6 +1754,13 @@ textarea { resize: vertical; min-height: 48px; }
   color: var(--muted);
 }
 
+.promo-description {
+  color: var(--brown);
+  font-size: 16px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
 .promo-included {
   margin: 0;
   padding-left: 18px;

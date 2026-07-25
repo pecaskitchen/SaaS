@@ -79,6 +79,7 @@ export function makeDefaultPromotion(products = CATALOG_PRODUCTS) {
   return {
     active: false,
     title: 'Promo especial',
+    description: '',
     items: firstProduct.id ? [{ productId: firstProduct.id, quantity: 1 }] : [],
     price: 0,
     includedDetails: '',
@@ -158,5 +159,4 @@ export function promotionItems(promotion, products = []) {
     })
     .filter(Boolean);
 }
-
 

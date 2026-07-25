@@ -1606,6 +1606,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
 
   const image = promotion.image || selectedItems.find(({ product }) => product.image)?.product.image;
   const includedLines = includedDetailsToLines(promotion.includedDetails);
+  const promoDescription = String(promotion.description || '').trim();
 
   const updateExtrasForProduct = (productId, updater) => {
     setExtrasByProductId((current) => {
@@ -1625,6 +1626,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
         </div>
         <div className="promo-content">
           <h2>{promotion.title}</h2>
+          {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
           <ul className="promo-included">
             {selectedItems.map((item, index) => (
@@ -2108,7 +2110,12 @@ export default function PublicApp() {
   const selectedBranchHasPromotion = Boolean(selectedBranch?.id && Object.prototype.hasOwnProperty.call(branchPromotions, selectedBranch.id));
   const selectedBranchPromotion = selectedBranchHasPromotion ? branchPromotions[selectedBranch.id] : null;
   const defaultBranchPromotion = branchSettings.defaultBranchId && Object.prototype.hasOwnProperty.call(branchPromotions, branchSettings.defaultBranchId) ? branchPromotions[branchSettings.defaultBranchId] : null;
-  const activePromotionSource = selectedBranchHasPromotion ? selectedBranchPromotion : (defaultBranchPromotion || promotion);
+  const activePromotionSource = useMemo(() => {
+    if (selectedBranchHasPromotion) {
+      return selectedBranchPromotion ? { ...(promotion || {}), ...selectedBranchPromotion } : selectedBranchPromotion;
+    }
+    return defaultBranchPromotion ? { ...(promotion || {}), ...defaultBranchPromotion } : promotion;
+  }, [selectedBranchHasPromotion, selectedBranchPromotion, defaultBranchPromotion, promotion]);
   const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
@@ -2246,7 +2253,5 @@ export default function PublicApp() {
     </main>
   );
 }
-
-
 
 

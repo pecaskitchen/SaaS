@@ -5,6 +5,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   defaultBranchId: 'dominio',
   cashierOrderSources: DEFAULT_CASHIER_ORDER_SOURCES,
   defaultCashierOrderSource: 'Tienda',
+  allowCashierPriceOverride: false,
   branches: [
     { id: 'dominio', name: 'Dominio', active: true, ordersPassword: '', stockPassword: '', cashierPassword: '', whatsappNumber: '' },
   ],
@@ -100,6 +101,7 @@ export function normalizeBranchSettings(settings = {}) {
     defaultBranchId,
     cashierOrderSources,
     defaultCashierOrderSource,
+    allowCashierPriceOverride: Boolean(settings.allowCashierPriceOverride || settings.allow_cashier_price_override),
     branches,
     orderFormFields: normalizeFormFields(settings.orderFormFields, 'order'),
     cashierFormFields: normalizeFormFields(settings.cashierFormFields, 'cashier'),

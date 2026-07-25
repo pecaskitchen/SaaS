@@ -95,6 +95,9 @@ export async function ensureSchema(env) {
       provider_merchant_order_id TEXT,
       payment_amount INTEGER,
       marketplace_fee INTEGER DEFAULT 0,
+      price_override_count INTEGER NOT NULL DEFAULT 0,
+      price_override_by_role TEXT,
+      price_override_by_name TEXT,
       paid_at TEXT
     )
   `).run();
@@ -180,6 +183,9 @@ export async function ensureSchema(env) {
   if (!columns.has('provider_merchant_order_id')) alters.push(`ALTER TABLE orders ADD COLUMN provider_merchant_order_id TEXT`);
   if (!columns.has('payment_amount')) alters.push(`ALTER TABLE orders ADD COLUMN payment_amount INTEGER`);
   if (!columns.has('marketplace_fee')) alters.push(`ALTER TABLE orders ADD COLUMN marketplace_fee INTEGER DEFAULT 0`);
+  if (!columns.has('price_override_count')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_count INTEGER NOT NULL DEFAULT 0`);
+  if (!columns.has('price_override_by_role')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_by_role TEXT`);
+  if (!columns.has('price_override_by_name')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_by_name TEXT`);
   if (!columns.has('paid_at')) alters.push(`ALTER TABLE orders ADD COLUMN paid_at TEXT`);
   if (!columns.has('custom_fields_json')) alters.push(`ALTER TABLE orders ADD COLUMN custom_fields_json TEXT`);
   if (!columns.has('customer_neighborhood')) alters.push(`ALTER TABLE orders ADD COLUMN customer_neighborhood TEXT`);
@@ -224,8 +230,8 @@ export async function onRequestPost({ request, env }) {
     // detalle del pedido.
     const customFieldsList = Array.isArray(customer.customFields) ? customer.customFields.filter((f) => f && String(f.value ?? '').trim()) : [];
     const customFieldsJson = customFieldsList.length ? JSON.stringify(customFieldsList) : null;
-    const items = Array.isArray(body.items) ? body.items : [];
-    if (!items.length) return jsonResponse({ ok: false, error: 'El pedido está vacío.' }, 400);
+    let items = Array.isArray(body.items) ? body.items : [];
+    if (!items.length) return jsonResponse({ ok: false, error: 'El pedido esta vacio.' }, 400);
 
     const settings = await readBranchSettings(env, tenantId);
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });
@@ -251,7 +257,40 @@ export async function onRequestPost({ request, env }) {
         ? requestedSource
         : (allowedSources.includes(settings.defaultCashierOrderSource) ? settings.defaultCashierOrderSource : allowedSources[0]);
       if (!cashier.name) return jsonResponse({ ok: false, error: 'Ingresa nombre del cajero.' }, 400);
+      items = items.map((item) => {
+        const quantity = Math.max(1, Math.round(Number(item.quantity ?? 1) || 1));
+        const unitPrice = Math.max(0, Math.round(Number(item.price ?? item.unitPrice ?? 0) || 0));
+        const originalPrice = Math.max(0, Math.round(Number(item.originalPrice ?? item.original_price ?? item.basePrice ?? item.base_price ?? unitPrice) || 0));
+        return {
+          ...item,
+          quantity,
+          price: unitPrice,
+          originalPrice,
+          lineTotal: quantity * unitPrice,
+          priceOverride: Boolean(item.priceOverride || item.price_override || unitPrice !== originalPrice),
+        };
+      });
     }
+    const priceOverrideLines = source === 'cashier'
+      ? items.filter((item) => {
+          const sentPrice = Math.round(Number(item.price ?? item.unitPrice ?? 0));
+          const originalPrice = Math.round(Number(item.originalPrice ?? item.original_price ?? item.basePrice ?? item.base_price ?? sentPrice));
+          return Boolean(item.priceOverride || item.price_override || sentPrice !== originalPrice);
+        })
+      : [];
+    if (priceOverrideLines.length && !settings.allowCashierPriceOverride) {
+      return jsonResponse({ ok: false, error: 'El admin no ha permitido modificar precios en Caja.' }, 403);
+    }
+    const priceOverrideRequiresReview = priceOverrideLines.length > 0 && !['admin', 'platform_admin'].includes(sessionRole);
+    const orderSubtotal = source === 'cashier'
+      ? items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0)
+      : Number(body.subtotal || 0);
+    const orderDeliveryFee = source === 'cashier'
+      ? Math.max(0, Math.round(Number(body.deliveryFee || 0) || 0))
+      : Number(body.deliveryFee || 0);
+    const orderTotal = source === 'cashier'
+      ? orderSubtotal + orderDeliveryFee
+      : Number(body.total || 0);
     let timestamps = getTimestamps();
     // Backdatear: admin/gerente pueden capturar un pedido de caja con fecha
     // anterior (para registrar ventas que no se capturaron ese dia). Se
@@ -273,8 +312,8 @@ export async function onRequestPost({ request, env }) {
         const result = await env.DB.prepare(`
           INSERT INTO orders (
             tenant_id, order_number, status, branch_id, branch_name, order_source, cashier_name, cashier_shift, customer_name, customer_phone, customer_address, customer_neighborhood, customer_notes, custom_fields_json, payment_method, payment_status,
-            subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
+            subtotal, delivery_fee, total, whatsapp_message, price_override_count, price_override_by_role, price_override_by_name, created_at_utc, created_at_monterrey, timezone, updated_at_utc, updated_at_monterrey
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'America/Monterrey', ?, ?)
         `).bind(
           tenantId,
           orderNumber,
@@ -292,10 +331,13 @@ export async function onRequestPost({ request, env }) {
           customFieldsJson,
           source === 'cashier' ? String(body.paymentMethod || 'efectivo') : null,
           source === 'cashier' ? String(body.paymentStatus || 'paid') : null,
-          Number(body.subtotal || 0),
-          Number(body.deliveryFee || 0),
-          Number(body.total || 0),
+          orderSubtotal,
+          orderDeliveryFee,
+          orderTotal,
           String(body.whatsappMessage || ''),
+          priceOverrideRequiresReview ? priceOverrideLines.length : 0,
+          priceOverrideRequiresReview ? sessionRole : null,
+          priceOverrideRequiresReview ? cashier.name : null,
           timestamps.utc,
           timestamps.monterrey,
           timestamps.utc,
@@ -321,11 +363,15 @@ export async function onRequestPost({ request, env }) {
       createdOrder.id,
       String(item.id || item.productId || ''),
       String(item.name || 'Producto'),
-      String(item.category || 'Sin categoría'),
+      String(item.category || 'Sin categoria'),
       Number(item.quantity || 1),
-      Number(item.price || item.unitPrice || 0),
-      Number(item.lineTotal || (Number(item.price || item.unitPrice || 0) * Number(item.quantity || 1))),
-      JSON.stringify(item.options || {}),
+      Number(item.price ?? item.unitPrice ?? 0),
+      Number(item.lineTotal ?? (Number(item.price ?? item.unitPrice ?? 0) * Number(item.quantity || 1))),
+      JSON.stringify({
+        ...(item.options || {}),
+        priceOverride: Boolean(item.priceOverride || item.price_override),
+        originalPrice: Number(item.originalPrice ?? item.original_price ?? item.basePrice ?? item.base_price ?? item.price ?? item.unitPrice ?? 0),
+      }),
       String(item.notes || ''),
       timestamps.utc,
       timestamps.monterrey
@@ -336,6 +382,13 @@ export async function onRequestPost({ request, env }) {
       VALUES (?, ?, 'created', ?, ?, ?)
     `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido ${orderSource} capturado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
 
+    if (priceOverrideRequiresReview) {
+      await env.DB.prepare(`
+        INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
+        VALUES (?, ?, 'price_override', ?, ?, ?)
+      `).bind(tenantId, createdOrder.id, `Alerta: ${cashier.name} modifico precios en ${priceOverrideLines.length} producto(s).`, timestamps.utc, timestamps.monterrey).run();
+    }
+
     await upsertCustomerFromOrder(env, tenantId, {
       customer: {
         ...customer,
@@ -345,7 +398,7 @@ export async function onRequestPost({ request, env }) {
       order: {
         id: createdOrder.id,
         orderNumber,
-        total: Number(body.total || 0),
+        total: orderTotal,
         createdAtUtc: timestamps.utc,
       },
     });
@@ -355,4 +408,3 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }
 }
-

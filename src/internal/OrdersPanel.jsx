@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { Archive, Bell, BellOff, Columns3, List, MapPin, Pencil, Save, ShoppingBag, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Archive, Bell, BellOff, Columns3, List, MapPin, Pencil, Save, ShoppingBag, Trash2, X } from 'lucide-react';
 import '../styles.css';
 import { formatOrderDate } from '../lib/dates.js';
 import {
@@ -51,6 +51,13 @@ const ORDER_STATUS_LABELS = {
   ready: 'Listos',
   delivered: 'Entregados',
   cancelled: 'Cancelados',
+};
+
+const ORDER_EVENT_LABELS = {
+  price_override: 'Alerta precio',
+  edited: 'Editado',
+  archived: 'Archivado',
+  deleted: 'Eliminado',
 };
 
 // Columnas fijas del flujo activo. "ready" es necesaria para poder avanzar
@@ -121,7 +128,8 @@ function visibleOrderMessage(value) {
   return lines.join('\n').trim();
 }
 
-function optionDetailsFromOptions(options = {}) {
+function optionDetailsFromOptions(rawOptions = {}) {
+  const options = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
   const details = [];
   if (Array.isArray(options.details)) details.push(...options.details);
   if (Array.isArray(options.removed) && options.removed.length) details.push(`Sin: ${options.removed.join(', ')}`);
@@ -134,12 +142,16 @@ function optionDetailsFromOptions(options = {}) {
       if (values.length) details.push(`${label}: ${values.join(', ')}`);
     }
   }
+  if (options.priceOverride && options.originalPrice !== undefined) details.push(`Precio original: ${currency(options.originalPrice)}`);
   return [...new Set(details.map((detail) => String(detail || '').trim()).filter(Boolean))];
 }
 
 function currentOrderDetail(order) {
   const lines = [];
   if (order.branch_name) lines.push(`Sucursal: ${order.branch_name}`);
+  if (Number(order.price_override_count || 0) > 0) {
+    lines.push(`Alerta precio: modificado por ${order.price_override_by_name || order.price_override_by_role || 'personal'} en ${order.price_override_count} producto(s).`);
+  }
   lines.push('');
   for (const [index, item] of (order.items || []).entries()) {
     const options = parseOptions(item.options_json);
@@ -595,6 +607,13 @@ export default function OrdersPanel() {
           <span>Origen: <b>{order.order_source === 'online' ? 'Online' : order.order_source || 'Caja'}</b></span>
         </div>
 
+        {Number(order.price_override_count || 0) > 0 ? (
+          <div className="order-alert">
+            <AlertTriangle size={16} />
+            <span>Precio modificado por {order.price_override_by_name || order.price_override_by_role || 'personal'} en {order.price_override_count} producto(s).</span>
+          </div>
+        ) : null}
+
         <div className="order-customer">
           {order.branch_name ? <p><b>Sucursal:</b> {order.branch_name}</p> : null}
           {order.order_source === 'cashier' ? <p><b>Caja:</b> {order.cashier_name || 'Cajero'}{order.cashier_shift ? ` - ${order.cashier_shift}` : ''}</p> : null}
@@ -640,7 +659,7 @@ export default function OrdersPanel() {
         <div className="order-events">
           {(order.events || []).slice(-4).map((event) => (
             <span key={event.id}>
-              {ORDER_STATUS_META[event.event_type]?.label || event.event_type} - {formatOrderDate(event.created_at_monterrey)}
+              {ORDER_STATUS_META[event.event_type]?.label || ORDER_EVENT_LABELS[event.event_type] || event.event_type} - {formatOrderDate(event.created_at_monterrey)}
             </span>
           ))}
         </div>

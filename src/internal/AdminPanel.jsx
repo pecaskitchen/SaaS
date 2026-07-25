@@ -768,6 +768,10 @@ export default function AdminPanel({
                 <h3 className="form-fields-title">Caja</h3>
                 <FormFieldsEditor config={branchSettingsDraft.cashierFormFields} onChange={(key, patch) => updateFormField('cashier', key, patch)} excludeKeys={['payment']} />
                 <label className="check-row full" style={{ marginTop: '10px' }}>
+                  <input type="checkbox" checked={Boolean(branchSettingsDraft.allowCashierPriceOverride)} onChange={(e) => updateBranchSettings('allowCashierPriceOverride', e.target.checked)} />
+                  <span>Permitir modificar precios en Caja. Si lo hace alguien que no es admin, el pedido se marcará con alerta para revisión.</span>
+                </label>
+                <label className="check-row full" style={{ marginTop: '10px' }}>
                   <input type="checkbox" checked={Boolean(branchSettingsDraft.highlightNeighborhood)} onChange={(e) => updateBranchSettings('highlightNeighborhood', e.target.checked)} />
                   <span>Resaltar la colonia en cada pedido (útil para reparto a domicilio). Aplica a Pedidos y a los pedidos de Caja.</span>
                 </label>

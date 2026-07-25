@@ -184,7 +184,10 @@ async function ensureOrderStockColumns(env) {
       cashier_name TEXT,
       cashier_shift TEXT,
       payment_method TEXT,
-      payment_status TEXT
+      payment_status TEXT,
+      price_override_count INTEGER NOT NULL DEFAULT 0,
+      price_override_by_role TEXT,
+      price_override_by_name TEXT
     )
   `).run();
 
@@ -244,6 +247,9 @@ async function ensureOrderStockColumns(env) {
   if (!columns.has('cashier_shift')) alters.push(`ALTER TABLE orders ADD COLUMN cashier_shift TEXT`);
   if (!columns.has('payment_method')) alters.push(`ALTER TABLE orders ADD COLUMN payment_method TEXT`);
   if (!columns.has('payment_status')) alters.push(`ALTER TABLE orders ADD COLUMN payment_status TEXT`);
+  if (!columns.has('price_override_count')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_count INTEGER NOT NULL DEFAULT 0`);
+  if (!columns.has('price_override_by_role')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_by_role TEXT`);
+  if (!columns.has('price_override_by_name')) alters.push(`ALTER TABLE orders ADD COLUMN price_override_by_name TEXT`);
   if (!columns.has('exclude_from_reports')) alters.push(`ALTER TABLE orders ADD COLUMN exclude_from_reports INTEGER NOT NULL DEFAULT 0`);
   if (!columns.has('archived_at_utc')) alters.push(`ALTER TABLE orders ADD COLUMN archived_at_utc TEXT`);
   if (!columns.has('archived_reason')) alters.push(`ALTER TABLE orders ADD COLUMN archived_reason TEXT`);
@@ -742,6 +748,7 @@ async function loadFullOrders(env, status, limit, branchFilter = 'all', tenantId
     SELECT id, order_number, status, customer_name, customer_phone, customer_address, customer_neighborhood, customer_notes, custom_fields_json,
       subtotal, delivery_fee, total, whatsapp_message, created_at_utc, created_at_monterrey,
       updated_at_utc, updated_at_monterrey, branch_id, branch_name, order_source, cashier_name, cashier_shift, payment_method, payment_status,
+      price_override_count, price_override_by_role, price_override_by_name,
       stock_deducted, stock_deducted_at_monterrey, stock_deduction_error, exclude_from_reports, archived_at_utc, deleted_at_utc
     FROM orders
     WHERE tenant_id = ? AND created_at_monterrey >= ? AND created_at_monterrey < ?

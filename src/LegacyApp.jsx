@@ -1708,7 +1708,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
 // con una sesion ya autenticada, sin duplicar ProductCard y su arbol de
 // dependencias (personalizaciones, familias de opciones, etc.), que es
 // demasiado riesgo mover en esta pasada (ver plan de rediseno de roles).
-export function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu, employeeName = '', canBackdate = false }) {
+export function CashierPanel({ products, categoriesList, categoryOrder, productOrder, categoryHidden, branchSettings, productCustomizations, reloadMenu, employeeName = '', canBackdate = false, currentRole = '' }) {
   const savedSession = (() => {
     try { return JSON.parse(window.sessionStorage.getItem(CASHIER_SESSION_STORAGE_KEY) || '{}'); } catch { return {}; }
   })();
@@ -1731,6 +1731,8 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
   const todayMonterrey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' });
   const normalizedCashierSettings = useMemo(() => normalizeBranchSettings(branchSettings), [branchSettings]);
   const cashierFormFields = normalizedCashierSettings.cashierFormFields;
+  const allowCashierPriceOverride = Boolean(normalizedCashierSettings.allowCashierPriceOverride);
+  const isAdminPriceEditor = ['admin', 'platform_admin'].includes(currentRole);
   const orderSources = useMemo(() => normalizeCashierOrderSources(normalizedCashierSettings.cashierOrderSources), [normalizedCashierSettings.cashierOrderSources]);
   const defaultOrderSource = orderSources.includes(normalizedCashierSettings.defaultCashierOrderSource) ? normalizedCashierSettings.defaultCashierOrderSource : orderSources[0];
   const [orderOrigin, setOrderOrigin] = useState(savedSession.orderOrigin || defaultOrderSource);
@@ -1779,10 +1781,26 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
     setStatus('');
   };
 
-  const addItem = (item) => setCart((current) => [item, ...current]);
+  const addItem = (item) => setCart((current) => [{
+    ...item,
+    originalPrice: Number(item.originalPrice ?? item.price ?? 0),
+    priceOverride: false,
+  }, ...current]);
   const updateQty = (uid, quantity) => {
     if (quantity <= 0) return setCart((current) => current.filter((item) => item.uid !== uid));
     setCart((current) => current.map((item) => item.uid === uid ? { ...item, quantity } : item));
+  };
+  const updateLinePrice = (uid, value) => {
+    const nextPrice = Math.max(0, Math.round(Number(value || 0)));
+    setCart((current) => current.map((item) => {
+      if (item.uid !== uid) return item;
+      const originalPrice = Number(item.originalPrice ?? item.price ?? 0);
+      return {
+        ...item,
+        price: nextPrice,
+        priceOverride: nextPrice !== originalPrice,
+      };
+    }));
   };
   const removeItem = (uid) => setCart((current) => current.filter((item) => item.uid !== uid));
 
@@ -1823,6 +1841,9 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
             category: item.category,
             quantity: item.quantity,
             price: item.price,
+            originalPrice: item.originalPrice ?? item.price,
+            priceOverride: Boolean(item.priceOverride),
+            priceOverrideByAdmin: isAdminPriceEditor,
             lineTotal: item.price * item.quantity,
             options: { ...(item.options || {}), details: item.details || [] },
             notes: item.notes || '',
@@ -1910,7 +1931,20 @@ export function CashierPanel({ products, categoriesList, categoryOrder, productO
             <div className="cart-items">
               {cart.length === 0 ? <div className="empty-cart"><ShoppingBag size={28} /><p>Agrega productos.</p></div> : cart.map((item) => (
                 <div className="cart-item" key={item.uid}>
-                  <div><strong>{item.name}</strong><span>{currency(item.price)} · {item.details?.join(' · ')}</span></div>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>
+                      {currency(item.price)}
+                      {item.priceOverride ? ` · precio original ${currency(item.originalPrice)}` : ''}
+                      {item.details?.length ? ` · ${item.details.join(' · ')}` : ''}
+                    </span>
+                    {allowCashierPriceOverride ? (
+                      <label className="cashier-price-edit">
+                        <span>Precio unitario</span>
+                        <input type="number" min="0" value={item.price} onChange={(e) => updateLinePrice(item.uid, e.target.value)} />
+                      </label>
+                    ) : null}
+                  </div>
                   <div className="cart-controls"><button type="button" onClick={() => updateQty(item.uid, item.quantity - 1)}><Minus size={14} /></button><b>{item.quantity}</b><button type="button" onClick={() => updateQty(item.uid, item.quantity + 1)}><Plus size={14} /></button><button type="button" className="danger" onClick={() => removeItem(item.uid)}><Trash2 size={14} /></button></div>
                 </div>
               ))}
@@ -2521,7 +2555,6 @@ export default function App() {
     </main>
   );
 }
-
 
 
 

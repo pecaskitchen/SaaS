@@ -5024,3 +5024,9 @@ textarea { resize: vertical; min-height: 48px; }
   .history-who { grid-column: 1 / -1; }
   .history-detail-cols { grid-template-columns: 1fr; }
 }
+
+/* Editar/eliminar en el historial de Ventas */
+.history-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.history-edit-grid .field.full { grid-column: 1 / -1; }
+.history-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+@media (max-width: 640px) { .history-edit-grid { grid-template-columns: 1fr; } }

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Search, RefreshCw, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, RefreshCw, MapPin, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
 import '../styles.css';
 import { apiFetch } from '../lib/apiClient.js';
 import { formatOrderDate } from '../lib/dates.js';
+import { useAuth } from '../auth/AuthContext.jsx';
 
 const money = (value) => `$${Number(value || 0).toLocaleString('es-MX')}`;
 
@@ -34,6 +35,11 @@ export default function OrdersHistoryPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const { user } = useAuth();
+  const canManage = ['admin', 'manager', 'platform_admin'].includes(user?.role);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +58,70 @@ export default function OrdersHistoryPanel() {
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const startEdit = (order) => {
+    setExpandedId(order.id);
+    setEditingId(order.id);
+    setEditForm({
+      customerName: order.customer_name || '',
+      customerPhone: order.customer_phone || '',
+      customerAddress: order.customer_address || '',
+      customerNeighborhood: order.customer_neighborhood || '',
+      customerNotes: order.customer_notes || '',
+      paymentMethod: order.payment_method || '',
+      paymentStatus: order.payment_status || '',
+    });
+  };
+  const cancelEdit = () => { setEditingId(null); setEditForm(null); };
+  const setF = (key, value) => setEditForm((f) => ({ ...f, [key]: value }));
+
+  const saveEdit = async (order) => {
+    if (!String(editForm?.customerName || '').trim()) { setError('El pedido necesita nombre de cliente.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await apiFetch('/api/orders-dashboard', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          orderId: order.id,
+          action: 'edit',
+          note: `Pedido ${order.order_number || order.id} editado desde Ventas.`,
+          order: {
+            customerName: editForm.customerName,
+            customerPhone: editForm.customerPhone,
+            customerAddress: editForm.customerAddress,
+            customerNeighborhood: editForm.customerNeighborhood,
+            customerNotes: editForm.customerNotes,
+            paymentMethod: editForm.paymentMethod,
+            paymentStatus: editForm.paymentStatus,
+          },
+        }),
+      });
+      cancelEdit();
+      await load();
+    } catch (err) {
+      setError(err.message || 'No se pudo guardar el pedido.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteOrder = async (order) => {
+    if (!window.confirm(`¿Eliminar el pedido ${order.order_number || order.id}? Dejará de contar en ventas y reportes.`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await apiFetch('/api/orders-dashboard', {
+        method: 'PATCH',
+        body: JSON.stringify({ orderId: order.id, action: 'delete', note: `Pedido ${order.order_number || order.id} eliminado desde Ventas.` }),
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || 'No se pudo eliminar el pedido.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section className="admin-section">
@@ -100,7 +170,29 @@ export default function OrdersHistoryPanel() {
                   {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </div>
               </button>
-              {open ? (
+              {open && editingId === order.id ? (
+                <div className="history-detail">
+                  <div className="history-edit-grid">
+                    <label className="field"><span>Nombre</span><input value={editForm.customerName} onChange={(e) => setF('customerName', e.target.value)} /></label>
+                    <label className="field"><span>Teléfono</span><input value={editForm.customerPhone} onChange={(e) => setF('customerPhone', e.target.value)} /></label>
+                    <label className="field full"><span>Dirección</span><input value={editForm.customerAddress} onChange={(e) => setF('customerAddress', e.target.value)} /></label>
+                    <label className="field"><span>Colonia</span><input value={editForm.customerNeighborhood} onChange={(e) => setF('customerNeighborhood', e.target.value)} /></label>
+                    <label className="field"><span>Forma de pago</span><input value={editForm.paymentMethod} onChange={(e) => setF('paymentMethod', e.target.value)} /></label>
+                    <label className="field"><span>Estado de pago</span>
+                      <select value={editForm.paymentStatus} onChange={(e) => setF('paymentStatus', e.target.value)}>
+                        <option value="paid">Pagado</option>
+                        <option value="pending">Pendiente</option>
+                      </select>
+                    </label>
+                    <label className="field full"><span>Nota</span><textarea rows="2" value={editForm.customerNotes} onChange={(e) => setF('customerNotes', e.target.value)} /></label>
+                  </div>
+                  <p className="admin-hint">Los productos y el total se editan desde la pestaña Pedidos (mientras el pedido está en la cola del día).</p>
+                  <div className="history-actions">
+                    <button type="button" className="primary" onClick={() => saveEdit(order)} disabled={busy}>Guardar</button>
+                    <button type="button" className="ghost small" onClick={cancelEdit} disabled={busy}>Cancelar</button>
+                  </div>
+                </div>
+              ) : open ? (
                 <div className="history-detail">
                   <div className="history-detail-cols">
                     <div>
@@ -126,6 +218,12 @@ export default function OrdersHistoryPanel() {
                     ))}
                   </div>
                   <div className="history-total"><span>Total</span><strong>{money(order.total)}</strong></div>
+                  {canManage ? (
+                    <div className="history-actions">
+                      <button type="button" className="ghost small" onClick={() => startEdit(order)} disabled={busy}><Pencil size={14} /> Editar</button>
+                      <button type="button" className="ghost small danger-text" onClick={() => deleteOrder(order)} disabled={busy}><Trash2 size={14} /> Eliminar</button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </article>

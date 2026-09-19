@@ -81,6 +81,105 @@ function tenantHref(path, business) {
   return `${cleanPath}${separator}tenant_id=${tenantKey(business)}`;
 }
 
+function BillingPanel({ tenant }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const result = await platformFetch(`/api/platform/billing?tenant_id=${encodeURIComponent(tenant.id)}`);
+      setData(result);
+      setPayerEmail(result.subscription?.payerEmail || tenant.contactEmail || '');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Recarga al cambiar de negocio seleccionado.
+  useEffect(() => { load(); }, [tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generateLink = async () => {
+    if (!payerEmail) { setStatus('Escribe el email del dueno primero.'); return; }
+    setLoading(true);
+    setStatus('Generando link de cobro...');
+    try {
+      const result = await platformFetch('/api/platform/billing', {
+        method: 'POST',
+        body: JSON.stringify({ tenantId: tenant.id, payerEmail }),
+      });
+      await load();
+      if (result.checkoutUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(result.checkoutUrl).catch(() => {});
+      }
+      setStatus('Link listo (copiado al portapapeles). Enviaselo al dueno para que autorice su tarjeta.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runAction = async (action) => {
+    setLoading(true);
+    setStatus('Procesando...');
+    try {
+      await platformFetch('/api/platform/billing', {
+        method: 'PATCH',
+        body: JSON.stringify({ tenantId: tenant.id, action }),
+      });
+      await load();
+      setStatus('Listo.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sub = data?.subscription;
+  return (
+    <section className="platform-panel">
+      <h2>Cobro de la mensualidad</h2>
+      {data && !data.hasPlatformToken ? (
+        <p className="admin-status">Falta configurar <code>PLATFORM_MP_ACCESS_TOKEN</code> (token de la cuenta de Mercado Pago de Omdexa) antes de poder cobrar.</p>
+      ) : null}
+      <p>
+        Precio mensual: <strong>{moneyFromCents(sub?.monthlyPriceCents)}</strong>
+        {' · '}Suscripcion: <strong>{sub?.status || '—'}</strong>
+        {sub?.providerStatus ? ` (MP: ${sub.providerStatus})` : ''}
+      </p>
+      {sub?.nextPaymentDueAt ? <p>Proximo cobro estimado: {sub.nextPaymentDueAt}</p> : null}
+      {sub?.lastPaymentAt ? <p>Ultimo cobro: {sub.lastPaymentAt}</p> : null}
+      <label className="field">
+        <span>Email del dueno (donde MP cobra)</span>
+        <input value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} placeholder="dueno@negocio.com" />
+      </label>
+      <div className="inline-actions">
+        <button type="button" className="primary" onClick={generateLink} disabled={loading}>
+          {sub?.hasPreapproval ? 'Regenerar link de cobro' : 'Generar link de cobro'}
+        </button>
+        {sub?.hasPreapproval ? (
+          <>
+            <button type="button" className="ghost small" onClick={() => runAction('sync')} disabled={loading}>Sincronizar estado</button>
+            <button type="button" className="ghost small" onClick={() => runAction('pause')} disabled={loading}>Pausar cobro</button>
+            <button type="button" className="ghost small" onClick={() => runAction('reactivate')} disabled={loading}>Reactivar</button>
+            <button type="button" className="ghost small danger-text" onClick={() => runAction('cancel')} disabled={loading}>Cancelar suscripcion</button>
+          </>
+        ) : null}
+      </div>
+      {sub?.checkoutUrl ? (
+        <p className="admin-status">Link de autorizacion: <a href={sub.checkoutUrl} target="_blank" rel="noreferrer">{sub.checkoutUrl}</a></p>
+      ) : null}
+      {status ? <p className="admin-status">{status}</p> : null}
+    </section>
+  );
+}
+
 export default function PlatformAdmin() {
   const [businesses, setBusinesses] = useState([]);
   const [dashboard, setDashboard] = useState(null);
@@ -381,6 +480,8 @@ export default function PlatformAdmin() {
               <BusinessConfigCenter tenantId={draft.id} />
             </section>
           ) : null}
+
+          {draft.id ? <BillingPanel tenant={draft} /> : null}
 
           <section className="platform-panel">
             <h2>Clientes</h2>

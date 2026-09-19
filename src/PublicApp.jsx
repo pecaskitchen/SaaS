@@ -1180,6 +1180,17 @@ function ProductOptions({ product, state, setState, lang = 'es', customization: 
 
   return (
     <div className="options-grid">
+      <OptionFamilyControls state={state} update={update} customization={customization} />
+      <RecipeCustomizationControls
+        product={product}
+        state={state}
+        customization={customization}
+        toggleRemovedIngredient={toggleRemovedIngredient}
+        updateChangedDressing={(value) => update('changedInternalDressing', value)}
+        toggleRecipeExtra={toggleRecipeExtra}
+        genericExtras={genericExtras}
+        lang={lang}
+      />
       <Notes value={state.note} onChange={(value) => update('note', value)} lang={lang} />
     </div>
   );
@@ -1202,7 +1213,7 @@ function initialOptions(product, customization = {}) {
 if (product.type === 'coffee') {
   return { temperature: 'Helado', milk: (product.id === 'latte' || product.id === 'frappe') ? '' : 'N/A', syrup: 'Sin jarabe', whippedCream: false, optionGroups, removedIngredients: [], changedInternalDressing: '', recipeExtras: [], note: '' };
 }
-  return { optionGroups, note: '' };
+  return { optionGroups, removedIngredients: [], changedInternalDressing: '', recipeExtras: [], note: '' };
 }
 
 function buildCartItem(product, options, lang = 'es', customization = {}) {
@@ -2253,5 +2264,4 @@ export default function PublicApp() {
     </main>
   );
 }
-
 

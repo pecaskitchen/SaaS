@@ -16,7 +16,6 @@ import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js'
 import { DEFAULT_PERFUME_PRICING_RULES, normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
-const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
 const ADMIN_VIEW_CONFIG = {
@@ -710,21 +709,11 @@ export default function AdminPanel({
               </div>}
             </section>}
 
-            {hasAdminSection('itemsCosts') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('itemsCosts')}>Costos y recetas (nuevo) <span>{openAdminSections.itemsCosts ? '-' : '+'}</span></button>
-              {openAdminSections.itemsCosts && (
-                <div className="admin-order-box">
-                  <AdminSectionIntro title="Costos y recetas (nuevo)" description="Vista de solo lectura del motor de costeo -- items, tipos, y costo/margen calculado por receta." />
-                  <ItemsRecipesPanel />
-                </div>
-              )}
-            </section>}
-
             {hasAdminSection('catalog') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('catalog')}>Catálogo operativo <span>{openAdminSections.catalog ? '-' : '+'}</span></button>
               {openAdminSections.catalog && (
                 <div className="admin-embedded-stock-config">
-                  <AdminSectionIntro title="Catálogo operativo" description="Aquí vive lo técnico: ingredientes, recetas/sub-recetas, familias e importación." />
+                  <AdminSectionIntro title="Productos y costos" description="Asistente único para productos, ingredientes, preparaciones, opciones del cliente y costos." />
                   <StockPanel mode="adminConfig" />
                 </div>
               )}

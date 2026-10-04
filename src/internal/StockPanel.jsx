@@ -4,6 +4,7 @@ import '../styles.css';
 import { parseCsvLine, rowsToCsv, downloadTextFile, parseGenericCsv } from '../lib/csv.js';
 import { formatOrderDate } from '../lib/dates.js';
 import { categoryMeta, mergeProductsWithExtras, slugifyCatalogId } from '../lib/catalog.js';
+import { OPTION_TEMPLATES, catalogDiagnostics, estimateRecipeCost, itemUnitCost } from '../lib/recipeSetup.js';
 import {
   DEFAULT_BRANCH_SETTINGS,
   activeBranches,
@@ -41,11 +42,18 @@ const STOCK_OPERATION_TABS = [
 ];
 
 const STOCK_ADMIN_CONFIG_TABS = [
-  { id: 'productSetup', label: 'Productos del menú' },
-  { id: 'items', label: 'Insumos' },
+  { id: 'productSetup', label: 'Asistente de productos' },
+  { id: 'items', label: 'Ingredientes y compras' },
   { id: 'recipesSub', label: 'Preparaciones' },
-  { id: 'families', label: 'Opciones y extras' },
-  { id: 'import', label: 'Avanzado' },
+  { id: 'families', label: 'Opciones del cliente' },
+  { id: 'import', label: 'Herramientas avanzadas' },
+];
+
+const SETUP_STEPS = [
+  { id: 'productSetup', number: 1, label: 'Producto' },
+  { id: 'recipesSub', number: 2, label: 'Ingredientes' },
+  { id: 'families', number: 3, label: 'Opciones' },
+  { id: 'summary', number: 4, label: 'Revisión' },
 ];
 
 const ITEM_TYPES = [
@@ -645,6 +653,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
   const [productionDraft, setProductionDraft] = useState({ recipeId: '', batchMultiplier: '1', note: '' });
   const [selectedProductSetupId, setSelectedProductSetupId] = useState('');
   const [productDraft, setProductDraft] = useState({ name: '', category: '', price: '', description: '', emoji: '🍽️' });
+  const [showSetupSummary, setShowSetupSummary] = useState(false);
+  const [returnToRecipe, setReturnToRecipe] = useState(false);
+  const [suggestedOptionNames, setSuggestedOptionNames] = useState([]);
 
   const [quickDrafts, setQuickDrafts] = useState([]);
   const [inventoryCounts, setInventoryCounts] = useState({});
@@ -796,7 +807,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       return;
     }
     const ok = await postStockAction({ action: 'saveItem', item: itemDraft }, 'Insumo guardado.');
-    if (ok) setItemDraft(emptyStockItem);
+    if (ok) {
+      setItemDraft(emptyStockItem);
+      if (returnToRecipe) {
+        setReturnToRecipe(false);
+        setActiveTab('recipesSub');
+        setStatus('Insumo guardado. Ya puedes seleccionarlo en la receta.');
+      }
+    }
   };
 
   const seedDefaults = async () => {
@@ -898,6 +916,20 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     setActiveTab('families');
   };
 
+  const openSetupStep = (stepId) => {
+    setShowSetupSummary(stepId === 'summary');
+    if (stepId === 'summary') return;
+    if (stepId === 'recipesSub' && selectedProductSetup) {
+      editProductRecipe(selectedProductSetup);
+      return;
+    }
+    if (stepId === 'families' && selectedProductSetup) {
+      startProductFamilyAssignment(selectedProductSetup);
+      return;
+    }
+    setActiveTab(stepId);
+  };
+
   const startNewRecipe = (recipeType) => {
     setRecipeDraft({ ...emptyRecipeDraft, recipe_type: recipeType });
     setRecipeLineDraft(emptyRecipeLineDraft);
@@ -912,7 +944,10 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const generatedKey = `${recipeDraft.recipe_type === 'subrecipe' ? 'subrecipe' : 'product'}:${slugifyCatalogId(recipeDraft.name, 'elemento')}`;
     const recipe = { ...recipeDraft, recipe_key: recipeDraft.recipe_key.trim() || generatedKey };
     const ok = await postStockAction({ action: 'saveRecipe', recipe }, recipeDraft.recipe_type === 'subrecipe' ? 'Preparación guardada.' : 'Ingredientes del producto guardados.');
-    if (ok) setRecipeDraft(emptyRecipeDraft);
+    if (ok) {
+      setRecipeDraft(emptyRecipeDraft);
+      if (recipe.recipe_type === 'product' && selectedProductSetup) startProductFamilyAssignment(selectedProductSetup);
+    }
   };
 
   const saveCatalogProduct = async (productInput = productDraft, options = {}) => {
@@ -961,6 +996,9 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       is_active: true,
       lines: [],
     });
+    setRecipeLineDraft(emptyRecipeLineDraft);
+    setShowSetupSummary(false);
+    setActiveTab('recipesSub');
   };
 
   const publishRecipeAsProduct = async (recipe) => {
@@ -986,7 +1024,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
   const seedOptionFamilies = async () => {
     if (role !== 'admin') return;
-    await postStockAction({ action: 'seedOptionFamilies' }, 'Familias base creadas/actualizadas.');
+    await postStockAction({ action: 'seedOptionFamilies' }, 'Grupos de opciones creados/actualizados.');
   };
 
   const editOptionFamily = (family) => {
@@ -1037,6 +1075,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
       return;
     }
     setOptionFamilyDraft((current) => ({ ...current, options: [...(current.options || []), { ...familyOptionDraft, option_name: optionName, quantity: isNoneOption ? 0 : familyOptionDraft.quantity, extra_price: isNoneOption ? 0 : familyOptionDraft.extra_price }] }));
+    setSuggestedOptionNames((current) => current.filter((name) => name !== optionName));
     setFamilyOptionDraft(emptyFamilyOptionDraft);
     setFamilyComponentDraft(emptyFamilyComponentDraft);
   };
@@ -1050,14 +1089,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         options: [...options, { item_id: '', option_name: 'Ninguno', quantity: 0, extra_price: 0, is_default: false, is_active: true, components: [] }],
       };
     });
-    setStatus('Opción "Ninguno" agregada. Guarda la familia para publicarla.');
+    setStatus('Opción "Ninguno" agregada. Guarda el grupo para publicarlo.');
   };
 
   const removeFamilyOption = (index) => setOptionFamilyDraft((current) => ({ ...current, options: (current.options || []).filter((_, i) => i !== index) }));
 
   const addProductFamilyRule = () => {
     if (!productFamilyRuleDraft.product_id) {
-      setStatus('Selecciona el producto donde se usará esta familia.');
+      setStatus('Selecciona el producto donde se usará este grupo.');
       return;
     }
     setOptionFamilyDraft((current) => ({ ...current, productRules: [...(current.productRules || []), { ...productFamilyRuleDraft, label: productFamilyRuleDraft.label || current.name }] }));
@@ -1093,12 +1132,42 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     }
   };
 
+  const useOptionTemplate = (template) => {
+    setOptionFamilyDraft({
+      ...emptyOptionFamilyDraft,
+      name: template.name,
+      description: template.description,
+      family_key: slugifyCatalogId(template.name, 'opciones'),
+      productRules: selectedProductSetup ? [{
+        ...emptyProductFamilyRuleDraft,
+        product_id: selectedProductSetup.id,
+        label: template.name,
+        min_select: template.required ? 1 : 0,
+        max_included: template.required ? 1 : 0,
+        max_total: template.maxTotal,
+        is_required: template.required,
+      }] : [],
+    });
+    setFamilyOptionDraft({ ...emptyFamilyOptionDraft, option_name: template.options[0] || '' });
+    setSuggestedOptionNames(template.options);
+    setProductFamilyRuleDraft({
+      ...emptyProductFamilyRuleDraft,
+      product_id: selectedProductSetup?.id || '',
+      label: template.name,
+      min_select: template.required ? 1 : 0,
+      max_included: template.required ? 1 : 0,
+      max_total: template.maxTotal,
+      is_required: template.required,
+    });
+    setStatus(`Plantilla “${template.name}” aplicada. Selecciona el insumo de cada opción y guárdala.`);
+  };
+
 
   const produceSubRecipe = async () => {    const selectedRecipe = data.recipes.find((recipe) => Number(recipe.id) === Number(productionDraft.recipeId));
     const multiplier = Number(productionDraft.batchMultiplier || 1);
     const outputQuantity = Number(selectedRecipe?.output_quantity || 0) * multiplier;
     if (!productionDraft.recipeId || !outputQuantity) {
-      setStatus('Selecciona sub-receta y cantidad producida.');
+      setStatus('Selecciona una preparación y la cantidad producida.');
       return;
     }
     const ok = await postStockAction({ action: 'produceSubRecipe', recipeId: productionDraft.recipeId, outputQuantity, batchMultiplier: multiplier, note: productionDraft.note }, 'Producción registrada.');
@@ -1499,6 +1568,16 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
     const productId = String(recipe.recipe_key || '').replace(/^product:/, '');
     return productId && !productById.has(productId);
   });
+  const recipeCostPreview = estimateRecipeCost(recipeDraft.lines || [], data.items, data.recipes);
+  const recipeProductPrice = recipeDraft.recipe_type === 'product'
+    ? Number(stockMenuProducts.find((product) => `product:${product.id}` === recipeDraft.recipe_key)?.price || 0)
+    : 0;
+  const recipeMarginPreview = recipeProductPrice ? recipeProductPrice - recipeCostPreview.cost : null;
+  const setupIssues = catalogDiagnostics({ items: data.items, recipes: data.recipes, products: stockMenuProducts });
+
+  const currentSetupStep = showSetupSummary
+    ? 'summary'
+    : (activeTab === 'recipesSub' ? 'recipesSub' : activeTab === 'families' ? 'families' : 'productSetup');
 
   const setProductSoldOut = async (productId, soldOut) => {
     await postStockAction({ action: 'setProductSoldOut', productId, soldOut }, soldOut ? 'Producto marcado como agotado.' : 'Producto disponible de nuevo.');
@@ -1560,15 +1639,64 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
         <div className="stock-tabs">
           {visibleStockTabs.map((tab) => (
-            <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}>
+            <button key={tab.id} type="button" className={!showSetupSummary && activeTab === tab.id ? 'active' : ''} onClick={() => { setShowSetupSummary(false); setActiveTab(tab.id); }}>
               {tab.label}
             </button>
           ))}
         </div>
 
+        {isAdminConfigMode && (
+          <nav className="catalog-setup-steps" aria-label="Configuración guiada del producto">
+            {SETUP_STEPS.map((step) => (
+              <button
+                key={step.id}
+                type="button"
+                className={currentSetupStep === step.id ? 'active' : ''}
+                onClick={() => openSetupStep(step.id)}
+                disabled={step.id !== 'productSetup' && !selectedProductSetup}
+              >
+                <span>{step.number}</span>
+                <b>{step.label}</b>
+              </button>
+            ))}
+          </nav>
+        )}
+
         {status && <p className="admin-status">{status}</p>}
 
-        {activeTab === 'productSetup' && (
+        {showSetupSummary && isAdminConfigMode && (
+          <div className="stock-dashboard-grid recipes-layout catalog-review-grid">
+            <section className="stock-card-block">
+              <div className="stock-section-head">
+                <div>
+                  <h2>Revisión de {selectedProductSetup?.name || 'producto'}</h2>
+                  <p>Comprueba que esté listo para vender y descontar inventario correctamente.</p>
+                </div>
+                <button type="button" className="ghost" onClick={() => openSetupStep('productSetup')}>Editar producto</button>
+              </div>
+              <div className="setup-review-list">
+                <div className={selectedProductSetup ? 'complete' : 'pending'}><b>Producto publicado</b><span>{selectedProductSetup ? `${stockCategoryLabel(selectedProductSetup.category)} · $${selectedProductSetup.price || 0}` : 'Pendiente'}</span></div>
+                <div className={selectedProductRecipe?.lines?.length ? 'complete' : 'pending'}><b>Ingredientes</b><span>{selectedProductRecipe?.lines?.length ? `${selectedProductRecipe.lines.length} configurado(s)` : 'Falta configurar la receta'}</span></div>
+                <div className={selectedProductFamilyRules.length ? 'complete' : 'optional'}><b>Opciones del cliente</b><span>{selectedProductFamilyRules.length ? `${selectedProductFamilyRules.length} grupo(s)` : 'Opcional'}</span></div>
+              </div>
+              <div className="inline-actions">
+                <button type="button" className="primary" onClick={() => openSetupStep('recipesSub')}>{selectedProductRecipe ? 'Revisar ingredientes' : 'Agregar ingredientes'}</button>
+                <button type="button" className="ghost" onClick={() => openSetupStep('families')}>Configurar opciones</button>
+              </div>
+            </section>
+            <section className="stock-card-block">
+              <h2>Diagnóstico del catálogo</h2>
+              {setupIssues.length === 0 ? <p className="setup-all-good">Todo está completo. No encontramos problemas.</p> : (
+                <div className="setup-issue-list">
+                  {setupIssues.slice(0, 20).map((issue, index) => <div key={`${issue.type}-${index}`}><span>!</span><p>{issue.label}</p></div>)}
+                </div>
+              )}
+              {setupIssues.length > 20 && <small>Hay {setupIssues.length - 20} observaciones adicionales.</small>}
+            </section>
+          </div>
+        )}
+
+        {!showSetupSummary && activeTab === 'productSetup' && (
           <div className="stock-dashboard-grid recipes-layout">
             <section className="stock-card-block">
               <div className="stock-section-head">
@@ -1609,7 +1737,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
 
               <div className="inline-actions">
                 {selectedProductSetup && <button type="button" className="ghost" onClick={() => editProductRecipe(selectedProductSetup)}>{selectedProductRecipe ? 'Editar receta del producto' : 'Crear receta del producto'}</button>}
-                {selectedProductSetup && <button type="button" className="ghost" onClick={() => startProductFamilyAssignment(selectedProductSetup)}>Asignar familia/modificador</button>}
+                {selectedProductSetup && <button type="button" className="ghost" onClick={() => startProductFamilyAssignment(selectedProductSetup)}>Agregar opciones del cliente</button>}
                 {selectedProductRecipe && <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(selectedProductRecipe, Boolean(selectedProductRecipe.is_active))}>{selectedProductRecipe.is_active ? 'Archivar receta' : 'Restaurar receta'}</button>}
                 <button type="button" className="ghost" onClick={() => { setRecipeEditorType('subrecipe'); startNewRecipe('subrecipe'); }}>Crear preparación</button>
               </div>
@@ -1638,8 +1766,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             </section>
 
             <section className="stock-card-block">
-              <h2>Familias y modificadores</h2>
-              {selectedProductFamilyRules.length === 0 ? <p>Este producto no tiene familias asignadas todavía.</p> : null}
+              <h2>Opciones del cliente</h2>
+              {selectedProductFamilyRules.length === 0 ? <p>Este producto no tiene grupos de opciones todavía.</p> : null}
               {selectedProductFamilyRules.map((rule) => (
                 <div className="recipe-card-mini" key={`${rule.family.family_key}-${rule.product_id}`}>
                   <div>
@@ -1647,7 +1775,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     <span>{rule.family.name} · {rule.family.family_key}</span>
                     <small>{rule.min_select || 0} mínimo · {rule.max_included || 0} incluido(s) · máximo {rule.max_total || 1} · extra ${rule.extra_price || 0}</small>
                   </div>
-                  <button type="button" className="ghost" onClick={() => editOptionFamily(rule.family)}>Editar familia</button>
+                  <button type="button" className="ghost" onClick={() => editOptionFamily(rule.family)}>Editar opciones</button>
                 </div>
               ))}
             </section>
@@ -1780,25 +1908,32 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   <label className="field"><span>Marca</span><input value={itemDraft.brand || ''} onChange={(e) => setItemDraft((c) => ({ ...c, brand: e.target.value }))} placeholder="Ej. McCormick" /></label>
                   <label className="field"><span>¿Qué es?</span><select value={itemDraft.item_type} onChange={(e) => setItemDraft((c) => ({ ...c, item_type: e.target.value }))}>{ITEM_TYPES.map((type) => <option key={type} value={type}>{type === 'Ingrediente comprado' ? 'Lo compro ya hecho' : type === 'Sub-receta / preparado' ? 'Lo preparo aquí' : type}</option>)}</select></label>
                   <label className="field"><span>Unidad base</span><select value={itemDraft.unit_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, unit_id: e.target.value }))}><option value="">Selecciona</option>{data.units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>)}</select></label>
-                  <label className="field"><span>Stock actual</span><input type="number" step="1" value={itemDraft.current_stock} onChange={(e) => setItemDraft((c) => ({ ...c, current_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Mínimo</span><input type="number" step="1" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
-                  <label className="field"><span>Máximo</span><input type="number" step="1" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Stock actual</span><input type="number" min="0" step="1" value={itemDraft.current_stock} onChange={(e) => setItemDraft((c) => ({ ...c, current_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Mínimo</span><input type="number" min="0" step="1" value={itemDraft.min_stock} onChange={(e) => setItemDraft((c) => ({ ...c, min_stock: e.target.value }))} /></label>
+                  <label className="field"><span>Máximo</span><input type="number" min="0" step="1" value={itemDraft.max_stock} onChange={(e) => setItemDraft((c) => ({ ...c, max_stock: e.target.value }))} /></label>
                   <label className="field"><span>Precisión esperada</span><select value={itemDraft.accuracy_target} onChange={(e) => setItemDraft((c) => ({ ...c, accuracy_target: e.target.value }))}>{ACCURACY_PRESETS.map((preset) => <option key={preset.label} value={preset.value}>{preset.label}</option>)}</select></label>
                   <label className="field"><span>Proveedor principal</span><select value={itemDraft.primary_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, primary_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
                   <label className="field"><span>Proveedor alternativo</span><select value={itemDraft.alt_supplier_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, alt_supplier_id: e.target.value }))}><option value="">Sin proveedor</option>{data.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
                   <label className="field"><span>Categoría compra</span><select value={itemDraft.purchase_category_id || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_category_id: e.target.value }))}><option value="">Sin categoría</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-                  <label className="field"><span>Presentación</span><input value={itemDraft.purchase_unit_label || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_label: e.target.value }))} placeholder="Ej. paquete 1 kg" /></label>
-                  <label className="field"><span>Cantidad por presentación</span><input type="number" step="1" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /></label>
-                  <label className="field"><span>Precio aprox.</span><input type="number" step="0.01" value={itemDraft.purchase_price || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_price: e.target.value }))} /></label>
+                  <label className="field"><span>¿Cómo lo compras?</span><input value={itemDraft.purchase_unit_label || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_label: e.target.value }))} placeholder="Ej. bolsa, caja o botella" /></label>
+                  <label className="field"><span>¿Cuánto contiene?</span><input type="number" min="0" step="1" value={itemDraft.purchase_unit_quantity || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_unit_quantity: e.target.value }))} /><small>En la unidad base elegida. Ejemplo: una bolsa de 1 kg contiene 1000 g.</small></label>
+                  <label className="field"><span>¿Cuánto cuesta?</span><input type="number" min="0" step="0.01" value={itemDraft.purchase_price || ''} onChange={(e) => setItemDraft((c) => ({ ...c, purchase_price: e.target.value }))} /></label>
                   <label className="field"><span>Caducidad próxima</span><input type="date" value={itemDraft.expiry_date || ''} onChange={(e) => setItemDraft((c) => ({ ...c, expiry_date: e.target.value }))} /></label>
                 </div>
+                {Number(itemDraft.purchase_unit_quantity || 0) > 0 && Number(itemDraft.purchase_price || 0) >= 0 && (
+                  <div className="unit-conversion-preview">
+                    <b>Conversión automática</b>
+                    <span>1 {itemDraft.purchase_unit_label || 'presentación'} = {formatStockQuantity(itemDraft.purchase_unit_quantity, data.units.find((unit) => Number(unit.id) === Number(itemDraft.unit_id))?.code)}</span>
+                    <strong>Costo por unidad base: ${(itemUnitCost(itemDraft) || 0).toFixed(4)}</strong>
+                  </div>
+                )}
                 <div className="stock-flags-grid inventory-master-flags">
                   <label className="check-row">
                     <input type="checkbox" checked={Boolean(itemDraft.is_active)} onChange={(e) => setItemDraft((c) => ({ ...c, is_active: e.target.checked }))} />
                     <span>Activo</span>
                   </label>
                 </div>
-                <p className="privacy-note">Aquí registras lo que compras o controlas en inventario. Las opciones que ve el cliente se configuran en “Opciones y extras”.</p>
+                <p className="privacy-note">El sistema convierte automáticamente la presentación de compra a la unidad utilizada en recetas. Las opciones visibles al cliente se configuran en “Opciones del cliente”.</p>
                 <div className="inline-actions">
                   <button type="button" className="primary" onClick={saveItem}>Guardar insumo</button>
                   <button type="button" className="ghost" onClick={() => setItemDraft(emptyStockItem)}>Limpiar</button>
@@ -1961,7 +2096,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
           </section>
         )}
 
-        {activeTab === 'recipesSub' && (
+        {!showSetupSummary && activeTab === 'recipesSub' && (
           <div className="stock-dashboard-grid recipes-layout">
             <section className="stock-card-block stock-item-form">
               <div className="stock-section-head">
@@ -1996,14 +2131,14 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   </div>
 
                   <div className="recipe-line-builder">
-                    <h3>Ingredientes / empaques de la receta</h3>
+                    <h3>¿Qué utiliza?</h3>
                     <div className="stock-form-grid compact-grid">
-                      <label className="field"><span>Ingrediente</span><select value={recipeLineDraft.item_id} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
-                      <label className="field"><span>Cantidad por uso</span><input type="number" step="1" value={recipeLineDraft.quantity} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
+                      <label className="field"><span>Ingrediente o preparación</span><select value={recipeLineDraft.item_id} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, item_id: e.target.value }))}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}{item.item_type === 'Sub-receta / preparado' ? ' · preparación' : ''}</option>)}</select></label>
+                      <label className="field"><span>Cantidad por producto</span><input type="number" min="0" step="1" value={recipeLineDraft.quantity} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, quantity: e.target.value }))} /><small>{data.items.find((item) => Number(item.id) === Number(recipeLineDraft.item_id))?.unit_code ? `En ${data.items.find((item) => Number(item.id) === Number(recipeLineDraft.item_id))?.unit_code}` : 'Usa la unidad base más pequeña: g, ml o pieza'}</small></label>
                       <label className="field"><span>Uso</span><select value={cleanRecipeLineRole(recipeLineDraft.line_role)} onChange={(e) => setRecipeLineDraft((c) => ({ ...c, line_role: e.target.value }))}>{LINE_ROLES.map((roleName) => <option key={roleName} value={roleName}>{LINE_ROLE_LABELS[roleName] || roleName}</option>)}</select></label>
                     </div>
                     <div className="inline-actions">
-                      <button type="button" className="ghost mini" onClick={() => { setItemDraft(emptyStockItem); setActiveTab('items'); }}>+ Crear insumo nuevo</button>
+                      <button type="button" className="ghost mini" onClick={() => { setItemDraft(emptyStockItem); setReturnToRecipe(true); setActiveTab('items'); }}>+ Crear ingrediente sin perder esta receta</button>
                     </div>
                     <details className="advanced-settings">
                       <summary>Comportamiento para el cliente y extras</summary>
@@ -2067,8 +2202,16 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                     </div>
                   )}
 
+                  <div className="recipe-cost-preview">
+                    <div><span>Costo estimado</span><b>${recipeCostPreview.cost.toFixed(2)}</b></div>
+                    {recipeProductPrice > 0 && <div><span>Precio de venta</span><b>${recipeProductPrice.toFixed(2)}</b></div>}
+                    {recipeMarginPreview !== null && <div className={recipeMarginPreview >= 0 ? 'positive' : 'negative'}><span>Margen estimado</span><b>${recipeMarginPreview.toFixed(2)} · {recipeProductPrice ? Math.round((recipeMarginPreview / recipeProductPrice) * 100) : 0}%</b></div>}
+                    {recipeCostPreview.unknown.length > 0 && <p>Falta costo de: {recipeCostPreview.unknown.join(', ')}.</p>}
+                  </div>
+
                   <div className="inline-actions">
-                    <button type="button" className="primary" onClick={saveRecipe}>Guardar receta</button>
+                    <button type="button" className="primary" onClick={saveRecipe}>Guardar y continuar</button>
+                    {recipeDraft.recipe_type === 'product' && selectedProductSetup && <button type="button" className="ghost" onClick={() => openSetupStep('families')}>Continuar a opciones</button>}
                     <button type="button" className="ghost" onClick={() => startNewRecipe(recipeEditorType)}>Limpiar</button>
                     {recipeDraft.id && <button type="button" className="ghost danger-text" onClick={() => archiveSelectedRecipe(recipeDraft, Boolean(recipeDraft.is_active))}>{recipeDraft.is_active ? 'Archivar' : 'Restaurar'}</button>}
                   </div>
@@ -2099,7 +2242,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
         )}
 
 
-        {activeTab === 'families' && (
+        {!showSetupSummary && activeTab === 'families' && (
           <div className="stock-items-view recipes-layout option-families-layout">
             <section className="stock-card-block stock-item-form">
               <div className="stock-section-head">
@@ -2109,9 +2252,23 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                 </div>
 
               </div>
-              {role !== 'admin' ? <p>Solo admin puede editar familias.</p> : null}
+              {role !== 'admin' ? <p>Solo admin puede editar opciones.</p> : null}
               {role === 'admin' && (
                 <>
+                  <div className="option-template-picker">
+                    <div>
+                      <h3>Empezar con una plantilla</h3>
+                      <p>La plantilla prepara las reglas; después sólo relaciona cada nombre con el ingrediente que descuenta inventario.</p>
+                    </div>
+                    <div className="option-template-grid">
+                      {OPTION_TEMPLATES.map((template) => (
+                        <button type="button" className="option-template" key={template.id} onClick={() => useOptionTemplate(template)}>
+                          <b>{template.name}</b>
+                          <span>{template.options.join(' · ')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="stock-form-grid">
                     <label className="field"><span>Nombre visible</span><input value={optionFamilyDraft.name} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Jarabes" /></label>
                     <label className="field full"><span>Descripción</span><input value={optionFamilyDraft.description || ''} onChange={(e) => setOptionFamilyDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Opciones que se pueden usar en varios productos" /></label>
@@ -2120,18 +2277,19 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   </div>
 
                   <div className="recipe-line-builder">
-                    <h3>Opciones dentro de la familia</h3>
+                    <h3>Opciones dentro del grupo</h3>
                     <div className="stock-form-grid compact-grid">
-                      <label className="field"><span>Ingrediente/sub-receta</span><select value={familyOptionDraft.item_id} onChange={(e) => {
+                      <label className="field"><span>Ingrediente o preparación</span><select value={familyOptionDraft.item_id} onChange={(e) => {
                         const selected = data.items.find((item) => Number(item.id) === Number(e.target.value));
                         setFamilyOptionDraft((c) => ({ ...c, item_id: e.target.value, option_name: c.option_name || selected?.name || '' }));
                       }}><option value="">Selecciona</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.unit_code}</option>)}</select></label>
                       <label className="field"><span>Nombre para cliente</span><input value={familyOptionDraft.option_name} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, option_name: e.target.value }))} placeholder="Vainilla francesa" /></label>
                       <label className="field"><span>Cantidad por uso</span><input type="number" step="1" value={familyOptionDraft.quantity} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, quantity: e.target.value }))} /></label>
-                      <label className="field"><span>Precio extra default</span><input type="number" step="1" value={familyOptionDraft.extra_price || 0} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
-                      <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_default)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_default: e.target.checked }))} /><span>Default</span></label>
+                      <label className="field"><span>Precio adicional</span><input type="number" step="0.01" value={familyOptionDraft.extra_price || 0} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, extra_price: e.target.value }))} /></label>
+                      <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_default)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_default: e.target.checked }))} /><span>Seleccionada inicialmente</span></label>
                       <label className="check-row"><input type="checkbox" checked={Boolean(familyOptionDraft.is_active)} onChange={(e) => setFamilyOptionDraft((c) => ({ ...c, is_active: e.target.checked }))} /><span>Activa</span></label>
                     </div>
+                    {suggestedOptionNames.length > 0 && <div className="suggested-option-names"><span>Sugerencias de la plantilla:</span>{suggestedOptionNames.map((name) => <button type="button" key={name} onClick={() => setFamilyOptionDraft((current) => ({ ...current, option_name: name }))}>{name}</button>)}</div>}
                     <div className="family-components-builder">
                       <h4>Componentes adicionales de esta opción</h4>
                       <p className="privacy-note">Úsalos para empaques ligados a la opción: por ejemplo, Chipotle + contenedor de aderezo, o café frío + tapa.</p>
@@ -2160,7 +2318,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   )}
 
                   <div className="recipe-line-builder">
-                    <h3>Productos que usan esta familia</h3>
+                    <h3>Productos que usan estas opciones</h3>
                     <div className="stock-form-grid compact-grid">
                       <label className="field"><span>Producto</span><select value={productFamilyRuleDraft.product_id} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, product_id: e.target.value }))}><option value="">Selecciona</option>{stockMenuProducts.map((product) => <option key={product.id} value={product.id}>{productText(product, 'es').name}</option>)}</select></label>
                       <label className="field"><span>Etiqueta</span><input value={productFamilyRuleDraft.label} onChange={(e) => setProductFamilyRuleDraft((c) => ({ ...c, label: e.target.value }))} placeholder={optionFamilyDraft.name || 'Nombre de familia'} /></label>
@@ -2186,7 +2344,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
                   )}
 
                   <div className="inline-actions">
-                    <button type="button" className="primary" onClick={saveOptionFamily}>Guardar familia</button>
+                    <button type="button" className="primary" onClick={saveOptionFamily}>Guardar opciones</button>
+                    {selectedProductSetup && <button type="button" className="ghost" onClick={() => openSetupStep('summary')}>Ir a revisión</button>}
                     <button type="button" className="ghost" onClick={() => { setOptionFamilyDraft(emptyOptionFamilyDraft); setFamilyOptionDraft(emptyFamilyOptionDraft); setFamilyComponentDraft(emptyFamilyComponentDraft); setProductFamilyRuleDraft(emptyProductFamilyRuleDraft); }}>Limpiar</button>
                   </div>
                 </>
@@ -2194,8 +2353,8 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             </section>
 
             <section className="stock-card-block">
-              <h2>Familias guardadas</h2>
-              {(data.optionFamilies || []).length === 0 ? <p>No hay familias todavía.</p> : null}
+              <h2>Grupos de opciones guardados</h2>
+              {(data.optionFamilies || []).length === 0 ? <p>No hay grupos de opciones todavía.</p> : null}
               <div className="recipe-list">
                 {(data.optionFamilies || []).map((family) => (
                   <div className="recipe-card-mini" key={family.id}>
@@ -2214,7 +2373,7 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <div className="stock-section-head">
               <div>
                 <h2>Importar recetas desde CSV</h2>
-                <p>Sirve para carga inicial o cambios masivos de recetas y sub-recetas. Una fila = una línea de ingrediente de receta.</p>
+                <p>Sirve para carga inicial o cambios masivos de productos y preparaciones. Una fila representa un ingrediente.</p>
               </div>
               <button type="button" className="ghost" onClick={downloadRecipeCsvTemplate}>Descargar plantilla recetas</button>
             </div>
@@ -2272,15 +2431,15 @@ export default function StockPanel({ mode = 'stock', embeddedPassword = '' } = {
             <section className="stock-card-block narrow-stock-form">
               <h2>Producción de preparados</h2>
               <p>Usa esto cuando prepares aderezo chipotle, blue cheese u otro preparado. Se descuentan ingredientes base y se suma el preparado.</p>
-              <label className="field full"><span>Sub-receta</span><select value={productionDraft.recipeId} onChange={(e) => setProductionDraft((c) => ({ ...c, recipeId: e.target.value }))}><option value="">Selecciona</option>{subRecipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipeLabel(recipe)}</option>)}</select></label>
+              <label className="field full"><span>Preparación</span><select value={productionDraft.recipeId} onChange={(e) => setProductionDraft((c) => ({ ...c, recipeId: e.target.value }))}><option value="">Selecciona</option>{subRecipes.map((recipe) => <option key={recipe.id} value={recipe.id}>{recipeLabel(recipe)}</option>)}</select></label>
               <label className="field full"><span>Cantidad producida</span><select value={productionDraft.batchMultiplier} onChange={(e) => setProductionDraft((c) => ({ ...c, batchMultiplier: e.target.value }))}>{PRODUCTION_BATCH_OPTIONS.map((value) => <option key={value} value={value}>{value} tanda{value === 1 ? '' : 's'}</option>)}</select><small>{(() => { const selectedRecipe = subRecipes.find((recipe) => Number(recipe.id) === Number(productionDraft.recipeId)); const total = Number(selectedRecipe?.output_quantity || 0) * Number(productionDraft.batchMultiplier || 1); return selectedRecipe ? `Se producirán ${formatStockQuantity(total, selectedRecipe.output_unit_code)}.` : 'Selecciona una sub-receta para calcular el total.'; })()}</small></label>
               <label className="field full"><span>Nota</span><textarea rows="2" value={productionDraft.note} onChange={(e) => setProductionDraft((c) => ({ ...c, note: e.target.value }))} placeholder="Ej. preparado del día" /></label>
               <button type="button" className="primary" onClick={produceSubRecipe}>Registrar producción</button>
             </section>
 
             <section className="stock-card-block">
-              <h2>Sub-recetas disponibles</h2>
-              {subRecipes.length === 0 ? <p>No hay sub-recetas. Crea una en la pestaña Sub-recetas.</p> : null}
+              <h2>Preparaciones disponibles</h2>
+              {subRecipes.length === 0 ? <p>No hay preparaciones. Crea una en la pestaña Preparaciones.</p> : null}
               {subRecipes.map((recipe) => (
                 <div className="recipe-card-mini" key={recipe.id}>
                   <div>

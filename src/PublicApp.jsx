@@ -619,12 +619,14 @@ function selectedRecipeExtraPrice(product, customization, selectedExtras = []) {
   }, 0);
 }
 
-function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND }) {
+function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND, businessStatus: storefrontStatus = null }) {
   const cleanBrand = normalizePublicBrand({ brand });
+  const isPecas = /pecas/i.test(cleanBrand.displayName || '');
+  const compactStatus = String(storefrontStatus?.label || '').replace('Abierto ahora', 'Abierto');
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        {cleanBrand.logoUrl ? <img src={cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
+        {cleanBrand.logoUrl ? <span className={`brand-logo-frame ${isPecas ? 'pecas-logo-frame' : ''}`}><img src={cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /></span> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
         <div>
           <div className="brand-name">{cleanBrand.displayName}</div>
           {cleanBrand.tagline ? <div className="brand-tagline">{cleanBrand.tagline}</div> : null}
@@ -641,6 +643,7 @@ function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND
           {onLoginClick && (
             <button type="button" className="employee-login-button" onClick={onLoginClick}>Ingresa</button>
           )}
+          {isPecas && storefrontStatus && <span className={`nav-business-status ${storefrontStatus.open ? 'open' : 'closed'}`}>{compactStatus}</span>}
         </div>
       )}
     </div>
@@ -2190,6 +2193,7 @@ export default function PublicApp() {
   }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const isPecasStorefront = /pecas/i.test(publicBrand.displayName || '');
 
   const addItem = (item) => setCart((current) => [item, ...current]);
   const updateQty = (uid, quantity) => {
@@ -2211,10 +2215,10 @@ export default function PublicApp() {
 
 
   return (
-    <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'}`} style={publicThemeStyle(publicBrand)}>
+    <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'} ${isPecasStorefront ? 'pecas-storefront' : ''}`} style={publicThemeStyle(publicBrand)}>
       <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} brand={publicBrand} />
+          <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} brand={publicBrand} businessStatus={currentBusinessStatus} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>
@@ -2222,7 +2226,7 @@ export default function PublicApp() {
 
         <div className={`hero-grid ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
           <div className="hero-copy">
-            <div className={`open-status-pill ${currentBusinessStatus.open ? 'open' : 'closed'}`}>{currentBusinessStatus.label}</div>
+            {!isPecasStorefront && <div className={`open-status-pill ${currentBusinessStatus.open ? 'open' : 'closed'}`}>{currentBusinessStatus.label}</div>}
 
             {customer.profileLoaded && customer.name && (
               <p className="hero-welcome">{t(lang, 'welcomeBack', customer.name)}</p>
@@ -2250,9 +2254,9 @@ export default function PublicApp() {
                 <Utensils size={18} /> {publicBrand.primaryActionLabel || t(lang, 'orderNow')}
               </a>
 
-              <a className="secondary" href="#cart">
+              {!isPecasStorefront && <a className="secondary" href="#cart">
                 <MessageCircle size={18} /> {publicBrand.secondaryActionLabel || t(lang, 'viewCart')}
-              </a>
+              </a>}
             </div>
           </div>
 
@@ -2284,7 +2288,7 @@ export default function PublicApp() {
         <div className="menu-main">
           <div className="section-heading">
             <span className="eyebrow">{publicBrand.menuEyebrow || t(lang, 'menu')}</span>
-            <h2>{publicBrand.menuTitle || t(lang, 'chooseCategory')}</h2>
+            <h2>{isPecasStorefront ? '¿Qué se te antoja hoy?' : (publicBrand.menuTitle || t(lang, 'chooseCategory'))}</h2>
           </div>
           {currentCategories.length === 0 ? <div className="empty-catalog"><h3>{publicBrand.emptyCatalogTitle}</h3><p>{publicBrand.emptyCatalogText}</p></div> : null}
           <div className="tabs">

@@ -1885,6 +1885,39 @@ async function getItemIdByName(env, name) {
   return row?.id || null;
 }
 
+async function assertNoPreparationCycle(env, tenantId, outputItemId, incomingLines = [], editingRecipeId = null) {
+  if (!outputItemId) return;
+  const rows = (await env.DB.prepare(
+    `SELECT r.id AS recipe_id, r.output_item_id, l.item_id
+     FROM recipes r
+     JOIN recipe_lines l ON l.tenant_id = r.tenant_id AND l.recipe_id = r.id
+     WHERE r.tenant_id = ? AND r.recipe_type = 'subrecipe' AND r.is_active = 1`
+  ).bind(tenantId).all()).results || [];
+
+  const graph = new Map();
+  for (const row of rows) {
+    if (editingRecipeId && Number(row.recipe_id) === Number(editingRecipeId)) continue;
+    const source = Number(row.output_item_id || 0);
+    const target = Number(row.item_id || 0);
+    if (!source || !target) continue;
+    if (!graph.has(source)) graph.set(source, new Set());
+    graph.get(source).add(target);
+  }
+  graph.set(Number(outputItemId), new Set(incomingLines.map((line) => Number(line.item_id || line.itemId || 0)).filter(Boolean)));
+
+  const origin = Number(outputItemId);
+  const visit = (node, path = new Set()) => {
+    if (path.has(node)) return node === origin;
+    const nextPath = new Set(path);
+    nextPath.add(node);
+    for (const child of graph.get(node) || []) {
+      if (child === origin || visit(child, nextPath)) return true;
+    }
+    return false;
+  };
+  if (visit(origin)) throw new Error('Esta preparación forma un ciclo con otra preparación. Revisa sus ingredientes.');
+}
+
 async function saveRecipe(env, recipe) {
   const tenantId = currentTenantId(env);
   const now = new Date().toISOString();
@@ -1895,6 +1928,9 @@ async function saveRecipe(env, recipe) {
   const outputItemId = nullableId(recipe.output_item_id);
   const outputQuantity = wholeNonNegativeNumber(recipe.output_quantity, 'Cantidad producida base');
   const lines = Array.isArray(recipe.lines) ? recipe.lines : [];
+  if (recipeType === 'subrecipe' && !outputItemId) throw new Error('Selecciona el ingrediente que produce esta preparación.');
+  if (recipeType === 'subrecipe' && outputQuantity <= 0) throw new Error('Indica cuánto produce una tanda de esta preparación.');
+  if (recipeType === 'subrecipe') await assertNoPreparationCycle(env, tenantId, outputItemId, lines, recipe.id);
 
   let recipeId = recipe.id ? Number(recipe.id) : null;
   const existing = recipeId ? await env.DB.prepare(`SELECT id FROM recipes WHERE tenant_id = ? AND id = ?`).bind(tenantId, recipeId).first() : null;

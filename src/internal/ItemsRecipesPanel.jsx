@@ -4,7 +4,7 @@ import { apiFetch } from '../lib/apiClient.js';
 const TYPE_LABELS = {
   product: 'Producto',
   ingredient: 'Ingrediente',
-  subrecipe: 'Sub-receta',
+  subrecipe: 'Preparación',
   packaging: 'Empaque',
   modifier: 'Modificador',
   supply: 'Insumo',
@@ -22,10 +22,8 @@ function money(value) {
 }
 
 // Uso: importar en AdminPanel.jsx y renderizar <ItemsRecipesPanel />.
-// Vista de solo lectura -- NO reemplaza StockPanel.jsx (esa sigue siendo
-// la unica forma de crear/editar items, recetas, familias). Esta es la
-// vista nueva del motor de costeo de Fase 1: qué existe, cómo está
-// clasificado, y cuánto cuesta cada receta.
+// Resumen de solo lectura del motor de costeo. La edición se concentra en
+// el asistente de Productos y costos para evitar pantallas duplicadas.
 export default function ItemsRecipesPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -49,6 +49,23 @@ button, a { -webkit-tap-highlight-color:transparent; }
 .category-grid button:after { content:''; position:absolute; width:180px; height:180px; border-radius:50%; background:var(--gold-pale); right:-60px; bottom:-70px; transition:.3s; }
 .category-grid button:hover { transform:translateY(-5px); border-color:var(--gold); }.category-grid button:hover:after { transform:scale(1.2); }
 .category-grid h3 { font-size:2.1rem; margin-top:54px; }.category-grid p { color:var(--muted); max-width:240px; }.category-grid i { color:var(--gold-dark); font-style:normal; }
+.promotion-section { display:grid; grid-template-columns:.75fr 1.25fr; gap:60px 80px; border-top:1px solid var(--line); }
+.promotion-heading h2 { font-size:clamp(2.4rem,5vw,4.6rem); line-height:1; margin:12px 0 20px; }
+.promotion-heading p { color:var(--muted); line-height:1.7; }
+.promotion-prices { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; }
+.promotion-card { background:var(--black); color:var(--paper); padding:32px; border:1px solid var(--black); }
+.promotion-card-title { padding-bottom:25px; margin-bottom:10px; border-bottom:1px solid rgba(189,139,47,.55); }
+.promotion-card-title h3 { font-size:1.8rem; margin-bottom:6px; }
+.promotion-card-title span { color:#c5bfb3; font-size:.75rem; }
+.promotion-offers > div { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:17px 0; border-bottom:1px solid rgba(255,255,255,.12); }
+.promotion-offers span { color:#d0cbc2; font-size:.82rem; }
+.promotion-offers strong { color:#e4bd67; font-size:1.15rem; white-space:nowrap; }
+.pheromone-promo { grid-column:1/-1; display:flex; align-items:center; gap:16px; border:1px solid var(--gold); background:var(--gold-pale); padding:22px 28px; }
+.pheromone-promo svg { color:var(--gold-dark); }
+.pheromone-promo > div { display:flex; flex-direction:column; flex:1; }
+.pheromone-promo span { font-family:'Playfair Display',serif; font-size:1.35rem; }
+.pheromone-promo small { color:var(--muted); }
+.pheromone-promo strong { color:var(--gold-dark); font-size:1.5rem; }
 .favorites-section { background:#fff; width:100%; max-width:none; padding-left:max(24px,calc((100% - 1200px)/2)); padding-right:max(24px,calc((100% - 1200px)/2)); }
 .text-link { background:none; border:0; color:var(--gold-dark); }
 .product-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
@@ -85,8 +102,13 @@ button, a { -webkit-tap-highlight-color:transparent; }
 .dark-mode .checkout-fields textarea { background:#181816; color:#f7f4ed; }
 .dark-mode .perfume-card-image { background:linear-gradient(145deg,#29251c,#171612); }
 .dark-mode .perfume-badge { color:#0e0e0d; }
+.dark-mode .promotion-card { background:#f7f4ed; color:#0e0e0d; border-color:#f7f4ed; }
+.dark-mode .promotion-card-title span,.dark-mode .promotion-offers span { color:#59544c; }
+.dark-mode .promotion-offers > div { border-bottom-color:rgba(0,0,0,.14); }
 .dark-mode .hero-note { background:rgba(14,14,13,.9); }
 .dark-mode .search-box input { color:#f7f4ed; }
 .dark-mode .perfume-cart,.dark-mode .quiz-card { background:#0e0e0d; color:#f7f4ed; }
 .dark-mode .cart-line img { background:#242119; }
 .dark-mode .quiz-banner,.dark-mode .perfume-footer { background:#050505; }
+@media (max-width:850px) { .promotion-section { grid-template-columns:1fr; gap:35px; } }
+@media (max-width:650px) { .promotion-prices { grid-template-columns:1fr; }.promotion-card { padding:26px 22px; }.pheromone-promo { padding:20px; }.pheromone-promo strong { font-size:1.25rem; } }

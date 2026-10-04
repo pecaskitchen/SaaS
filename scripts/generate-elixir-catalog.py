@@ -104,6 +104,30 @@ payload = {
             "supportEmail": "",
             "paymentMethods": ["Mercado Pago", "WhatsApp"],
             "fulfillmentTypes": ["Recoger", "Entrega a domicilio"],
+            "promotions": {
+                "eyebrow": "Precios especiales",
+                "title": "Más perfumes, mejor precio.",
+                "presentations": [
+                    {
+                        "label": "Perfumes 30 ml",
+                        "regularPrice": 70,
+                        "offers": [
+                            {"label": "Promoción", "value": "2 × $120"},
+                            {"label": "A partir de 10 piezas", "value": "$55 c/u"},
+                            {"label": "A partir de 20 piezas", "value": "$50 c/u"},
+                        ],
+                    },
+                    {
+                        "label": "Perfumes 60 ml",
+                        "regularPrice": 120,
+                        "offers": [
+                            {"label": "A partir de 10 piezas", "value": "$110 c/u"},
+                            {"label": "A partir de 20 piezas", "value": "$100 c/u"},
+                        ],
+                    },
+                ],
+                "addOn": {"label": "Agrega feromonas", "value": "+ $10", "detail": "por perfume"},
+            },
             "faq": [
                 {"question": "¿Qué tamaños manejan?", "answer": "Todas las fragancias están disponibles en presentaciones de 30 ml y 60 ml."},
                 {"question": "¿Qué formas de pago aceptan?", "answer": "Puedes pagar en línea de forma segura con Mercado Pago o acordar tu pedido por WhatsApp."},

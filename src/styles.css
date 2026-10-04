@@ -220,18 +220,18 @@ a { color: inherit; text-decoration: none; }
 .pecas-storefront .nav { align-items: flex-start; }
 .pecas-storefront .cart-pill { margin-top: 3px; }
 .pecas-storefront .pecas-logo-frame {
-  width: 72px;
-  height: 64px;
-  flex-basis: 72px;
+  width: 68px;
+  height: 68px;
+  flex-basis: 68px;
   border-radius: 0;
   background: transparent;
 }
 .pecas-storefront .pecas-logo-frame .brand-logo {
   border-radius: 0;
   box-shadow: none;
-  object-fit: cover;
-  transform: scale(1.3);
-  mix-blend-mode: multiply;
+  object-fit: contain;
+  transform: none;
+  mix-blend-mode: normal;
 }
 .nav-business-status {
   display: inline-flex;
@@ -732,7 +732,7 @@ textarea { resize: vertical; min-height: 48px; }
   .pecas-storefront .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pecas-storefront .brand-area { gap: 4px; }
   .pecas-storefront .brand-actions { flex-wrap: nowrap; }
-  .pecas-storefront .nav-business-status { max-width: 190px; white-space: normal; }
+  .pecas-storefront .nav-business-status { white-space: nowrap; }
 }
 
 @media (max-width: 420px) {
@@ -753,7 +753,7 @@ textarea { resize: vertical; min-height: 48px; }
     width: 100%;
   }
   .pecas-storefront .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pecas-storefront .pecas-logo-frame { width: 64px; height: 58px; flex-basis: 64px; }
+  .pecas-storefront .pecas-logo-frame { width: 60px; height: 60px; flex-basis: 60px; }
   .pecas-storefront .brand-name { font-size: 21px; }
   .pecas-storefront .nav-business-status { font-size: 10px; padding: 4px 7px; }
 }
@@ -5297,4 +5297,31 @@ textarea { resize: vertical; min-height: 48px; }
   .promo-carousel .promo-media.has-image img { display: block; width: 100%; height: 180px; object-fit: cover; }
   .promo-carousel .promo-content { position: relative; z-index: 1; background: linear-gradient(135deg, rgba(255, 250, 242, .99), rgba(247, 232, 207, .99)); }
   .promo-carousel .promo-card.image-only .promo-media { height: auto; max-height: none; aspect-ratio: 16 / 8; }
+}
+
+/* Garantías finales para Pecas: prevalecen sobre todas las reglas responsive heredadas. */
+.public-storefront.pecas-storefront .tabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  overflow: visible !important;
+}
+.public-storefront.pecas-storefront .tabs > button {
+  display: inline-flex;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  flex: none !important;
+}
+.public-storefront.pecas-storefront .nav-business-status,
+.public-storefront.pecas-storefront .cart-pill {
+  white-space: nowrap !important;
+  flex-wrap: nowrap !important;
+}
+
+@media (max-width: 430px) {
+  .public-storefront.pecas-storefront .nav { gap: 8px; }
+  .public-storefront.pecas-storefront .cart-pill { padding: 8px 9px; font-size: 11px; }
+  .public-storefront.pecas-storefront .nav-business-status { padding: 4px 6px; font-size: 9px; letter-spacing: -.1px; }
+  .public-storefront.pecas-storefront .employee-login-button { padding: 5px 8px; font-size: 10px; }
 }

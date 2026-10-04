@@ -1,8 +1,8 @@
 export const BUSINESS_TYPES = [
   { value: 'food', label: 'Restaurante / cafetería' },
-  { value: 'floral', label: 'Florería' },
+  { value: 'floral', label: 'Florería / regalos' },
   { value: 'retail', label: 'Tienda / retail' },
-  { value: 'services', label: 'Servicios' },
+  { value: 'services', label: 'Servicios / citas' },
   { value: 'distribution', label: 'Distribución / mayoreo' },
   { value: 'custom', label: 'Personalizado' },
 ];
@@ -21,7 +21,7 @@ export const DEFAULT_MODULES_BY_BUSINESS_TYPE = {
   food: { ...always, pedidos: true, caja: true, cobranza: false, menu: true, inventario: true, recetas: true },
   floral: { ...always, pedidos: true, caja: true, cobranza: false, menu: true, inventario: true, recetas: false },
   retail: { ...always, pedidos: true, caja: true, cobranza: true, menu: true, inventario: true, recetas: false },
-  services: { ...always, pedidos: false, caja: false, cobranza: true, menu: false, inventario: false, recetas: false },
+  services: { ...always, pedidos: true, caja: true, cobranza: true, menu: true, inventario: false, recetas: false },
   distribution: { ...always, pedidos: true, caja: false, cobranza: true, menu: true, inventario: true, recetas: false },
   custom: { ...always, pedidos: true, caja: true, cobranza: false, menu: true, inventario: true, recetas: false },
 };
@@ -49,10 +49,10 @@ export function normalizeModuleSettings(value, businessType = 'food') {
 }
 
 export const MODULE_LABELS_BY_BUSINESS_TYPE = {
-  food: { menu: 'Menú', inventario: 'Inventario', recetas: 'Recetas', historial: 'Ventas' },
-  floral: { pedidos: 'Pedidos y entregas', menu: 'Arreglos', inventario: 'Insumos', historial: 'Ventas' },
-  retail: { pedidos: 'Ventas', caja: 'Caja / venta', menu: 'Catálogo', cobranza: 'Apartados y abonos' },
-  services: { pedidos: 'Solicitudes', menu: 'Servicios', cobranza: 'Cobranza', historial: 'Servicios realizados' },
-  distribution: { pedidos: 'Pedidos', menu: 'Productos', cobranza: 'Crédito y cobranza', historial: 'Ventas' },
+  food: { pedidos: 'Pedidos', caja: 'Caja', menu: 'Menú', inventario: 'Inventario', recetas: 'Recetas', historial: 'Ventas' },
+  floral: { pedidos: 'Pedidos y entregas', caja: 'Caja', menu: 'Arreglos', inventario: 'Insumos', historial: 'Ventas' },
+  retail: { pedidos: 'Pedidos', caja: 'Punto de venta', menu: 'Catálogo', inventario: 'Inventario', cobranza: 'Apartados y abonos', historial: 'Historial de ventas' },
+  services: { pedidos: 'Agenda y solicitudes', caja: 'Cobros', menu: 'Servicios', cobranza: 'Cuentas por cobrar', historial: 'Servicios realizados' },
+  distribution: { pedidos: 'Pedidos', caja: 'Ventas', menu: 'Productos', cobranza: 'Crédito y cobranza', historial: 'Ventas' },
   custom: {},
 };

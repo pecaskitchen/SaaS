@@ -16,18 +16,15 @@ import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js'
 import { DEFAULT_PERFUME_PRICING_RULES, normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
-const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
-const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
-const BusinessConfigCenter = React.lazy(() => import('./BusinessConfigCenter.jsx'));
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
 const ADMIN_VIEW_CONFIG = {
   menu: {
     title: 'Catálogo',
-    description: 'Busca y edita productos, configura precios por volumen y conecta los canales de venta.',
-    sections: ['contact', 'payments', 'whatsapp', 'promo', 'pricingRules', 'sections'],
-    open: { contact: false, payments: false, whatsapp: false, promo: true, pricingRules: true, sections: true },
+    description: 'Administra lo que vendes y las promociones que ve el cliente.',
+    sections: ['promo', 'pricingRules', 'sections'],
+    open: { promo: true, pricingRules: false, sections: true },
   },
   business: {
     title: 'Negocio',
@@ -38,8 +35,8 @@ const ADMIN_VIEW_CONFIG = {
   all: {
     title: 'Administrador',
     description: 'Configura sucursales, menu, ingredientes, recetas, familias e importaciones. Para operacion diaria usa Pedidos, Stock o Caja.',
-    sections: ['executive', 'payments', 'whatsapp', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
-    open: { executive: true, branches: true, orderForm: false, payments: false, whatsapp: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
+    sections: ['executive', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
+    open: { executive: true, branches: true, orderForm: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
   },
 };
 
@@ -165,6 +162,14 @@ export default function AdminPanel({
   businessType = 'food',
 }) {
   const viewConfig = ADMIN_VIEW_CONFIG[view] || ADMIN_VIEW_CONFIG.menu;
+  const catalogCopy = {
+    food: { title: 'Menú', description: 'Administra platillos, bebidas, categorías y promociones.', items: 'Platillos y productos' },
+    retail: { title: 'Catálogo', description: 'Administra productos, precios, presentaciones y promociones.', items: 'Productos y categorías' },
+    floral: { title: 'Arreglos', description: 'Administra arreglos, ocasiones, precios y promociones.', items: 'Arreglos y categorías' },
+    services: { title: 'Servicios', description: 'Administra servicios, categorías, precios y promociones.', items: 'Servicios y categorías' },
+    distribution: { title: 'Productos', description: 'Administra productos, presentaciones, mayoreo y promociones.', items: 'Productos y categorías' },
+    custom: { title: 'Catálogo', description: 'Administra tu oferta y promociones.', items: 'Elementos y categorías' },
+  }[businessType] || { title: 'Catálogo', description: 'Administra tu oferta y promociones.', items: 'Productos y categorías' };
   const visibleSections = useMemo(() => new Set(viewConfig.sections || []), [viewConfig]);
   const hasAdminSection = (sectionKey) => visibleSections.has(sectionKey) && (sectionKey !== 'pricingRules' || businessType === 'retail');
   const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
@@ -644,8 +649,8 @@ export default function AdminPanel({
         <Logo />
         <div className="admin-hero">
           <div>
-            <h1>{viewConfig.title}</h1>
-            <p>{viewConfig.description}</p>
+            <h1>{view === 'menu' ? catalogCopy.title : viewConfig.title}</h1>
+            <p>{view === 'menu' ? catalogCopy.description : viewConfig.description}</p>
           </div>
           <a className="ghost admin-home-link" href="#">Ver página cliente</a>
         </div>
@@ -684,19 +689,6 @@ export default function AdminPanel({
                 </div>
               )}
             </section>}
-            {hasAdminSection('contact') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('contact')}>Contacto y WhatsApp de pedidos <span>{openAdminSections.contact ? '-' : '+'}</span></button>
-              {openAdminSections.contact && <BusinessConfigCenter section="business" title="Contacto y pedidos" description="Configura el número al que se enviarán los pedidos del carrito." />}
-            </section>}
-            {hasAdminSection('payments') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('payments')}>Pagos en línea <span>{openAdminSections.payments ? '-' : '+'}</span></button>
-              {openAdminSections.payments && (
-                <div className="admin-order-box">
-                  <PaymentsSettings />
-                </div>
-              )}
-            </section>}
-
             {hasAdminSection('pricingRules') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('pricingRules')}>Precios por volumen <span>{openAdminSections.pricingRules ? '-' : '+'}</span></button>
               {openAdminSections.pricingRules && <div className="admin-order-box">
@@ -716,15 +708,6 @@ export default function AdminPanel({
                 </div>
                 <button type="button" className="ghost" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: [...(current.rules || []), { id: `regla-${Date.now()}`, variantId: '30-ml', minQuantity: 1, unitPrice: 0, label: 'Nueva regla' }] }))}>+ Agregar regla</button>
               </div>}
-            </section>}
-
-            {hasAdminSection('whatsapp') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('whatsapp')}>WhatsApp Business <span>{openAdminSections.whatsapp ? '-' : '+'}</span></button>
-              {openAdminSections.whatsapp && (
-                <div className="admin-order-box">
-                  <WhatsAppSettings />
-                </div>
-              )}
             </section>}
 
             {hasAdminSection('itemsCosts') && <section className="admin-collapse">
@@ -956,7 +939,7 @@ export default function AdminPanel({
             </section>}
 
             {hasAdminSection('sections') && <section className="admin-collapse">
-            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>Productos y categorias <span>{openAdminSections.sections ? '-' : '+'}</span></button>
+            <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('sections')}>{catalogCopy.items} <span>{openAdminSections.sections ? '-' : '+'}</span></button>
             {openAdminSections.sections && (
             <>
             <div className="admin-order-box">

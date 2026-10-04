@@ -17,6 +17,16 @@ test('floreria no hereda recetas gastronomicas', () => {
   assert.equal(modules.recetas, false);
 });
 
+test('servicios habilita oferta, solicitudes, cobros y cobranza', () => {
+  const modules = normalizeModuleSettings({}, 'services');
+  assert.equal(modules.menu, true);
+  assert.equal(modules.pedidos, true);
+  assert.equal(modules.caja, true);
+  assert.equal(modules.cobranza, true);
+  assert.equal(modules.inventario, false);
+  assert.equal(modules.recetas, false);
+});
+
 test('un giro desconocido cae de forma segura a food', () => {
   assert.equal(normalizeBusinessType('desconocido'), 'food');
 });

@@ -13,10 +13,12 @@ import {
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js';
+import { DEFAULT_PERFUME_PRICING_RULES, normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
 const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
 const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
+const BusinessConfigCenter = React.lazy(() => import('./BusinessConfigCenter.jsx'));
 const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
 const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
@@ -24,10 +26,10 @@ const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
 const ADMIN_VIEW_CONFIG = {
   menu: {
-    title: 'Menu',
-    description: 'Administra categorias, productos y promociones de venta. Lo tecnico de recetas e inventario vive en Inventario.',
-    sections: ['sections', 'promo'],
-    open: { sections: true, promo: false },
+    title: 'Catálogo',
+    description: 'Busca y edita productos, configura precios por volumen y conecta los canales de venta.',
+    sections: ['contact', 'payments', 'whatsapp', 'pricingRules', 'sections'],
+    open: { contact: false, payments: false, whatsapp: false, pricingRules: true, sections: true },
   },
   business: {
     title: 'Negocio',
@@ -156,6 +158,7 @@ export default function AdminPanel({
   productOrder = [],
   categoryHidden = {},
   promotion = null,
+  pricingRules = null,
   businessHours = DEFAULT_BUSINESS_HOURS,
   branchSettings = DEFAULT_BRANCH_SETTINGS,
   reloadMenu,
@@ -186,6 +189,7 @@ export default function AdminPanel({
   const [categoryDraft, setCategoryDraft] = useState(() => safeCategoryOrder.length ? safeCategoryOrder : safeCategoriesList.map((category) => category.id));
   const [productOrderDraft, setProductOrderDraft] = useState(() => safeProductOrder.length ? safeProductOrder : safeProducts.map((product) => product.id));
   const [promotionDraft, setPromotionDraft] = useState(() => normalizePromotion(promotion, safeProducts));
+  const [pricingRulesDraft, setPricingRulesDraft] = useState(() => normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
   const [categoryHiddenDraft, setCategoryHiddenDraft] = useState(() => ({ ...(categoryHidden || {}) }));
   const [businessHoursDraft, setBusinessHoursDraft] = useState(() => normalizeBusinessHours(businessHours));
   const [branchSettingsDraft, setBranchSettingsDraft] = useState(() => normalizeBranchSettings(branchSettings));
@@ -195,6 +199,8 @@ export default function AdminPanel({
   const [openAdminSections, setOpenAdminSections] = useState(() => ({ ...(viewConfig.open || {}) }));
   const [openAdminCategories, setOpenAdminCategories] = useState({});
   const [status, setStatus] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('');
 
   useEffect(() => {
     setDrafts(safeProducts.map((product) => ({ ...product })));
@@ -215,6 +221,10 @@ export default function AdminPanel({
   useEffect(() => {
     setPromotionDraft(normalizePromotion(promotion, safeProducts));
   }, [promotion, safeProducts]);
+
+  useEffect(() => {
+    setPricingRulesDraft(normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
+  }, [pricingRules]);
 
   useEffect(() => {
     setCategoryHiddenDraft({ ...(categoryHidden || {}) });
@@ -496,6 +506,13 @@ export default function AdminPanel({
 
   const orderedDrafts = useMemo(() => sortByOrder(drafts, productOrderDraft), [drafts, productOrderDraft]);
   const orderedCategories = useMemo(() => sortByOrder(categoryItems, categoryDraft), [categoryItems, categoryDraft]);
+  const normalizedProductSearch = productSearch.trim().toLocaleLowerCase('es');
+  const visibleAdminProducts = useMemo(() => orderedDrafts.filter((product) => {
+    if (productCategoryFilter && product.category !== productCategoryFilter) return false;
+    if (!normalizedProductSearch) return true;
+    return [product.name, product.description, product.ingredients, product.metadata?.designer, product.metadata?.inspiredBy]
+      .some((value) => String(value || '').toLocaleLowerCase('es').includes(normalizedProductSearch));
+  }), [orderedDrafts, productCategoryFilter, normalizedProductSearch]);
 
   // MIGRADO a JWT: antes mandaba la contraseña compartida como header en
   // cada request. Ahora hace login con email/password contra
@@ -555,6 +572,7 @@ export default function AdminPanel({
         description: product.description || '',
         ingredients: product.ingredients || '',
         image: product.image || '',
+        metadata: product.metadata || {},
         unavailable: Boolean(product.unavailable),
       };
     }
@@ -593,6 +611,7 @@ export default function AdminPanel({
           productOrder: productOrderDraft,
           categoryHidden: categoryHiddenDraft,
           promotion: promotionDraft,
+          pricingRules: pricingRulesDraft,
           businessHours: businessHoursDraft,
           branchSettings: branchSettingsDraft,
         }),
@@ -653,6 +672,10 @@ export default function AdminPanel({
                 </div>
               )}
             </section>}
+            {hasAdminSection('contact') && <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('contact')}>Contacto y WhatsApp de pedidos <span>{openAdminSections.contact ? '-' : '+'}</span></button>
+              {openAdminSections.contact && <BusinessConfigCenter section="business" title="Contacto y pedidos" description="Configura el número al que se enviarán los pedidos del carrito." />}
+            </section>}
             {hasAdminSection('payments') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('payments')}>Pagos en línea <span>{openAdminSections.payments ? '-' : '+'}</span></button>
               {openAdminSections.payments && (
@@ -660,6 +683,27 @@ export default function AdminPanel({
                   <PaymentsSettings />
                 </div>
               )}
+            </section>}
+
+            {hasAdminSection('pricingRules') && <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('pricingRules')}>Precios por volumen <span>{openAdminSections.pricingRules ? '-' : '+'}</span></button>
+              {openAdminSections.pricingRules && <div className="admin-order-box">
+                <AdminSectionIntro title="Reglas automáticas del carrito" description="Las cantidades se suman por presentación aunque sean perfumes distintos. Mercado Pago valida estas mismas reglas." />
+                <label className="check-row full"><input type="checkbox" checked={pricingRulesDraft.enabled !== false} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, enabled: e.target.checked }))} /><span>Aplicar precios por volumen</span></label>
+                <div className="pricing-rules-editor">
+                  {(pricingRulesDraft.rules || []).map((rule, index) => <article className="admin-product" key={rule.id || index}>
+                    <div className="admin-product-head"><strong>{rule.label || `Regla ${index + 1}`}</strong><button type="button" className="ghost mini danger-text" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.filter((_, i) => i !== index) }))}>Quitar</button></div>
+                    <label className="field"><span>Presentación</span><input value={rule.variantId || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, variantId: e.target.value } : row) }))} placeholder="30ml" /></label>
+                    <label className="field"><span>Desde cantidad</span><input type="number" min="1" value={rule.minQuantity || 1} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, minQuantity: Number(e.target.value || 1) } : row) }))} /></label>
+                    <label className="field"><span>Hasta cantidad (vacío = sin límite)</span><input type="number" min="1" value={rule.maxQuantity || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, maxQuantity: e.target.value ? Number(e.target.value) : undefined } : row) }))} /></label>
+                    <label className="field"><span>Precio unitario</span><input type="number" min="0" value={rule.unitPrice ?? ''} disabled={Boolean(rule.bundleQuantity)} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, unitPrice: e.target.value === '' ? undefined : Number(e.target.value) } : row) }))} /></label>
+                    <label className="field"><span>Piezas del paquete</span><input type="number" min="2" value={rule.bundleQuantity || ''} disabled={rule.unitPrice !== undefined} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, bundleQuantity: e.target.value ? Number(e.target.value) : undefined } : row) }))} /></label>
+                    <label className="field"><span>Precio del paquete</span><input type="number" min="0" value={rule.bundlePrice ?? ''} disabled={!rule.bundleQuantity} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, bundlePrice: e.target.value === '' ? undefined : Number(e.target.value) } : row) }))} /></label>
+                    <label className="field full"><span>Etiqueta</span><input value={rule.label || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, label: e.target.value } : row) }))} /></label>
+                  </article>)}
+                </div>
+                <button type="button" className="ghost" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: [...(current.rules || []), { id: `regla-${Date.now()}`, variantId: '30ml', minQuantity: 1, unitPrice: 0, label: 'Nueva regla' }] }))}>+ Agregar regla</button>
+              </div>}
             </section>}
 
             {hasAdminSection('whatsapp') && <section className="admin-collapse">
@@ -943,10 +987,19 @@ export default function AdminPanel({
               </div>
             </div>
 
+            <div className="admin-order-box catalog-search-tools">
+              <h2>Buscar un producto</h2>
+              <div className="admin-promo-grid">
+                <label className="field"><span>Nombre, diseñador o referencia</span><input type="search" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Ej. Chanel, dama, Coco..." /></label>
+                <label className="field"><span>Categoría</span><select value={productCategoryFilter} onChange={(e) => setProductCategoryFilter(e.target.value)}><option value="">Todas</option>{orderedCategories.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
+              </div>
+              <p className="admin-hint">{visibleAdminProducts.length} producto{visibleAdminProducts.length === 1 ? '' : 's'} encontrado{visibleAdminProducts.length === 1 ? '' : 's'}. Las categorías permanecen cerradas hasta que las abras o hagas una búsqueda.</p>
+            </div>
+
             {orderedCategories.map((category) => {
-              const productsInCategory = orderedDrafts.filter((product) => product.category === category.id);
+              const productsInCategory = visibleAdminProducts.filter((product) => product.category === category.id);
               if (productsInCategory.length === 0) return null;
-              const isCategoryOpen = openAdminCategories[category.id] !== false;
+              const isCategoryOpen = Boolean(openAdminCategories[category.id]) || Boolean(normalizedProductSearch) || Boolean(productCategoryFilter);
               return (
                 <div className="admin-category-section" key={category.id}>
                   <button type="button" className="admin-category-summary" onClick={() => toggleAdminCategory(category.id)}>

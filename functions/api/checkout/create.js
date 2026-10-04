@@ -4,6 +4,7 @@ import { normalizeSavedMenu, readEffectiveCatalog } from '../_shared/menuCatalog
 import { ensurePaymentTables, getValidAccessToken } from '../_shared/payments.js';
 import { upsertCustomerFromOrder } from '../_shared/crm.js';
 import { ensureSchema } from '../orders.js';
+import { calculatePerfumePricing } from '../../../src/lib/perfumePricing.js';
 
 // Recalcula el total completo del lado servidor: precio base, extras de
 // familias/opciones, extras de receta legacy y entrega. El navegador solo
@@ -23,7 +24,7 @@ async function loadTenantPriceList(env, tenantId) {
     const unavailable = Boolean(override?.unavailable ?? product.unavailable);
     priceById.set(product.id, { id: product.id, price, unavailable, name: override?.name || product.name, category: product.category || 'general', type: product.type || 'custom', recipeId: product.recipeId || null, metadata: product.metadata || {} });
   }
-  return priceById;
+  return { priceById, pricingRules: saved.pricingRules || null };
 }
 
 function getTimestamps() {
@@ -168,6 +169,9 @@ async function recalculateLineItem(env, tenantId, requested, catalogEntry) {
     quantity,
     unit_price: unitPrice,
     line_total: unitPrice * quantity,
+    variantId: variant?.id || '',
+    basePrice,
+    addOnPrice: addOnPrice + groupPrice.total + recipeExtraPrice + legacyExtraPrice,
     options: verifiedOptions,
     notes: String(requested.notes || ''),
   };
@@ -209,7 +213,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // 2) Recalcular precios contra el catalogo real del tenant, incluyendo extras.
-    const priceList = await loadTenantPriceList(env, tenantId);
+    const { priceById: priceList, pricingRules } = await loadTenantPriceList(env, tenantId);
     const lineItems = [];
     let subtotal = 0;
     for (const requested of requestedItems) {
@@ -220,6 +224,25 @@ export async function onRequestPost({ request, env }) {
       const lineItem = await recalculateLineItem(env, tenantId, requested, catalogEntry);
       subtotal += lineItem.line_total;
       lineItems.push(lineItem);
+    }
+
+    // Las reglas se calculan sobre la suma de piezas por presentación, no por
+    // producto individual. Así dos aromas distintos de 30 ml sí forman el 2x120.
+    const volumePricing = calculatePerfumePricing(lineItems, pricingRules);
+    if (volumePricing.discount > 0) {
+      for (const applied of volumePricing.appliedRules) {
+        const matching = lineItems.filter((item) => item.variantId === applied.variantId);
+        const regularBase = matching.reduce((sum, item) => sum + item.basePrice * item.quantity, 0);
+        let remainingDiscount = applied.discount;
+        matching.forEach((item, index) => {
+          const allocated = index === matching.length - 1 ? remainingDiscount : applied.discount * ((item.basePrice * item.quantity) / regularBase);
+          remainingDiscount -= allocated;
+          item.line_total = Math.max(0, item.line_total - allocated);
+          item.unit_price = item.line_total / item.quantity;
+          item.options = { ...item.options, volumePricingLabel: applied.label, volumeDiscount: allocated };
+        });
+      }
+      subtotal = lineItems.reduce((sum, item) => sum + item.line_total, 0);
     }
 
     const deliveryFee = resolveDeliveryFee(body, fulfillmentType);

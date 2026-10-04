@@ -14,6 +14,7 @@ import {
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 import { apiFetch, getSessionToken } from '../lib/apiClient.js';
+import { normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
 const EMPTY_PRODUCTS = [];
 
@@ -38,6 +39,7 @@ export default function AdminRoute({ view = 'menu' }) {
   const [productOrder, setProductOrder] = useState([]);
   const [categoryHidden, setCategoryHidden] = useState({});
   const [promotion, setPromotion] = useState(null);
+  const [pricingRules, setPricingRules] = useState(null);
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
   // CORREGIDO: si /api/admin/menu fallaba (blip de red, token vencido,
@@ -67,6 +69,7 @@ export default function AdminRoute({ view = 'menu' }) {
       setProductOrder(result.productOrder?.length ? result.productOrder : nextProducts.map((product) => product.id));
       setCategoryHidden(result.categoryHidden || {});
       setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
+      setPricingRules(result.pricingRules ? normalizePerfumePricingRules(result.pricingRules) : null);
       setBusinessHours(normalizeBusinessHours(result.businessHours));
       setBranchSettings(normalizeBranchSettings(result.branchSettings));
       setLoadError('');
@@ -80,6 +83,7 @@ export default function AdminRoute({ view = 'menu' }) {
         setProductOrder([]);
         setCategoryHidden({});
         setPromotion(null);
+        setPricingRules(null);
         setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
         setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
       }
@@ -109,6 +113,7 @@ export default function AdminRoute({ view = 'menu' }) {
       productOrder={productOrder}
       categoryHidden={categoryHidden}
       promotion={promotion}
+      pricingRules={pricingRules}
       businessHours={businessHours}
       branchSettings={branchSettings}
       reloadMenu={loadMenu}

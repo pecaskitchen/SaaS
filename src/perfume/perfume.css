@@ -88,6 +88,9 @@ button, a { -webkit-tap-highlight-color:transparent; }
 @media (max-width:650px) { .section { width:min(100% - 28px,1200px); padding:70px 0; }.perfume-nav { height:74px; padding:8px 14px; }.perfume-logo img { width:65px; height:52px; }.perfume-nav nav { top:74px; }.cart-button span,.theme-toggle span { display:none; }.perfume-hero { min-height:auto; padding:65px 20px 50px; }.hero-copy h1 { font-size:3.55rem; }.hero-proof { gap:15px; flex-wrap:wrap; }.hero-visual { height:460px; }.hero-visual > img { height:430px; }.hero-note { display:none; }.category-grid,.product-grid,.catalog-grid,.steps { grid-template-columns:1fr; }.category-grid button { min-height:230px; }.section-heading.row { align-items:start; flex-direction:column; }.perfume-card-image,.catalog-grid .perfume-card-image { height:330px; }.quiz-banner { width:calc(100% - 28px); padding:45px 28px; flex-direction:column; align-items:start; gap:28px; }.catalog-tools { grid-template-columns:1fr; }.search-box { grid-column:auto; }.steps > div,.steps > div:last-child { border:0; border-top:1px solid var(--line); padding:28px 5px; }.steps h3 { margin-top:25px; }.faq-section { display:block; }.perfume-footer { grid-template-columns:1fr; }.footer-links { flex-wrap:wrap; }.quiz-card { padding:45px 24px 26px; }.quiz-card h2 { font-size:2rem; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
 
+.cart-discount { display:grid; grid-template-columns:1fr auto; gap:3px 12px; padding:10px 12px; background:var(--gold-pale); color:var(--black); }
+.cart-discount small { grid-column:1/-1; color:var(--muted); }
+
 .perfume-store.dark-mode { --black:#f7f4ed; --paper:#0e0e0d; --line:#37342e; --muted:#aaa49a; --gold-pale:#2b2417; background:#0e0e0d; color:#f7f4ed; }
 .dark-mode .perfume-nav { background:rgba(14,14,13,.94); border-bottom-color:#37342e; }
 .dark-mode .category-grid button,

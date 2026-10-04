@@ -84,6 +84,7 @@ button, a { -webkit-tap-highlight-color:transparent; }
 .dark-mode .checkout-fields input,
 .dark-mode .checkout-fields textarea { background:#181816; color:#f7f4ed; }
 .dark-mode .perfume-card-image { background:linear-gradient(145deg,#29251c,#171612); }
+.dark-mode .perfume-badge { color:#0e0e0d; }
 .dark-mode .hero-note { background:rgba(14,14,13,.9); }
 .dark-mode .search-box input { color:#f7f4ed; }
 .dark-mode .perfume-cart,.dark-mode .quiz-card { background:#0e0e0d; color:#f7f4ed; }

@@ -5084,11 +5084,13 @@ textarea { resize: vertical; min-height: 48px; }
 .promo-carousel-controls { display: flex; gap: 8px; }
 .promo-carousel-controls button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(59,31,15,.14); border-radius: 50%; background: #fff; color: var(--brown); cursor: pointer; }
 .promo-carousel-dots { display: flex; justify-content: center; gap: 8px; }
-.promo-carousel-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--brand-primary) 30%, transparent); }
-.promo-carousel-dots button.active { width: 26px; border-radius: 999px; background: var(--brand-primary); }
+.promo-carousel-dots button { width: 14px; height: 14px; padding: 0; border: 2px solid color-mix(in srgb, var(--brand-primary) 70%, #111827); border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.promo-carousel-dots button.active { width: 14px; border-radius: 50%; background: var(--brand-primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 18%, transparent); }
 .promo-carousel-dots-top { justify-content: flex-start; margin-bottom: 9px; }
-.promo-carousel-dots-top button { width: 11px; height: 11px; border: 1px solid color-mix(in srgb, var(--brand-primary) 32%, transparent); }
-.promo-carousel-dots-top button.active { width: 11px; border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 14%, transparent); }
+.promo-carousel-dots-top button { flex: 0 0 14px; }
+.promo-card.image-only { display: block; min-height: 0; }
+.promo-card.image-only .promo-media { width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 7; }
+.promo-card.image-only .promo-media img { width: 100%; height: 100%; object-fit: cover; }
 .admin-promo-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(127,127,127,.18); }
 
 @media (max-width: 860px) {
@@ -5108,4 +5110,5 @@ textarea { resize: vertical; min-height: 48px; }
   .promo-carousel .promo-media { min-height: 0; height: 180px; max-height: 180px; overflow: hidden; }
   .promo-carousel .promo-media.has-image img { display: block; width: 100%; height: 180px; object-fit: cover; }
   .promo-carousel .promo-content { position: relative; z-index: 1; background: linear-gradient(135deg, rgba(255, 250, 242, .99), rgba(247, 232, 207, .99)); }
+  .promo-carousel .promo-card.image-only .promo-media { height: auto; max-height: none; aspect-ratio: 16 / 8; }
 }

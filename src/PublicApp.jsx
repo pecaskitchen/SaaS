@@ -1630,13 +1630,14 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   };
 
   const hasChoices = promoGroups.some((group) => group.hasChoices);
+  const imageOnly = Boolean(image && !String(promotion.title || '').trim() && !promoDescription && !promotion.disclaimer && !includedLines.length && !selectedItems.length && livePrice <= 0);
 
   return (
-    <article className="promo-card">
+    <article className={`promo-card ${imageOnly ? 'image-only' : ''}`}>
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
           {image ? <img src={image} alt={promotion.title} /> : <span>⭐</span>}
         </div>
-        <div className="promo-content">
+        {!imageOnly && <div className="promo-content">
           <h2>{promotion.title}</h2>
           {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
@@ -1691,13 +1692,17 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
               <Plus size={16} /> {t(lang, 'addPromo')}
             </button>
           </div>}
-        </div>
+        </div>}
     </article>
   );
 }
 
 function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden }) {
-  const visible = promotions.filter((item) => item?.active);
+  const visible = useMemo(() => promotions
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item?.active)
+    .sort((a, b) => Number(Boolean(b.item.isDefault)) - Number(Boolean(a.item.isDefault)) || a.index - b.index)
+    .map(({ item }) => item), [promotions]);
   const [currentIndex, setCurrentIndex] = useState(0);
   useEffect(() => {
     setCurrentIndex((current) => Math.min(current, Math.max(0, visible.length - 1)));

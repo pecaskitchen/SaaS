@@ -257,12 +257,13 @@ export function selectedBranchFrom(settings, selectedBranchId) {
 }
 
 export function normalizeBusinessHours(hours = {}) {
-  const byDay = new Map((Array.isArray(hours.days) ? hours.days : []).map((row) => [Number(row.day), row]));
+  const source = hours && typeof hours === 'object' && !Array.isArray(hours) ? hours : {};
+  const byDay = new Map((Array.isArray(source.days) ? source.days : []).map((row) => [Number(row.day), row]));
   return {
     ...DEFAULT_BUSINESS_HOURS,
-    ...(hours || {}),
-    allowClosedOrders: hours.allowClosedOrders !== undefined ? Boolean(hours.allowClosedOrders) : DEFAULT_BUSINESS_HOURS.allowClosedOrders,
-    messageWhenClosed: hours.messageWhenClosed || DEFAULT_BUSINESS_HOURS.messageWhenClosed,
+    ...source,
+    allowClosedOrders: source.allowClosedOrders !== undefined ? Boolean(source.allowClosedOrders) : DEFAULT_BUSINESS_HOURS.allowClosedOrders,
+    messageWhenClosed: source.messageWhenClosed || DEFAULT_BUSINESS_HOURS.messageWhenClosed,
     days: DEFAULT_BUSINESS_HOURS.days.map((fallback) => {
       const saved = byDay.get(fallback.day) || {};
       return {

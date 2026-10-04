@@ -11,6 +11,12 @@ test('normalizeBusinessHours: produce 7 dias con open/close', () => {
   }
 });
 
+test('normalizeBusinessHours: acepta null del API y usa valores predeterminados', () => {
+  const normalized = normalizeBusinessHours(null);
+  assert.equal(normalized.days.length, 7);
+  assert.equal(typeof normalized.allowClosedOrders, 'boolean');
+});
+
 test('businessStatus: dia inactivo reporta cerrado sin importar la hora', () => {
   const allClosed = normalizeBusinessHours({});
   allClosed.days = allClosed.days.map((day) => ({ ...day, active: false }));

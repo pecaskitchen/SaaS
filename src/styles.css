@@ -5062,6 +5062,11 @@ textarea { resize: vertical; min-height: 48px; }
 
 /* Portada compacta + carrusel de promociones */
 .public-storefront .hero { padding-bottom: 28px; }
+.public-storefront .hero.text-only { min-height: auto; padding-bottom: 24px; }
+.public-storefront .hero-grid.text-only { grid-template-columns: minmax(0, 1fr); }
+.public-storefront .hero-grid.text-only .hero-copy { max-width: 880px; }
+.public-storefront .hero.text-only .nav { margin-bottom: 18px; }
+.public-storefront .hero.text-only h1 { max-width: 760px; }
 .public-storefront .hero-grid { min-height: auto; gap: clamp(24px, 5vw, 64px); align-items: center; }
 .public-storefront .hero h1 { font-size: clamp(44px, 6vw, 76px); line-height: .94; }
 .public-storefront .hero-card { min-height: 300px; }
@@ -5069,16 +5074,21 @@ textarea { resize: vertical; min-height: 48px; }
 .promo-section { overflow: hidden; }
 .promo-section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .promo-section-head h2 { margin: 3px 0 0; color: var(--brown); font-size: clamp(25px, 3vw, 38px); line-height: 1; }
-.promo-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: min(100%, 820px); gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px 2px 14px; }
+.promo-carousel { display: block; padding: 2px 2px 14px; }
 .promo-carousel::-webkit-scrollbar { display: none; }
-.promo-carousel .promo-card { scroll-snap-align: start; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); min-height: 300px; }
+.promo-carousel .promo-card { grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); min-height: 300px; animation: promo-enter .24s ease-out; }
+@keyframes promo-enter { from { opacity: .25; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
 .promo-carousel .promo-media { min-height: 100%; }
 .promo-carousel .promo-content { padding: 22px; }
 .promo-carousel .promo-content h2 { font-size: clamp(26px, 3vw, 40px); }
 .promo-carousel-controls { display: flex; gap: 8px; }
 .promo-carousel-controls button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(59,31,15,.14); border-radius: 50%; background: #fff; color: var(--brown); cursor: pointer; }
-.promo-carousel-dots { display: flex; justify-content: center; gap: 6px; }
-.promo-carousel-dots span { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--brand-primary) 45%, transparent); }
+.promo-carousel-dots { display: flex; justify-content: center; gap: 8px; }
+.promo-carousel-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--brand-primary) 30%, transparent); }
+.promo-carousel-dots button.active { width: 26px; border-radius: 999px; background: var(--brand-primary); }
+.promo-carousel-dots-top { justify-content: flex-start; margin-bottom: 9px; }
+.promo-carousel-dots-top button { width: 11px; height: 11px; border: 1px solid color-mix(in srgb, var(--brand-primary) 32%, transparent); }
+.promo-carousel-dots-top button.active { width: 11px; border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 14%, transparent); }
 .admin-promo-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(127,127,127,.18); }
 
 @media (max-width: 860px) {
@@ -5094,7 +5104,8 @@ textarea { resize: vertical; min-height: 48px; }
   .public-storefront .hero-card { min-height: 190px; }
   .public-storefront .open-status-pill { font-size: 12px; padding: 8px 12px; }
   .promo-section { margin-top: 14px; }
-  .promo-carousel { grid-auto-columns: 92%; }
   .promo-carousel .promo-card { grid-template-columns: 1fr; }
-  .promo-carousel .promo-media { min-height: 145px; max-height: 190px; }
+  .promo-carousel .promo-media { min-height: 0; height: 180px; max-height: 180px; overflow: hidden; }
+  .promo-carousel .promo-media.has-image img { display: block; width: 100%; height: 180px; object-fit: cover; }
+  .promo-carousel .promo-content { position: relative; z-index: 1; background: linear-gradient(135deg, rgba(255, 250, 242, .99), rgba(247, 232, 207, .99)); }
 }

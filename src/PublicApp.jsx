@@ -1598,12 +1598,13 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
     return price;
   }, [promotion, selectedItems, extrasByProductId]);
 
-  if (!promotion?.active || promoGroups.length === 0) return null;
+  const hasDisplayContent = Boolean(promotion?.title || promotion?.description || promotion?.disclaimer || promotion?.image);
+  if (!promotion?.active || (!hasDisplayContent && promoGroups.length === 0)) return null;
   // Solo se oculta la promo si TODAS las opciones de un renglon estan agotadas
   // o el renglon no tiene ninguna elegible; una variante agotada individual no
   // tumba toda la promo.
   const groupUnavailable = (group) => group.options.every(({ product }) => product.unavailable || product.soldOut || categoryHidden[product.category]);
-  if (promoGroups.some(groupUnavailable)) return null;
+  if (promoGroups.length && promoGroups.some(groupUnavailable)) return null;
 
   const handleAddPromo = () => {
     onAdd(buildPromoCartItem(promotion, selectedItems, extrasByProductId, lang));
@@ -1616,7 +1617,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
     setExpanded(false);
   };
 
-  const image = promotion.image || selectedItems.find(({ product }) => product.image)?.product.image;
+  const image = promotion.hideImage ? '' : (promotion.image || selectedItems.find(({ product }) => product.image)?.product.image);
   const includedLines = includedDetailsToLines(promotion.includedDetails);
   const promoDescription = String(promotion.description || '').trim();
 
@@ -1639,12 +1640,12 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
           <h2>{promotion.title}</h2>
           {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
-          <ul className="promo-included">
+          {(selectedItems.length > 0 || includedLines.length > 0) && <ul className="promo-included">
             {selectedItems.map((item, index) => (
               <li key={index}>{item.quantity} x {productText(item.product, lang).name}{Number(item.extraPrice) > 0 ? ` (+${currency(Number(item.extraPrice))})` : ''}</li>
             ))}
             {includedLines.map((line) => <li key={line}>{line}</li>)}
-          </ul>
+          </ul>}
 
           {hasChoices && (
             <div className="promo-variants">
@@ -1666,8 +1667,8 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
             </div>
           )}
 
-          <strong className="promo-price">{currency(livePrice)}</strong>
-          {expanded && (
+          {livePrice > 0 && <strong className="promo-price">{currency(livePrice)}</strong>}
+          {expanded && selectedItems.length > 0 && (
             <div className="promo-combo-extras">
               {selectedItems.map((item, index) => (
                 <div className="promo-item-extras" key={index}>
@@ -1682,37 +1683,45 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
               ))}
             </div>
           )}
-          <div className="promo-actions">
+          {selectedItems.length > 0 && <div className="promo-actions">
             <button type="button" className="ghost" onClick={() => setExpanded(!expanded)}>
               {expanded ? t(lang, 'hideOptions') : t(lang, 'promoExtras')}
             </button>
             <button type="button" className="primary" onClick={handleAddPromo}>
               <Plus size={16} /> {t(lang, 'addPromo')}
             </button>
-          </div>
+          </div>}
         </div>
     </article>
   );
 }
 
 function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden }) {
-  const trackRef = React.useRef(null);
   const visible = promotions.filter((item) => item?.active);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  useEffect(() => {
+    setCurrentIndex((current) => Math.min(current, Math.max(0, visible.length - 1)));
+  }, [visible.length]);
   if (!visible.length) return null;
-  const move = (direction) => trackRef.current?.scrollBy({ left: direction * Math.max(300, trackRef.current.clientWidth * .85), behavior: 'smooth' });
+  const move = (direction) => setCurrentIndex((current) => (current + direction + visible.length) % visible.length);
+  const currentPromotion = visible[currentIndex] || visible[0];
   return (
     <section className="promo-section" id="promo" aria-label="Promociones">
       <div className="promo-section-head">
-        <div><span className="eyebrow">Promociones</span><h2>Algo especial para ti</h2></div>
+        <div>
+          <div className="promo-carousel-dots promo-carousel-dots-top" aria-label="Elegir promoción">
+            {visible.map((item, index) => <button type="button" className={index === currentIndex ? 'active' : ''} aria-label={`Ver promoción ${index + 1}: ${item.title || ''}`} aria-current={index === currentIndex ? 'true' : undefined} onClick={() => setCurrentIndex(index)} key={index} />)}
+          </div>
+          <h2>Algo especial para ti</h2>
+        </div>
         {visible.length > 1 && <div className="promo-carousel-controls">
           <button type="button" aria-label="Promoción anterior" onClick={() => move(-1)}><ChevronLeft size={20} /></button>
           <button type="button" aria-label="Siguiente promoción" onClick={() => move(1)}><ChevronRight size={20} /></button>
         </div>}
       </div>
-      <div className="promo-carousel" ref={trackRef}>
-        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
+      <div className="promo-carousel" aria-live="polite">
+        <PromoCard key={currentPromotion.id || `${currentPromotion.title}-${currentIndex}`} promotion={currentPromotion} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />
       </div>
-      {visible.length > 1 && <div className="promo-carousel-dots" aria-hidden="true">{visible.map((_, index) => <span key={index} />)}</div>}
     </section>
   );
 }
@@ -2154,9 +2163,10 @@ export default function PublicApp() {
   const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
   const activePromotions = useMemo(() => {
     const normalized = (promotions.length ? promotions : (activePromotion ? [activePromotion] : [])).map((item) => normalizePromotion(item, currentProductsForBranch));
-    if (activePromotion && normalized.length) normalized[0] = activePromotion;
+    const hasBranchOverride = selectedBranchHasPromotion || Boolean(defaultBranchPromotion);
+    if (hasBranchOverride && activePromotion && normalized.length) normalized[0] = activePromotion;
     return normalized;
-  }, [promotions, activePromotion, currentProductsForBranch]);
+  }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -2181,7 +2191,7 @@ export default function PublicApp() {
 
   return (
     <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'}`} style={publicThemeStyle(publicBrand)}>
-      <section className="hero">
+      <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
           <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} brand={publicBrand} />
           <a href="#cart" className="cart-pill">
@@ -2189,7 +2199,7 @@ export default function PublicApp() {
           </a>
         </nav>
 
-        <div className="hero-grid">
+        <div className={`hero-grid ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
           <div className="hero-copy">
             <div className={`open-status-pill ${currentBusinessStatus.open ? 'open' : 'closed'}`}>{currentBusinessStatus.label}</div>
 
@@ -2225,13 +2235,7 @@ export default function PublicApp() {
             </div>
           </div>
 
-          <div className="hero-card">
-            {publicBrand.heroImageUrl || publicBrand.logoUrl ? (
-              <img src={publicBrand.heroImageUrl || publicBrand.logoUrl} alt={publicBrand.displayName} />
-            ) : (
-              <div className="hero-card-placeholder"><strong>{publicBrand.displayName}</strong><span>{publicBrand.tagline || publicBrand.heroEyebrow}</span></div>
-            )}
-          </div>
+          {publicBrand.heroImageUrl ? <div className="hero-card"><img src={publicBrand.heroImageUrl} alt="" /></div> : null}
         </div>
       </section>
 

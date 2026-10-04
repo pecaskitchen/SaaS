@@ -26,8 +26,8 @@ const ADMIN_VIEW_CONFIG = {
   menu: {
     title: 'Catálogo',
     description: 'Busca y edita productos, configura precios por volumen y conecta los canales de venta.',
-    sections: ['contact', 'payments', 'whatsapp', 'pricingRules', 'sections'],
-    open: { contact: false, payments: false, whatsapp: false, pricingRules: true, sections: true },
+    sections: ['contact', 'payments', 'whatsapp', 'promo', 'pricingRules', 'sections'],
+    open: { contact: false, payments: false, whatsapp: false, promo: true, pricingRules: true, sections: true },
   },
   business: {
     title: 'Negocio',
@@ -162,10 +162,11 @@ export default function AdminPanel({
   branchSettings = DEFAULT_BRANCH_SETTINGS,
   reloadMenu,
   loadError = '',
+  businessType = 'food',
 }) {
   const viewConfig = ADMIN_VIEW_CONFIG[view] || ADMIN_VIEW_CONFIG.menu;
   const visibleSections = useMemo(() => new Set(viewConfig.sections || []), [viewConfig]);
-  const hasAdminSection = (sectionKey) => visibleSections.has(sectionKey);
+  const hasAdminSection = (sectionKey) => visibleSections.has(sectionKey) && (sectionKey !== 'pricingRules' || businessType === 'retail');
   const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
   const safeCategoriesList = useMemo(() => (Array.isArray(categoriesList) ? categoriesList : []), [categoriesList]);
   const safeCategoryOrder = useMemo(() => (Array.isArray(categoryOrder) ? categoryOrder : []), [categoryOrder]);
@@ -858,6 +859,8 @@ export default function AdminPanel({
                     <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>
                     <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+                    <label className="field full"><span>Imagen de la promoción (opcional)</span><input value={promotionDraft.image || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/products/promocion.jpg o https://..." /><small>Puede ser una ruta local publicada o la URL pública de una imagen.</small></label>
+                    <label className="check-row full"><input type="checkbox" checked={!promotionDraft.hideImage} onChange={(e) => setPromotionDraft((current) => ({ ...current, hideImage: !e.target.checked }))} /><span>Mostrar imagen (si no defines una, usa la del primer producto)</span></label>
                     <label className="field full"><span>Aviso bajo el titulo (en la pagina del cliente)</span><input value={promotionDraft.disclaimer ?? ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, disclaimer: e.target.value }))} placeholder="Dejalo vacio para no mostrar ningun aviso" /></label>
                     <label className="field full"><span>Lo que incluye / notas (una linea por renglon)</span><textarea rows="3" value={promotionDraft.includedDetails || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, includedDetails: e.target.value }))} placeholder={'Ej: Elige los sabores de tu crepa en las notas al finalizar tu pedido!'} /></label>
                   </div>

@@ -30,6 +30,12 @@ test('normalizePromoItem: extra negativo se recorta a 0 y se redondea', () => {
   assert.equal(item.options[1].extraPrice, 13);
 });
 
+test('normalizePromotion conserva promociones informativas sin productos', () => {
+  const promotion = normalizePromotion({ active: true, title: 'Aviso', description: 'Solo texto', items: [] }, []);
+  assert.equal(promotion.active, true);
+  assert.deepEqual(promotion.items, []);
+});
+
 test('promotionItems: resuelve opciones a productos y marca hasChoices', () => {
   const promo = normalizePromotion({
     active: true,

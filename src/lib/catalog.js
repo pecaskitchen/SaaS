@@ -118,14 +118,15 @@ export function normalizePromotion(promotion, products = CATALOG_PRODUCTS) {
   const legacyItems = promotion?.productId
     ? [{ productId: promotion.productId, quantity: Number(promotion.quantity || 1) }]
     : [];
-  const rawItems = Array.isArray(promotion?.items) && promotion.items.length > 0 ? promotion.items : legacyItems;
+  const hasExplicitItems = Array.isArray(promotion?.items);
+  const rawItems = hasExplicitItems ? promotion.items : legacyItems;
   const items = rawItems.map(normalizePromoItem).filter(Boolean);
 
   return {
     ...base,
     ...(promotion || {}),
     active: Boolean(promotion?.active),
-    items: items.length ? items : base.items.map(normalizePromoItem).filter(Boolean),
+    items: hasExplicitItems ? items : (items.length ? items : base.items.map(normalizePromoItem).filter(Boolean)),
     price: Number(promotion?.price || 0),
   };
 }

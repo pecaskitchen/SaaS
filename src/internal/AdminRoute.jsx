@@ -14,6 +14,7 @@ import {
 } from '../lib/business.js';
 import { categories } from '../data/menu.js';
 import { apiFetch, getSessionToken } from '../lib/apiClient.js';
+import { useAuth } from '../auth/AuthContext.jsx';
 import { normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
 const EMPTY_PRODUCTS = [];
@@ -32,6 +33,7 @@ function mergeProductsWithOverrides(products, overrides) {
 }
 
 export default function AdminRoute({ view = 'menu' }) {
+  const { user } = useAuth();
   const [menuOverrides, setMenuOverrides] = useState({});
   const [extraCategories, setExtraCategories] = useState([]);
   const [extraProducts, setExtraProducts] = useState([]);
@@ -122,6 +124,7 @@ export default function AdminRoute({ view = 'menu' }) {
       branchSettings={branchSettings}
       reloadMenu={loadMenu}
       loadError={loadError}
+      businessType={user?.tenant?.settings?.businessType || 'food'}
     />
   );
 }

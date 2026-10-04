@@ -21,7 +21,7 @@ async function loadTenantPriceList(env, tenantId) {
     const override = saved.overrides?.[product.id];
     const price = Number(override?.price ?? product.price ?? 0);
     const unavailable = Boolean(override?.unavailable ?? product.unavailable);
-    priceById.set(product.id, { id: product.id, price, unavailable, name: override?.name || product.name, category: product.category || 'general', type: product.type || 'custom', recipeId: product.recipeId || null });
+    priceById.set(product.id, { id: product.id, price, unavailable, name: override?.name || product.name, category: product.category || 'general', type: product.type || 'custom', recipeId: product.recipeId || null, metadata: product.metadata || {} });
   }
   return priceById;
 }
@@ -136,7 +136,31 @@ async function recalculateLineItem(env, tenantId, requested, catalogEntry) {
   const groupPrice = computeOptionGroupExtra(groups, options.optionGroups || {});
   const recipeExtraPrice = await computeRecipeExtraPrice(env, tenantId, catalogEntry.id, catalogEntry.recipeId, options.recipeExtras || []);
   const legacyExtraPrice = computeLegacyExtraPrice(catalogEntry, options, groupPrice.usedFamilyKeys);
-  const unitPrice = Math.max(0, Math.round(Number(catalogEntry.price || 0) + groupPrice.total + recipeExtraPrice + legacyExtraPrice));
+  const variants = Array.isArray(catalogEntry.metadata?.variants) ? catalogEntry.metadata.variants : [];
+  const requestedVariant = String(options.variant || '').trim();
+  const variant = variants.length
+    ? variants.find((item) => String(item?.id || '').trim() === requestedVariant)
+    : null;
+  if (variants.length && !variant) throw Object.assign(new Error(`Selecciona una presentacion valida para ${catalogEntry.name}.`), { status: 400 });
+
+  const addOns = Array.isArray(catalogEntry.metadata?.addOns) ? catalogEntry.metadata.addOns : [];
+  const requestedAddOns = cleanSelectionArray(options.addOns || []);
+  let addOnPrice = 0;
+  const verifiedAddOns = [];
+  for (const addOnId of requestedAddOns) {
+    const addOn = addOns.find((item) => String(item?.id || '').trim() === addOnId);
+    if (!addOn) throw Object.assign(new Error(`Complemento no valido para ${catalogEntry.name}.`), { status: 400 });
+    addOnPrice += Number(addOn.price || 0);
+    verifiedAddOns.push(String(addOn.label || addOn.id));
+  }
+  const basePrice = variant ? Number(variant.price || 0) : Number(catalogEntry.price || 0);
+  const unitPrice = Math.max(0, Math.round(basePrice + addOnPrice + groupPrice.total + recipeExtraPrice + legacyExtraPrice));
+  const verifiedOptions = {
+    ...options,
+    ...(variant ? { variant: variant.id, variantLabel: variant.label || variant.id } : {}),
+    addOns: requestedAddOns,
+    addOnLabels: verifiedAddOns,
+  };
   return {
     product_id: catalogEntry.id,
     product_name: catalogEntry.name,
@@ -144,7 +168,7 @@ async function recalculateLineItem(env, tenantId, requested, catalogEntry) {
     quantity,
     unit_price: unitPrice,
     line_total: unitPrice * quantity,
-    options,
+    options: verifiedOptions,
     notes: String(requested.notes || ''),
   };
 }

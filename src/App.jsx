@@ -7,7 +7,7 @@ import { AuthProvider } from './auth/AuthContext.jsx';
 // estatico ya se resuelve de raiz con public/_headers (HTML sin cache) y el
 // handler de vite:preloadError en main.jsx.
 const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
-const PublicApp = lazy(() => import('./PublicApp.jsx'));
+const PublicStorefront = lazy(() => import('./PublicStorefront.jsx'));
 const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
 const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
@@ -76,7 +76,7 @@ export default function App() {
           : route === '#terminos' ? <TermsOfService />
           : isLegacyRoute(route) ? <LegacyApp />
           : isOmdexaLandingHost() ? <OmdexaLanding />
-          : <PublicApp />}
+          : <PublicStorefront />}
       </Suspense>
     </AuthProvider>
   );

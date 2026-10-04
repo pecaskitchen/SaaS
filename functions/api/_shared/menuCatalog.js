@@ -248,6 +248,7 @@ export async function readCatalogTables(env, tenantId) {
       unavailable: Number(row.is_published) === 0,
       recipeId: row.recipe_id || null,
       recipeKey: row.recipe_key || metadata.recipeKey || '',
+      metadata,
       customProduct: true,
     };
   });
@@ -321,7 +322,10 @@ export async function saveCatalogTables(env, tenantId, payload) {
       .bind(tenantId, Number(product.recipeId || 0), recipeKey)
       .first()
       .catch(() => null);
-    const metadata = JSON.stringify({ recipeKey: recipe?.recipe_key || recipeKey });
+    const productMetadata = product.metadata && typeof product.metadata === 'object' && !Array.isArray(product.metadata)
+      ? product.metadata
+      : {};
+    const metadata = JSON.stringify({ ...productMetadata, recipeKey: recipe?.recipe_key || recipeKey });
     const sortOrder = productOrder.includes(productKey) ? productOrder.indexOf(productKey) : index;
     await env.DB.prepare(
       `INSERT INTO menu_products (tenant_id, product_key, category_key, recipe_id, name, product_type, price, badge, description, ingredients, image, is_published, is_active, metadata_json, sort_order, created_at_utc, updated_at_utc)

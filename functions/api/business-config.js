@@ -127,6 +127,12 @@ export async function onRequestPatch({ request, env }) {
       orderSources: has('orderSources')
         ? normalizeSettingList(incomingSettings.orderSources, [])
         : normalizeSettingList(currentSettings.orderSources, ['Tienda', 'WhatsApp', 'Facebook', 'Instagram', 'Llamada']),
+      storefrontTemplate: has('storefrontTemplate')
+        ? String(incomingSettings.storefrontTemplate || '').trim()
+        : String(currentSettings.storefrontTemplate || '').trim(),
+      instagramUrl: has('instagramUrl')
+        ? String(incomingSettings.instagramUrl || '').trim()
+        : String(currentSettings.instagramUrl || '').trim(),
     };
 
     // El tipo de negocio y los modulos activos solo los controla el dueno de

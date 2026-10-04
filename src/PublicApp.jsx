@@ -1704,24 +1704,40 @@ function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden 
     .sort((a, b) => Number(Boolean(b.item.isDefault)) - Number(Boolean(a.item.isDefault)) || a.index - b.index)
     .map(({ item }) => item), [promotions]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(true);
   useEffect(() => {
     setCurrentIndex((current) => Math.min(current, Math.max(0, visible.length - 1)));
   }, [visible.length]);
+  useEffect(() => {
+    if (!autoPlay || visible.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = window.setInterval(() => {
+      setCurrentIndex((current) => (current + 1) % visible.length);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [autoPlay, visible.length]);
   if (!visible.length) return null;
   const move = (direction) => setCurrentIndex((current) => (current + direction + visible.length) % visible.length);
+  const moveManually = (direction) => {
+    setAutoPlay(false);
+    move(direction);
+  };
+  const selectManually = (index) => {
+    setAutoPlay(false);
+    setCurrentIndex(index);
+  };
   const currentPromotion = visible[currentIndex] || visible[0];
   return (
     <section className="promo-section" id="promo" aria-label="Promociones">
       <div className="promo-section-head">
         <div>
           <div className="promo-carousel-dots promo-carousel-dots-top" aria-label="Elegir promoción">
-            {visible.map((item, index) => <button type="button" className={index === currentIndex ? 'active' : ''} aria-label={`Ver promoción ${index + 1}: ${item.title || ''}`} aria-current={index === currentIndex ? 'true' : undefined} onClick={() => setCurrentIndex(index)} key={index} />)}
+            {visible.map((item, index) => <button type="button" className={index === currentIndex ? 'active' : ''} aria-label={`Ver promoción ${index + 1}: ${item.title || ''}`} aria-current={index === currentIndex ? 'true' : undefined} onClick={() => selectManually(index)} key={index} />)}
           </div>
           <h2>Algo especial para ti</h2>
         </div>
         {visible.length > 1 && <div className="promo-carousel-controls">
-          <button type="button" aria-label="Promoción anterior" onClick={() => move(-1)}><ChevronLeft size={20} /></button>
-          <button type="button" aria-label="Siguiente promoción" onClick={() => move(1)}><ChevronRight size={20} /></button>
+          <button type="button" aria-label="Promoción anterior; detiene el cambio automático" onClick={() => moveManually(-1)}><ChevronLeft size={20} /></button>
+          <button type="button" aria-label="Siguiente promoción; detiene el cambio automático" onClick={() => moveManually(1)}><ChevronRight size={20} /></button>
         </div>}
       </div>
       <div className="promo-carousel" aria-live="polite">

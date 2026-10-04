@@ -81,12 +81,9 @@ export default function ItemsRecipesPanel() {
 
   return (
     <div>
-      <p className="privacy-note">
-        Vista de solo lectura del motor de costos (Fase 1). Para crear o editar items, recetas y familias sigue usando
-        "Catálogo operativo" más abajo -- esta pantalla solo muestra cómo quedaron clasificados y cuánto cuesta cada receta.
-      </p>
+      <p className="privacy-note">Consulta de costos calculados. La edición se realiza arriba, en Productos y costos.</p>
 
-      <h4>Items ({filteredItems.length} de {items.length})</h4>
+      <h4>Insumos ({filteredItems.length} de {items.length})</h4>
       <div className="inline-actions">
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">Todos los tipos</option>
@@ -129,7 +126,7 @@ export default function ItemsRecipesPanel() {
         </table>
       </div>
 
-      <h4 style={{ marginTop: '1.5em' }}>Recetas y costos ({recipes.length})</h4>
+      <h4 style={{ marginTop: '1.5em' }}>Productos, preparaciones y costos ({recipes.length})</h4>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9em' }}>
           <thead>
@@ -154,7 +151,7 @@ export default function ItemsRecipesPanel() {
                     <span title={`Costo desconocido: ${recipe.costUnknownItems.join(', ')}`}> ❓</span>
                   )}
                 </td>
-                <td style={{ padding: '4px 8px' }}>{recipe.recipeType === 'subrecipe' ? 'Sub-receta' : 'Producto'}</td>
+                <td style={{ padding: '4px 8px' }}>{recipe.recipeType === 'subrecipe' ? 'Preparación' : 'Producto'}</td>
                 <td style={{ padding: '4px 8px' }}>{recipe.status || '—'}</td>
                 <td style={{ padding: '4px 8px' }}>{money(recipe.costTotal)}</td>
                 <td style={{ padding: '4px 8px' }}>{money(recipe.price)}</td>

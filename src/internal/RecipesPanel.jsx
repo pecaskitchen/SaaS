@@ -13,9 +13,10 @@ export default function RecipesPanel() {
     <div className="settings-stack">
       <Suspense fallback={<main className="app-loading" aria-label="Cargando recetas" />}>
         <StockPanel mode="adminConfig" />
-        <section className="admin-section">
+        <details className="admin-section advanced-cost-summary">
+          <summary>Ver resumen detallado de costos y márgenes</summary>
           <ItemsRecipesPanel />
-        </section>
+        </details>
       </Suspense>
     </div>
   );

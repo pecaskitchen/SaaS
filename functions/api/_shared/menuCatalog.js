@@ -168,12 +168,16 @@ export async function ensureProductItemLink(env, tenantId, productKey, productNa
   if (!unitId) return null; // stock_units todavia no sembrada para este tenant -- no bloquea el guardado del producto
 
   const now = new Date().toISOString();
+  // El catálogo puede haberse importado antes de crear item_id. En ese caso
+  // el artículo espejo ya existe por nombre y el índice único impide volverlo
+  // a insertar. Reutilizarlo hace el guardado idempotente.
   const inserted = await env.DB.prepare(`
     INSERT INTO items (
       tenant_id, name, item_type, type, unit_id, is_active,
       is_sellable, is_purchasable, is_producible, deducts_inventory,
       created_at_utc, updated_at_utc
     ) VALUES (?, ?, 'Producto', 'product', ?, 1, 1, 0, 0, 0, ?, ?)
+    ON CONFLICT(tenant_id, name) DO UPDATE SET updated_at_utc = excluded.updated_at_utc
     RETURNING id
   `).bind(tenantId, productName, unitId, now, now).first();
   const itemId = inserted?.id || null;

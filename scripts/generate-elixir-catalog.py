@@ -8,6 +8,7 @@ import openpyxl
 SOURCE = Path(r"C:\Users\LENOVO\Downloads\Catalogo_Charly_caracteristicas.xlsx")
 OUTPUT = Path(__file__).resolve().parents[1] / "seed" / "elixir-parfum.json"
 SQL_OUTPUT = Path(__file__).resolve().parents[1] / "seed" / "elixir-parfum.sql"
+METADATA_SQL_OUTPUT = Path(__file__).resolve().parents[1] / "seed" / "elixir-parfum-metadata.sql"
 TENANT_ID = "biz_elixir_parfum_mty"
 
 
@@ -178,4 +179,9 @@ for index, product in enumerate(products):
     )
 statements.append(f"UPDATE menu_products SET is_active=0 WHERE tenant_id={sql(TENANT_ID)} AND product_key NOT IN ({','.join(sql(product['id']) for product in products)});")
 SQL_OUTPUT.write_text("\n".join(statements) + "\n", encoding="utf-8")
-print(f"Generados {OUTPUT} y {SQL_OUTPUT} con {len(products)} perfumes.")
+metadata_statements = [
+    f"UPDATE menu_products SET metadata_json={sql(json.dumps(product['metadata'], ensure_ascii=False, separators=(',', ':')))}, updated_at_utc=datetime('now') WHERE tenant_id={sql(TENANT_ID)} AND product_key={sql(product['id'])};"
+    for product in products
+]
+METADATA_SQL_OUTPUT.write_text("\n".join(metadata_statements) + "\n", encoding="utf-8")
+print(f"Generados {OUTPUT}, {SQL_OUTPUT} y {METADATA_SQL_OUTPUT} con {len(products)} perfumes.")

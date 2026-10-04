@@ -1,11 +1,11 @@
 export const DEFAULT_PERFUME_PRICING_RULES = {
   enabled: true,
   rules: [
-    { id: '30ml-2x120', variantId: '30ml', minQuantity: 2, maxQuantity: 9, bundleQuantity: 2, bundlePrice: 120, label: '2 por $120' },
-    { id: '30ml-10', variantId: '30ml', minQuantity: 10, maxQuantity: 19, unitPrice: 55, label: 'Desde 10 piezas: $55 c/u' },
-    { id: '30ml-20', variantId: '30ml', minQuantity: 20, unitPrice: 50, label: 'Desde 20 piezas: $50 c/u' },
-    { id: '60ml-10', variantId: '60ml', minQuantity: 10, maxQuantity: 19, unitPrice: 110, label: 'Desde 10 piezas: $110 c/u' },
-    { id: '60ml-20', variantId: '60ml', minQuantity: 20, unitPrice: 100, label: 'Desde 20 piezas: $100 c/u' },
+    { id: '30ml-2x120', variantId: '30-ml', minQuantity: 2, maxQuantity: 9, bundleQuantity: 2, bundlePrice: 120, label: '2 por $120' },
+    { id: '30ml-10', variantId: '30-ml', minQuantity: 10, maxQuantity: 19, unitPrice: 55, label: 'Desde 10 piezas: $55 c/u' },
+    { id: '30ml-20', variantId: '30-ml', minQuantity: 20, unitPrice: 50, label: 'Desde 20 piezas: $50 c/u' },
+    { id: '60ml-10', variantId: '60-ml', minQuantity: 10, maxQuantity: 19, unitPrice: 110, label: 'Desde 10 piezas: $110 c/u' },
+    { id: '60ml-20', variantId: '60-ml', minQuantity: 20, unitPrice: 100, label: 'Desde 20 piezas: $100 c/u' },
   ],
 };
 
@@ -26,15 +26,21 @@ export function normalizePerfumePricingRules(value) {
 
 export function calculatePerfumePricing(items = [], config) {
   const pricing = normalizePerfumePricingRules(config);
-  const regularSubtotal = items.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Math.max(1, Number(item.quantity || 1)), 0);
+  const addOnTotalFor = (item) => item.addOnTotal !== undefined
+    ? Math.max(0, Number(item.addOnTotal || 0))
+    : Math.max(0, Number(item.addOnPrice || 0)) * Math.max(1, Number(item.quantity || 1));
+  const regularSubtotal = items.reduce((sum, item) => {
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    const basePrice = Number(item.basePrice ?? item.unitPrice ?? 0);
+    return sum + basePrice * quantity + addOnTotalFor(item);
+  }, 0);
   if (!pricing.enabled || !pricing.rules.length) return { subtotal: regularSubtotal, regularSubtotal, discount: 0, appliedRules: [] };
   const groups = new Map();
   for (const item of items) {
     const variantId = String(item.variantId || item.options?.variant || '').trim();
     if (!variantId) continue;
     const quantity = Math.max(1, Math.floor(Number(item.quantity || 1)));
-    const addOnPrice = Math.max(0, Number(item.addOnPrice || 0));
-    const baseUnitPrice = Math.max(0, Number(item.basePrice ?? (Number(item.unitPrice || 0) - addOnPrice)));
+    const baseUnitPrice = Math.max(0, Number(item.basePrice ?? item.unitPrice ?? 0));
     const group = groups.get(variantId) || { quantity: 0, regularBase: 0 };
     group.quantity += quantity; group.regularBase += baseUnitPrice * quantity;
     groups.set(variantId, group);

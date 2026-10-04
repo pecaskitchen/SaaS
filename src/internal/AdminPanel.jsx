@@ -693,7 +693,7 @@ export default function AdminPanel({
                 <div className="pricing-rules-editor">
                   {(pricingRulesDraft.rules || []).map((rule, index) => <article className="admin-product" key={rule.id || index}>
                     <div className="admin-product-head"><strong>{rule.label || `Regla ${index + 1}`}</strong><button type="button" className="ghost mini danger-text" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.filter((_, i) => i !== index) }))}>Quitar</button></div>
-                    <label className="field"><span>Presentación</span><input value={rule.variantId || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, variantId: e.target.value } : row) }))} placeholder="30ml" /></label>
+                    <label className="field"><span>Presentación</span><input value={rule.variantId || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, variantId: e.target.value } : row) }))} placeholder="30-ml" /></label>
                     <label className="field"><span>Desde cantidad</span><input type="number" min="1" value={rule.minQuantity || 1} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, minQuantity: Number(e.target.value || 1) } : row) }))} /></label>
                     <label className="field"><span>Hasta cantidad (vacío = sin límite)</span><input type="number" min="1" value={rule.maxQuantity || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, maxQuantity: e.target.value ? Number(e.target.value) : undefined } : row) }))} /></label>
                     <label className="field"><span>Precio unitario</span><input type="number" min="0" value={rule.unitPrice ?? ''} disabled={Boolean(rule.bundleQuantity)} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, unitPrice: e.target.value === '' ? undefined : Number(e.target.value) } : row) }))} /></label>
@@ -702,7 +702,7 @@ export default function AdminPanel({
                     <label className="field full"><span>Etiqueta</span><input value={rule.label || ''} onChange={(e) => setPricingRulesDraft((current) => ({ ...current, rules: current.rules.map((row, i) => i === index ? { ...row, label: e.target.value } : row) }))} /></label>
                   </article>)}
                 </div>
-                <button type="button" className="ghost" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: [...(current.rules || []), { id: `regla-${Date.now()}`, variantId: '30ml', minQuantity: 1, unitPrice: 0, label: 'Nueva regla' }] }))}>+ Agregar regla</button>
+                <button type="button" className="ghost" onClick={() => setPricingRulesDraft((current) => ({ ...current, rules: [...(current.rules || []), { id: `regla-${Date.now()}`, variantId: '30-ml', minQuantity: 1, unitPrice: 0, label: 'Nueva regla' }] }))}>+ Agregar regla</button>
               </div>}
             </section>}
 

@@ -90,6 +90,11 @@ button, a { -webkit-tap-highlight-color:transparent; }
 
 .cart-discount { display:grid; grid-template-columns:1fr auto; gap:3px 12px; padding:10px 12px; background:var(--gold-pale); color:var(--black); }
 .cart-discount small { grid-column:1/-1; color:var(--muted); }
+.product-addon-check { display:flex; align-items:center; gap:8px; margin:12px 0; color:var(--muted); font-size:.78rem; }
+.product-addon-check input,.addon-check input { accent-color:var(--gold); }
+.cart-addon-row { display:grid!important; gap:5px!important; margin-top:5px; }
+.cart-addon-row > label:last-child { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:.7rem; }
+.cart-addon-row input[type="number"] { width:52px; padding:4px; border:1px solid var(--line); background:var(--paper); color:var(--black); }
 
 .perfume-store.dark-mode { --black:#f7f4ed; --paper:#0e0e0d; --line:#37342e; --muted:#aaa49a; --gold-pale:#2b2417; background:#0e0e0d; color:#f7f4ed; }
 .dark-mode .perfume-nav { background:rgba(14,14,13,.94); border-bottom-color:#37342e; }

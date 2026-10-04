@@ -27,7 +27,9 @@ function metadata(product) {
 function ProductCard({ product, onAdd }) {
   const meta = metadata(product);
   const variants = meta.variants || [{ id: 'default', label: meta.presentation || '', price: product.price }];
+  const addOns = Array.isArray(meta.addOns) ? meta.addOns : [];
   const [variant, setVariant] = useState(variants[0]?.id || 'default');
+  const [selectedAddOns, setSelectedAddOns] = useState([]);
   const selected = variants.find((item) => item.id === variant) || variants[0];
   return (
     <article className="perfume-card">
@@ -49,7 +51,11 @@ function ProductCard({ product, onAdd }) {
           </label>
           <strong>{currency(selected?.price ?? product.price)}</strong>
         </div>
-        <button className="gold-button full" type="button" onClick={() => onAdd(product, selected)}><Plus size={17} /> Agregar</button>
+        {addOns.map((addOn) => <label className="product-addon-check" key={addOn.id}>
+          <input type="checkbox" checked={selectedAddOns.includes(addOn.id)} onChange={(event) => setSelectedAddOns((current) => event.target.checked ? [...current, addOn.id] : current.filter((id) => id !== addOn.id))} />
+          <span>{addOn.label} (+{currency(addOn.price)})</span>
+        </label>)}
+        <button className="gold-button full" type="button" onClick={() => onAdd(product, selected, selectedAddOns)}><Plus size={17} /> Agregar</button>
       </div>
     </article>
   );
@@ -102,13 +108,25 @@ function Cart({ items, setItems, settings, brand, pricingRules }) {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
-  const pricing = calculatePerfumePricing(items, pricingRules);
+  const pricedItems = items.map((item) => ({
+    ...item,
+    addOnTotal: (item.addOns || []).reduce((sum, addOn) => sum + Number(addOn.price || 0) * Number(item.addOnQuantities?.[addOn.id] || 0), 0),
+  }));
+  const pricing = calculatePerfumePricing(pricedItems, pricingRules);
   const total = pricing.subtotal;
-  const update = (uid, quantity) => setItems((current) => quantity < 1 ? current.filter((item) => item.uid !== uid) : current.map((item) => item.uid === uid ? { ...item, quantity } : item));
+  const update = (uid, quantity) => setItems((current) => quantity < 1 ? current.filter((item) => item.uid !== uid) : current.map((item) => item.uid === uid ? {
+    ...item, quantity, addOnQuantities: Object.fromEntries(Object.entries(item.addOnQuantities || {}).map(([id, value]) => [id, Math.min(quantity, Number(value || 0))])),
+  } : item));
+  const setAddOnQuantity = (uid, addOnId, quantity) => setItems((current) => current.map((item) => item.uid === uid ? {
+    ...item, addOnQuantities: { ...(item.addOnQuantities || {}), [addOnId]: Math.max(0, Math.min(item.quantity, Number(quantity || 0))) },
+  } : item));
   const message = () => [
     brand.orderMessageIntro || `Hola ${brand.displayName}, quiero hacer un pedido:`,
     '',
-    ...items.map((item) => `• ${item.quantity} × ${item.name} (${item.variantLabel}${item.pheromones ? ', con feromonas' : ''}) — ${currency(item.unitPrice * item.quantity)}`),
+    ...pricedItems.map((item) => {
+      const addOnText = (item.addOns || []).map((addOn) => ({ ...addOn, quantity: Number(item.addOnQuantities?.[addOn.id] || 0) })).filter((addOn) => addOn.quantity > 0).map((addOn) => `${addOn.label}: ${addOn.quantity}`).join(', ');
+      return `• ${item.quantity} × ${item.name} (${item.variantLabel}${addOnText ? `, ${addOnText}` : ''}) — ${currency(item.basePrice * item.quantity + item.addOnTotal)}`;
+    }),
     ...(pricing.appliedRules.length ? ['', ...pricing.appliedRules.map((rule) => `Promoción: ${rule.label} (-${currency(rule.discount)})`)] : []),
     '', `Total: ${currency(total)}`,
     customer.name ? `Nombre: ${customer.name}` : '', customer.address ? `Entrega: ${customer.address}` : '', customer.notes ? `Notas: ${customer.notes}` : '',
@@ -126,7 +144,16 @@ function Cart({ items, setItems, settings, brand, pricingRules }) {
         body: JSON.stringify({
           customer: { ...customer, fulfillmentType: customer.address ? 'Entrega a domicilio' : 'Recoger' },
           fulfillmentType: customer.address ? 'Entrega a domicilio' : 'Recoger',
-          items: items.map((item) => ({ product_id: item.id, quantity: item.quantity, options: { variant: item.variantId, addOns: item.pheromones ? ['feromonas'] : [] } })),
+          items: items.flatMap((item) => {
+            const quantities = item.addOnQuantities || {};
+            const grouped = new Map();
+            for (let unit = 0; unit < item.quantity; unit += 1) {
+              const addOnIds = (item.addOns || []).filter((addOn) => unit < Number(quantities[addOn.id] || 0)).map((addOn) => addOn.id).sort();
+              const key = addOnIds.join('|');
+              grouped.set(key, { addOnIds, quantity: (grouped.get(key)?.quantity || 0) + 1 });
+            }
+            return [...grouped.values()].map((group) => ({ product_id: item.id, quantity: group.quantity, options: { variant: item.variantId, addOns: group.addOnIds } }));
+          }),
         }),
       });
       const data = await response.json();
@@ -142,7 +169,7 @@ function Cart({ items, setItems, settings, brand, pricingRules }) {
       <header><div><span className="eyebrow">Tu selección</span><h2>Carrito</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Cerrar"><X /></button></header>
       <div className="cart-scroll">
         {!items.length ? <div className="cart-empty"><ShoppingBag /><p>Tu carrito está vacío.</p><button onClick={() => setOpen(false)}>Explorar perfumes</button></div> : items.map((item) => <div className="cart-line" key={item.uid}>
-          <img src={item.image} alt="" /><div><strong>{item.name}</strong><span>{item.variantLabel}</span><label className="addon-check"><input type="checkbox" checked={item.pheromones} onChange={(e) => setItems((current) => current.map((row) => row.uid === item.uid ? { ...row, pheromones: e.target.checked, addOnPrice: e.target.checked ? 10 : 0, unitPrice: item.basePrice + (e.target.checked ? 10 : 0) } : row))} /> + Feromonas</label><div className="quantity"><button onClick={() => update(item.uid, item.quantity - 1)}><Minus /></button><b>{item.quantity}</b><button onClick={() => update(item.uid, item.quantity + 1)}><Plus /></button><button className="trash" onClick={() => update(item.uid, 0)}><Trash2 /></button></div></div><b>{currency(item.unitPrice * item.quantity)}</b>
+          <img src={item.image} alt="" /><div><strong>{item.name}</strong><span>{item.variantLabel}</span>{(item.addOns || []).map((addOn) => { const addOnQuantity = Number(item.addOnQuantities?.[addOn.id] || 0); return <div className="cart-addon-row" key={addOn.id}><label className="addon-check"><input type="checkbox" checked={addOnQuantity > 0} onChange={(event) => setAddOnQuantity(item.uid, addOn.id, event.target.checked ? item.quantity : 0)} /> {addOn.label} (+{currency(addOn.price)} c/u)</label>{addOnQuantity > 0 && <label><span>Cantidad</span><input type="number" min="1" max={item.quantity} value={addOnQuantity} onChange={(event) => setAddOnQuantity(item.uid, addOn.id, event.target.value)} /><small>de {item.quantity}</small></label>}</div>; })}<div className="quantity"><button onClick={() => update(item.uid, item.quantity - 1)}><Minus /></button><b>{item.quantity}</b><button onClick={() => update(item.uid, item.quantity + 1)}><Plus /></button><button className="trash" onClick={() => update(item.uid, 0)}><Trash2 /></button></div></div><b>{currency(item.basePrice * item.quantity + (item.addOns || []).reduce((sum, addOn) => sum + Number(addOn.price || 0) * Number(item.addOnQuantities?.[addOn.id] || 0), 0))}</b>
         </div>)}
         {!!items.length && <div className="checkout-fields"><h3>Datos de pedido</h3><input placeholder="Nombre *" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} /><input placeholder="WhatsApp" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} /><input placeholder="Dirección (opcional)" value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} /><textarea placeholder="Notas" value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} /></div>}
       </div>
@@ -182,10 +209,19 @@ export default function PerfumeStore({ initialPayload }) {
   }), [products, filters]);
   const visible = showAll || Object.values(filters).some(Boolean) ? filtered : filtered.slice(0, 12);
   const favorites = products.filter((product) => metadata(product).featured).slice(0, 6);
-  const add = (product, variant) => setItems((current) => {
+  const add = (product, variant, selectedAddOnIds = []) => setItems((current) => {
     const uid = `${product.id}:${variant.id}`; const existing = current.find((item) => item.uid === uid);
-    if (existing) return current.map((item) => item.uid === uid ? { ...item, quantity: item.quantity + 1 } : item);
-    return [...current, { uid, id: product.id, name: product.name, image: product.image, variantId: variant.id, variantLabel: variant.label, basePrice: Number(variant.price), addOnPrice: 0, unitPrice: Number(variant.price), pheromones: false, quantity: 1 }];
+    const addOns = Array.isArray(metadata(product).addOns) ? metadata(product).addOns : [];
+    if (existing) return current.map((item) => item.uid === uid ? {
+      ...item,
+      quantity: item.quantity + 1,
+      addOnQuantities: Object.fromEntries(addOns.map((addOn) => [addOn.id, Number(item.addOnQuantities?.[addOn.id] || 0) + (selectedAddOnIds.includes(addOn.id) ? 1 : 0)])),
+    } : item);
+    return [...current, {
+      uid, id: product.id, name: product.name, image: product.image, variantId: variant.id, variantLabel: variant.label,
+      basePrice: Number(variant.price), unitPrice: Number(variant.price), quantity: 1, addOns,
+      addOnQuantities: Object.fromEntries(addOns.map((addOn) => [addOn.id, selectedAddOnIds.includes(addOn.id) ? 1 : 0])),
+    }];
   });
   const scrollCatalog = () => document.querySelector('#catalogo')?.scrollIntoView({ behavior: 'smooth' });
   return <main className={`perfume-store ${colorMode === 'dark' ? 'dark-mode' : 'light-mode'}`}>

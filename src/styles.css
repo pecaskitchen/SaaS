@@ -5325,3 +5325,46 @@ textarea { resize: vertical; min-height: 48px; }
   .public-storefront.pecas-storefront .nav-business-status { padding: 4px 6px; font-size: 9px; letter-spacing: -.1px; }
   .public-storefront.pecas-storefront .employee-login-button { padding: 5px 8px; font-size: 10px; }
 }
+
+@media (max-width: 640px) {
+  .public-storefront.pecas-storefront .nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    gap: 6px 8px;
+  }
+  .public-storefront.pecas-storefront .brand-area { display: contents; }
+  .public-storefront.pecas-storefront .brand-lockup {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .public-storefront.pecas-storefront .cart-pill {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    justify-self: end;
+    max-width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .public-storefront.pecas-storefront .brand-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 350px) {
+  .public-storefront.pecas-storefront .brand-name,
+  .public-storefront.pecas-storefront .brand-tagline { display: none; }
+  .public-storefront.pecas-storefront .pecas-logo-frame {
+    width: 54px;
+    height: 54px;
+    flex-basis: 54px;
+  }
+  .public-storefront.pecas-storefront .cart-pill { padding: 7px 8px; font-size: 10px; }
+}

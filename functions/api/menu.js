@@ -64,6 +64,7 @@ function blankPublicMenu(tenant = publicTenantConfig(null), warning = '') {
     productOrder: [],
     categoryHidden: {},
     promotion: null,
+    promotions: [],
     pricingRules: null,
     branchPromotions: {},
     businessHours: null,
@@ -85,6 +86,7 @@ function promoFallbackProducts(saved, cleanedOverrides, products, categories) {
     }
   };
   collectPromoProductIds(saved.promotion);
+  for (const promo of saved.promotions || []) collectPromoProductIds(promo);
   for (const promo of Object.values(saved.branchPromotions || {})) collectPromoProductIds(promo);
 
   const existingProductIds = new Set(products.map((product) => product.id));
@@ -147,6 +149,7 @@ export async function onRequestGet({ request, env }) {
       productOrder: effective.productOrder || [],
       categoryHidden: effective.categoryHidden || {},
       promotion: saved.promotion || null,
+      promotions: saved.promotions || (saved.promotion ? [saved.promotion] : []),
       pricingRules: saved.pricingRules || null,
       branchPromotions: saved.branchPromotions || {},
       businessHours: saved.businessHours || null,

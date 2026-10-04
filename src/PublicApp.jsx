@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, Plus, Minus, Trash2, MessageCircle, Utensils } from 'lucide-react';
 import './styles.css';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CATALOG_PRODUCTS, categoryMeta, mergeCategoriesWithExtras, mergeProductsWithExtras, normalizePromotion, promotionItems, sortByOrder } from './lib/catalog.js';
 import {
   BRANCH_STORAGE_KEY,
@@ -1630,8 +1631,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   const hasChoices = promoGroups.some((group) => group.hasChoices);
 
   return (
-    <section className="promo-section" id="promo">
-      <div className="promo-card">
+    <article className="promo-card">
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
           {image ? <img src={image} alt={promotion.title} /> : <span>⭐</span>}
         </div>
@@ -1691,7 +1691,28 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
             </button>
           </div>
         </div>
+    </article>
+  );
+}
+
+function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden }) {
+  const trackRef = React.useRef(null);
+  const visible = promotions.filter((item) => item?.active);
+  if (!visible.length) return null;
+  const move = (direction) => trackRef.current?.scrollBy({ left: direction * Math.max(300, trackRef.current.clientWidth * .85), behavior: 'smooth' });
+  return (
+    <section className="promo-section" id="promo" aria-label="Promociones">
+      <div className="promo-section-head">
+        <div><span className="eyebrow">Promociones</span><h2>Algo especial para ti</h2></div>
+        {visible.length > 1 && <div className="promo-carousel-controls">
+          <button type="button" aria-label="Promoción anterior" onClick={() => move(-1)}><ChevronLeft size={20} /></button>
+          <button type="button" aria-label="Siguiente promoción" onClick={() => move(1)}><ChevronRight size={20} /></button>
+        </div>}
       </div>
+      <div className="promo-carousel" ref={trackRef}>
+        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
+      </div>
+      {visible.length > 1 && <div className="promo-carousel-dots" aria-hidden="true">{visible.map((_, index) => <span key={index} />)}</div>}
     </section>
   );
 }
@@ -1930,6 +1951,7 @@ export default function PublicApp() {
   const [productOrder, setProductOrder] = useState([]);
   const [categoryHidden, setCategoryHidden] = useState({});
   const [promotion, setPromotion] = useState(null);
+  const [promotions, setPromotions] = useState([]);
   const [branchPromotions, setBranchPromotions] = useState({});
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -2024,6 +2046,7 @@ export default function PublicApp() {
         setProductOrder(Array.isArray(result.productOrder) && result.productOrder.length ? result.productOrder : nextProducts.map((product) => product.id));
         setCategoryHidden(result.categoryHidden || {});
         setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
+        setPromotions((result.promotions?.length ? result.promotions : (result.promotion ? [result.promotion] : [])).map((item) => normalizePromotion(item, nextProducts)));
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
@@ -2040,6 +2063,7 @@ export default function PublicApp() {
       setExtraProducts([]);
       setCategoryHidden({});
       setPromotion(null);
+      setPromotions([]);
       setBaseCatalogEnabled(false);
       if (!window.__saasLastMenuPayload?.tenant) setPublicBrand(normalizePublicBrand(null));
       setPublicSettings(normalizePublicSettings());
@@ -2128,6 +2152,11 @@ export default function PublicApp() {
     return defaultBranchPromotion ? { ...(promotion || {}), ...defaultBranchPromotion } : promotion;
   }, [selectedBranchHasPromotion, selectedBranchPromotion, defaultBranchPromotion, promotion]);
   const activePromotion = useMemo(() => activePromotionSource ? normalizePromotion(activePromotionSource, currentProductsForBranch) : null, [activePromotionSource, currentProductsForBranch]);
+  const activePromotions = useMemo(() => {
+    const normalized = (promotions.length ? promotions : (activePromotion ? [activePromotion] : [])).map((item) => normalizePromotion(item, currentProductsForBranch));
+    if (activePromotion && normalized.length) normalized[0] = activePromotion;
+    return normalized;
+  }, [promotions, activePromotion, currentProductsForBranch]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
@@ -2206,7 +2235,7 @@ export default function PublicApp() {
         </div>
       </section>
 
-      <PromoCard promotion={activePromotion} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+      <PromotionsCarousel promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
 
       {mercadoPagoReturn && (
         <section className="payment-return-banner">

@@ -39,6 +39,7 @@ export default function AdminRoute({ view = 'menu' }) {
   const [productOrder, setProductOrder] = useState([]);
   const [categoryHidden, setCategoryHidden] = useState({});
   const [promotion, setPromotion] = useState(null);
+  const [promotions, setPromotions] = useState([]);
   const [pricingRules, setPricingRules] = useState(null);
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -69,6 +70,7 @@ export default function AdminRoute({ view = 'menu' }) {
       setProductOrder(result.productOrder?.length ? result.productOrder : nextProducts.map((product) => product.id));
       setCategoryHidden(result.categoryHidden || {});
       setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
+      setPromotions((result.promotions?.length ? result.promotions : (result.promotion ? [result.promotion] : [])).map((item) => normalizePromotion(item, nextProducts)));
       setPricingRules(result.pricingRules ? normalizePerfumePricingRules(result.pricingRules) : null);
       setBusinessHours(normalizeBusinessHours(result.businessHours));
       setBranchSettings(normalizeBranchSettings(result.branchSettings));
@@ -83,6 +85,7 @@ export default function AdminRoute({ view = 'menu' }) {
         setProductOrder([]);
         setCategoryHidden({});
         setPromotion(null);
+        setPromotions([]);
         setPricingRules(null);
         setBusinessHours(normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
         setBranchSettings(normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -113,6 +116,7 @@ export default function AdminRoute({ view = 'menu' }) {
       productOrder={productOrder}
       categoryHidden={categoryHidden}
       promotion={promotion}
+      promotions={promotions}
       pricingRules={pricingRules}
       businessHours={businessHours}
       branchSettings={branchSettings}

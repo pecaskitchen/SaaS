@@ -156,6 +156,7 @@ export default function AdminPanel({
   productOrder = [],
   categoryHidden = {},
   promotion = null,
+  promotions = [],
   pricingRules = null,
   businessHours = DEFAULT_BUSINESS_HOURS,
   branchSettings = DEFAULT_BRANCH_SETTINGS,
@@ -186,7 +187,16 @@ export default function AdminPanel({
   const [categoryItems, setCategoryItems] = useState(() => safeCategoriesList.map((category) => ({ ...category })));
   const [categoryDraft, setCategoryDraft] = useState(() => safeCategoryOrder.length ? safeCategoryOrder : safeCategoriesList.map((category) => category.id));
   const [productOrderDraft, setProductOrderDraft] = useState(() => safeProductOrder.length ? safeProductOrder : safeProducts.map((product) => product.id));
-  const [promotionDraft, setPromotionDraft] = useState(() => normalizePromotion(promotion, safeProducts));
+  const [promotionIndex, setPromotionIndex] = useState(0);
+  const [promotionDrafts, setPromotionDrafts] = useState(() => (promotions.length ? promotions : [promotion]).filter(Boolean).map((item) => normalizePromotion(item, safeProducts)));
+  const promotionDraft = promotionDrafts[promotionIndex] || normalizePromotion(null, safeProducts);
+  const setPromotionDraft = (updater) => setPromotionDrafts((current) => {
+    const base = current.length ? current : [normalizePromotion(null, safeProducts)];
+    const index = Math.min(promotionIndex, base.length - 1);
+    const next = [...base];
+    next[index] = typeof updater === 'function' ? updater(next[index]) : updater;
+    return next;
+  });
   const [pricingRulesDraft, setPricingRulesDraft] = useState(() => normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
   const [categoryHiddenDraft, setCategoryHiddenDraft] = useState(() => ({ ...(categoryHidden || {}) }));
   const [businessHoursDraft, setBusinessHoursDraft] = useState(() => normalizeBusinessHours(businessHours));
@@ -217,8 +227,10 @@ export default function AdminPanel({
   }, [safeProductOrder, safeProducts]);
 
   useEffect(() => {
-    setPromotionDraft(normalizePromotion(promotion, safeProducts));
-  }, [promotion, safeProducts]);
+    const incoming = (promotions.length ? promotions : [promotion]).filter(Boolean);
+    setPromotionDrafts(incoming.map((item) => normalizePromotion(item, safeProducts)));
+    setPromotionIndex(0);
+  }, [promotion, promotions, safeProducts]);
 
   useEffect(() => {
     setPricingRulesDraft(normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
@@ -609,6 +621,7 @@ export default function AdminPanel({
           productOrder: productOrderDraft,
           categoryHidden: categoryHiddenDraft,
           promotion: promotionDraft,
+          promotions: promotionDrafts,
           pricingRules: pricingRulesDraft,
           businessHours: businessHoursDraft,
           branchSettings: branchSettingsDraft,
@@ -821,7 +834,22 @@ export default function AdminPanel({
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('promo')}>Promociones de venta <span>{openAdminSections.promo ? '-' : '+'}</span></button>
               {openAdminSections.promo && (
                 <div className="admin-order-box">
-                  <AdminSectionIntro title="Promociones de venta" description="Configura combos o promociones que forman parte del menu y pueden afectar precio/carrito." />
+                  <AdminSectionIntro title="Promociones de venta" description="Configura varias promociones. Las activas aparecerán como carrusel en la portada." />
+                  <div className="admin-promo-tabs">
+                    {promotionDrafts.map((item, index) => (
+                      <button type="button" className={index === promotionIndex ? 'primary mini' : 'ghost mini'} key={index} onClick={() => setPromotionIndex(index)}>
+                        {item.title || `Promoción ${index + 1}`}
+                      </button>
+                    ))}
+                    <button type="button" className="ghost mini" onClick={() => {
+                      setPromotionDrafts((current) => [...current, { ...normalizePromotion(null, safeProducts), title: `Promoción ${current.length + 1}`, active: false }]);
+                      setPromotionIndex(promotionDrafts.length);
+                    }}>+ Nueva promoción</button>
+                    {promotionDrafts.length > 1 ? <button type="button" className="ghost mini danger-text" onClick={() => {
+                      setPromotionDrafts((current) => current.filter((_, index) => index !== promotionIndex));
+                      setPromotionIndex((current) => Math.max(0, current - 1));
+                    }}>Eliminar actual</button> : null}
+                  </div>
                   <label className="check-row full">
                     <input type="checkbox" checked={Boolean(promotionDraft.active)} onChange={(e) => setPromotionDraft((current) => ({ ...current, active: e.target.checked }))} />
                     <span>Promocion activa</span>

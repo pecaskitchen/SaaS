@@ -5059,3 +5059,42 @@ textarea { resize: vertical; min-height: 48px; }
 .wa-diagnostics { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line, #ddd); border-radius: 12px; }
 .wa-diagnostics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .6rem; margin: .75rem 0; }
 .wa-diagnostics-grid span { display: flex; flex-direction: column; padding: .6rem; border-radius: 8px; background: rgba(127,127,127,.08); }
+
+/* Portada compacta + carrusel de promociones */
+.public-storefront .hero { padding-bottom: 28px; }
+.public-storefront .hero-grid { min-height: auto; gap: clamp(24px, 5vw, 64px); align-items: center; }
+.public-storefront .hero h1 { font-size: clamp(44px, 6vw, 76px); line-height: .94; }
+.public-storefront .hero-card { min-height: 300px; }
+.public-storefront .hero-card img { width: min(66%, 230px); height: auto; aspect-ratio: 1; object-fit: cover; }
+.promo-section { overflow: hidden; }
+.promo-section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.promo-section-head h2 { margin: 3px 0 0; color: var(--brown); font-size: clamp(25px, 3vw, 38px); line-height: 1; }
+.promo-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: min(100%, 820px); gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px 2px 14px; }
+.promo-carousel::-webkit-scrollbar { display: none; }
+.promo-carousel .promo-card { scroll-snap-align: start; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); min-height: 300px; }
+.promo-carousel .promo-media { min-height: 100%; }
+.promo-carousel .promo-content { padding: 22px; }
+.promo-carousel .promo-content h2 { font-size: clamp(26px, 3vw, 40px); }
+.promo-carousel-controls { display: flex; gap: 8px; }
+.promo-carousel-controls button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(59,31,15,.14); border-radius: 50%; background: #fff; color: var(--brown); cursor: pointer; }
+.promo-carousel-dots { display: flex; justify-content: center; gap: 6px; }
+.promo-carousel-dots span { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--brand-primary) 45%, transparent); }
+.admin-promo-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(127,127,127,.18); }
+
+@media (max-width: 860px) {
+  .public-storefront .hero { padding: 8px 16px 14px; }
+  .public-storefront .nav { margin-bottom: 8px; padding: 6px 0; }
+  .public-storefront .hero-grid { gap: 18px; }
+  .public-storefront .hero-copy { padding: 16px 18px; border-radius: 24px; }
+  .public-storefront .hero h1 { margin: 10px 0 8px; font-size: clamp(34px, 9vw, 44px); line-height: .94; letter-spacing: -1.8px; }
+  .public-storefront .hero p { margin: 0; font-size: 14px; }
+  .public-storefront .hero-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+  .public-storefront .hero-actions .primary,
+  .public-storefront .hero-actions .secondary { min-height: 46px; padding: 10px 8px; font-size: 13px; }
+  .public-storefront .hero-card { min-height: 190px; }
+  .public-storefront .open-status-pill { font-size: 12px; padding: 8px 12px; }
+  .promo-section { margin-top: 14px; }
+  .promo-carousel { grid-auto-columns: 92%; }
+  .promo-carousel .promo-card { grid-template-columns: 1fr; }
+  .promo-carousel .promo-media { min-height: 145px; max-height: 190px; }
+}

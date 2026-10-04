@@ -30,7 +30,7 @@ export function normalizeSavedMenu(raw) {
   try {
     if (!raw) return emptySavedMenu();
     const parsed = JSON.parse(raw);
-    if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.pricingRules || parsed.businessHours || parsed.branchSettings) {
+    if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.promotions || parsed.pricingRules || parsed.businessHours || parsed.branchSettings) {
       return {
         overrides: parsed.overrides || {},
         extraCategories: Array.isArray(parsed.extraCategories) ? parsed.extraCategories : [],
@@ -39,6 +39,7 @@ export function normalizeSavedMenu(raw) {
         productOrder: Array.isArray(parsed.productOrder) ? parsed.productOrder : [],
         categoryHidden: parsed.categoryHidden || {},
         promotion: parsed.promotion || null,
+        promotions: Array.isArray(parsed.promotions) ? parsed.promotions : (parsed.promotion ? [parsed.promotion] : []),
         pricingRules: parsed.pricingRules || null,
         branchPromotions: parsed.branchPromotions || {},
         businessHours: parsed.businessHours || null,
@@ -61,6 +62,7 @@ export function emptySavedMenu() {
     productOrder: [],
     categoryHidden: {},
     promotion: null,
+    promotions: [],
     pricingRules: null,
     branchPromotions: {},
     businessHours: null,
@@ -467,6 +469,7 @@ export async function readEffectiveCatalog(env, tenantId, legacySaved, options =
       ...legacySaved,
       ...tableCatalog,
       promotion: legacySaved.promotion || null,
+      promotions: legacySaved.promotions || (legacySaved.promotion ? [legacySaved.promotion] : []),
       pricingRules: legacySaved.pricingRules || null,
       branchPromotions: legacySaved.branchPromotions || {},
       businessHours: legacySaved.businessHours || null,

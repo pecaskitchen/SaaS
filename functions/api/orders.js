@@ -1,6 +1,7 @@
 import { requireAuth } from './_shared/auth.js';
 import { upsertCustomerFromOrder } from './_shared/crm.js';
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
+import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings, normalizeCashierOrderSources } from './_shared/branchSettings.js';
 
 function jsonResponse(data, status = 200) {
@@ -216,6 +217,7 @@ export async function onRequestPost({ request, env }) {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
     await ensureSchema(env);
     const tenantId = await resolveTenantId(request, env);
+    if (tenantId === UNRESOLVED_TENANT_ID) return jsonResponse({ ok: false, error: 'Negocio no disponible.' }, 404);
 
     const body = await request.json();
     const source = body.source === 'cashier' ? 'cashier' : 'online';

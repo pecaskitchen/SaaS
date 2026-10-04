@@ -10,6 +10,8 @@ export function defaultTenantId(env) {
   return String(env.DEFAULT_TENANT_ID || env.TENANT_ID || 'default').trim() || 'default';
 }
 
+export const UNRESOLVED_TENANT_ID = '__unresolved_tenant__';
+
 export function normalizeTenantId(value, env) {
   const fallback = defaultTenantId(env);
   return String(value || fallback)
@@ -96,9 +98,10 @@ export async function resolveTenantId(request, env) {
     }
     const hostname = hostnameFromRequest(request);
     const tenant = await resolveTenantByHostname(env, hostname);
-    return tenant?.id || defaultTenantId(env);
+    if (tenant?.id) return tenant.id;
+    return allowsExplicitTenantForPreview(request) ? defaultTenantId(env) : UNRESOLVED_TENANT_ID;
   } catch {
-    return defaultTenantId(env);
+    return UNRESOLVED_TENANT_ID;
   }
 }
 

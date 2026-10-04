@@ -74,7 +74,13 @@ export async function onRequestPost({ request, env }) {
               content: message,
             });
             await markMessageRead(env, { phoneNumberId: connection.phone_number_id, accessToken, waMessageId: message.id });
-            await handleIncomingMessage(env, { connection, accessToken, from: message.from, message });
+            await handleIncomingMessage(env, {
+              connection,
+              accessToken,
+              from: message.from,
+              message,
+              correlationId: providerEventId,
+            });
             await markWhatsappWebhookEventProcessed(env, providerEventId, { status: 'processed' });
           } catch (error) {
             await markWhatsappWebhookEventProcessed(env, providerEventId, { status: 'error', errorMessage: error.message });

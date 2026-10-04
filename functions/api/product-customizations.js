@@ -1,4 +1,5 @@
 ﻿import { resolveTenantId } from './_shared/tenant.js';
+import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,6 +36,7 @@ export async function onRequestGet({ request, env }) {
     if (!env.DB) return jsonResponse({ ok: false, error: 'No hay binding DB.' }, 500);
 
     const tenantId = await resolveTenantId(request, env);
+    if (tenantId === UNRESOLVED_TENANT_ID) return jsonResponse({ ok: false, error: 'Negocio no disponible.' }, 404);
 
     const tableCheck = await env.DB.prepare(
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('recipes', 'recipe_lines', 'items')`

@@ -86,9 +86,9 @@ export default function BackofficeShell() {
       return;
     }
     const settings = user.tenant?.settings || {};
-    const allowed = modulesForRole(user.role, settings);
+    const allowed = modulesForRole(user.role, settings, Boolean(user.tenant));
     if (!activeModule || !allowed.some((module) => module.id === activeModule)) {
-      const next = defaultModuleForRole(user.role, settings);
+      const next = defaultModuleForRole(user.role, settings, Boolean(user.tenant));
       if (next) window.location.hash = `#panel/${next}`;
     }
   }, [loading, user, activeModule]);
@@ -99,7 +99,7 @@ export default function BackofficeShell() {
     return () => window.removeEventListener('hashchange', syncHash);
   }, []);
 
-  const visibleModules = useMemo(() => (user ? modulesForRole(user.role, user.tenant?.settings || {}) : []), [user]);
+  const visibleModules = useMemo(() => (user ? modulesForRole(user.role, user.tenant?.settings || {}, Boolean(user.tenant)) : []), [user]);
 
   if (loading) {
     return <main className="app-loading" aria-label="Cargando" />;

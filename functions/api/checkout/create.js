@@ -1,5 +1,6 @@
 import { jsonResponse, readJson, requireDb, nowIso } from '../_shared/http.js';
 import { resolveTenantId, tenantSettingKey, ensureTenantColumns } from '../_shared/tenant.js';
+import { UNRESOLVED_TENANT_ID } from '../_shared/tenant.js';
 import { normalizeSavedMenu, readEffectiveCatalog } from '../_shared/menuCatalog.js';
 import { ensurePaymentTables, getValidAccessToken } from '../_shared/payments.js';
 import { upsertCustomerFromOrder } from '../_shared/crm.js';
@@ -188,6 +189,7 @@ export async function onRequestPost({ request, env }) {
     await ensureSchema(env);
     const requestUrl = new URL(request.url);
     const tenantId = await resolveTenantId(request, env);
+    if (tenantId === UNRESOLVED_TENANT_ID) return jsonResponse({ ok: false, error: 'Negocio no disponible.' }, 404);
     await ensurePaymentTables(env);
 
     const body = await readJson(request);

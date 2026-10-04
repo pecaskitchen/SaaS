@@ -19,8 +19,6 @@ const StockPanel = React.lazy(() => import('./StockPanel.jsx'));
 const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
 const BusinessConfigCenter = React.lazy(() => import('./BusinessConfigCenter.jsx'));
-const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
-const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
 const ItemsRecipesPanel = React.lazy(() => import('./ItemsRecipesPanel.jsx'));
 const ExecutiveDashboard = React.lazy(() => import('./ExecutiveDashboard.jsx'));
 
@@ -40,8 +38,8 @@ const ADMIN_VIEW_CONFIG = {
   all: {
     title: 'Administrador',
     description: 'Configura sucursales, menu, ingredientes, recetas, familias e importaciones. Para operacion diaria usa Pedidos, Stock o Caja.',
-    sections: ['executive', 'payments', 'whatsapp', 'metaPage', 'instagramLogin', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
-    open: { executive: true, branches: true, orderForm: false, payments: false, whatsapp: false, metaPage: false, instagramLogin: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
+    sections: ['executive', 'payments', 'whatsapp', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
+    open: { executive: true, branches: true, orderForm: false, payments: false, whatsapp: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
   },
 };
 
@@ -711,24 +709,6 @@ export default function AdminPanel({
               {openAdminSections.whatsapp && (
                 <div className="admin-order-box">
                   <WhatsAppSettings />
-                </div>
-              )}
-            </section>}
-
-            {hasAdminSection('metaPage') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('metaPage')}>Facebook e Instagram <span>{openAdminSections.metaPage ? '-' : '+'}</span></button>
-              {openAdminSections.metaPage && (
-                <div className="admin-order-box">
-                  <MetaPageSettings />
-                </div>
-              )}
-            </section>}
-
-            {hasAdminSection('instagramLogin') && <section className="admin-collapse">
-              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('instagramLogin')}>Instagram (conexión directa) <span>{openAdminSections.instagramLogin ? '-' : '+'}</span></button>
-              {openAdminSections.instagramLogin && (
-                <div className="admin-order-box">
-                  <InstagramLoginSettings />
                 </div>
               )}
             </section>}

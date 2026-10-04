@@ -17,6 +17,7 @@ export default function WhatsAppSettings() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [diagnostics, setDiagnostics] = useState(null);
   const signupDataRef = useRef({ wabaId: null, phoneNumberId: null });
 
   const loadStatus = async () => {
@@ -24,6 +25,8 @@ export default function WhatsAppSettings() {
     try {
       const result = await apiFetch('/api/integrations/whatsapp/status');
       setStatus(result.status || 'disconnected');
+      const health = await apiFetch('/api/integrations/whatsapp/diagnostics');
+      setDiagnostics(health.last24Hours || null);
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'No se pudo cargar el estado.' });
     } finally {
@@ -135,6 +138,19 @@ export default function WhatsAppSettings() {
         <p className={notice.type === 'error' ? 'payments-notice-error' : 'payments-notice-success'}>
           {notice.message}
         </p>
+      )}
+      {diagnostics && (
+        <div className="wa-diagnostics" aria-label="Diagnóstico de WhatsApp de las últimas 24 horas">
+          <strong>Actividad en 24 horas</strong>
+          <div className="wa-diagnostics-grid">
+            <span>Recibidos <b>{diagnostics.received}</b></span>
+            <span>Procesados <b>{diagnostics.processed}</b></span>
+            <span>Enviados <b>{diagnostics.outbound}</b></span>
+            <span>Errores <b>{diagnostics.errors}</b></span>
+            <span>Duplicados ignorados <b>{diagnostics.duplicatesIgnored}</b></span>
+          </div>
+          <button type="button" disabled={loading} onClick={loadStatus}>Actualizar diagnóstico</button>
+        </div>
       )}
     </div>
   );

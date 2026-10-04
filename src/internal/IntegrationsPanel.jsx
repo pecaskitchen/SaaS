@@ -2,9 +2,6 @@ import React, { Suspense } from 'react';
 
 const PaymentsSettings = React.lazy(() => import('./PaymentsSettings.jsx'));
 const WhatsAppSettings = React.lazy(() => import('./WhatsAppSettings.jsx'));
-const MetaPageSettings = React.lazy(() => import('./MetaPageSettings.jsx'));
-const InstagramLoginSettings = React.lazy(() => import('./InstagramLoginSettings.jsx'));
-
 export default function IntegrationsPanel() {
   return (
     <section className="admin-section">
@@ -26,13 +23,9 @@ export default function IntegrationsPanel() {
             <h2>WhatsApp Business</h2>
             <WhatsAppSettings />
           </section>
-          <section className="admin-order-box">
-            <h2>Facebook e Instagram</h2>
-            <MetaPageSettings />
-          </section>
-          <section className="admin-order-box">
-            <h2>Instagram directo</h2>
-            <InstagramLoginSettings />
+          <section className="admin-order-box integration-disabled">
+            <h2>Messenger e Instagram</h2>
+            <p className="muted-line">No habilitados por ahora. Cuando decidas configurarlos, se activarán sobre el mismo motor de conversación de WhatsApp.</p>
           </section>
         </div>
       </Suspense>

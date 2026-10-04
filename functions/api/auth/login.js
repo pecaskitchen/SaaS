@@ -4,11 +4,12 @@ import { ensureSessionsTable, jwtSecret } from '../_shared/auth.js';
 import { checkLoginRateLimit, clearLoginFailures, recordLoginFailure } from '../_shared/loginRateLimit.js';
 import { ensurePlatformTables, safeJson } from '../_shared/platform.js';
 import { normalizeTenantSettings } from '../_shared/tenantSettings.js';
+import { resolveTenantByHostname } from '../_shared/tenant.js';
 
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 horas
 
 async function tenantPayload(env, tenantId, role) {
-  if (!tenantId || role === 'platform_admin') return null;
+  if (!tenantId) return null;
   try {
     const row = await requireDb(env).prepare(`
       SELECT id, slug, name, settings_json
@@ -62,6 +63,14 @@ export async function onRequestPost({ request, env }) {
 
     await clearLoginFailures(env, request, email);
 
+    // La cuenta maestra de plataforma adopta el tenant del dominio desde el
+    // que inició sesión. En omdexa.com permanece sin tenant y ve Plataforma;
+    // en el dominio de un cliente ve y administra ese negocio completo.
+    const domainTenant = user.role === 'platform_admin'
+      ? await resolveTenantByHostname(env, hostname).catch(() => null)
+      : null;
+    const sessionTenantId = domainTenant?.id || user.tenant_id || null;
+
     if (isLegacyPasswordHash(user.password_hash)) {
       try {
         const upgraded = await hashPassword(password);
@@ -74,11 +83,11 @@ export async function onRequestPost({ request, env }) {
     await db.prepare(`
       INSERT INTO user_sessions (id, tenant_id, user_id, role, expires_at_utc, created_at_utc)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(sessionId, user.tenant_id, user.id, user.role, expiresAtUtc, nowIso()).run();
+    `).bind(sessionId, sessionTenantId, user.id, user.role, expiresAtUtc, nowIso()).run();
 
     const token = await signToken({
       userId: user.id,
-      tenantId: user.tenant_id,
+      tenantId: sessionTenantId,
       role: user.role,
       name: user.name,
       email: user.email,
@@ -98,8 +107,8 @@ export async function onRequestPost({ request, env }) {
         name: user.name,
         email: user.email,
         role: user.role,
-        tenantId: user.tenant_id,
-        tenant: await tenantPayload(env, user.tenant_id, user.role),
+        tenantId: sessionTenantId,
+        tenant: await tenantPayload(env, sessionTenantId, user.role),
       },
     });
   } catch (error) {

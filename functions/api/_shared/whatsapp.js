@@ -56,7 +56,9 @@ export async function ensureWhatsappTables(env) {
       processing_status TEXT NOT NULL,
       received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       processed_at TEXT,
-      error_message TEXT
+      error_message TEXT,
+      duplicate_count INTEGER NOT NULL DEFAULT 0,
+      last_received_at TEXT
     )`),
   ]);
 }
@@ -118,7 +120,9 @@ export async function exchangeCodeForToken(env, code) {
 // Embedded Signup, no es automático. El PIN es de 6 dígitos, cualquiera
 // (se usa internamente para verificación en dos pasos del número).
 export async function registerPhoneNumber(env, phoneNumberId, accessToken) {
-  const pin = String(Math.floor(100000 + Math.random() * 900000));
+  const random = new Uint32Array(1);
+  crypto.getRandomValues(random);
+  const pin = String(100000 + (random[0] % 900000));
   const response = await fetch(graphUrl(env, `${phoneNumberId}/register`), {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -240,7 +244,16 @@ export async function claimWhatsappWebhookEvent(env, providerEventId, { tenantId
     `).bind(crypto.randomUUID(), providerEventId, tenantId || null, eventType || null).run();
     return false;
   } catch (error) {
-    if (String(error.message || '').includes('UNIQUE')) return true;
+    if (String(error.message || '').includes('UNIQUE')) {
+      try {
+        await db.prepare(`
+          UPDATE whatsapp_webhook_events
+          SET duplicate_count = COALESCE(duplicate_count, 0) + 1, last_received_at = CURRENT_TIMESTAMP
+          WHERE provider_event_id = ?
+        `).bind(providerEventId).run();
+      } catch { /* Compatibilidad durante el despliegue de la migración. */ }
+      return true;
+    }
     throw error;
   }
 }

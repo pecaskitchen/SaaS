@@ -9,7 +9,7 @@ export async function onRequestGet({ request, env }) {
 
   const { userId, tenantId, role, name, email } = auth.session;
   let tenant = null;
-  if (tenantId && role !== 'platform_admin') {
+  if (tenantId) {
     try {
       await ensurePlatformTables(env);
       const row = await requireDb(env).prepare(`SELECT id, slug, name, settings_json FROM saas_tenants WHERE id = ? LIMIT 1`)

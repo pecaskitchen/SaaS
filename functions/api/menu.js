@@ -9,6 +9,7 @@ import {
   readEffectiveCatalog,
   safeJson,
 } from './_shared/menuCatalog.js';
+import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 
 const DEFAULT_PUBLIC_BRAND = {
   displayName: 'Tu negocio',
@@ -114,6 +115,7 @@ export async function onRequestGet({ request, env }) {
 
     await ensureTenantColumns(env, ['app_settings']);
     const tenantId = await resolveTenantId(request, env);
+    if (tenantId === UNRESOLVED_TENANT_ID) return jsonResponse({ ok: false, error: 'Negocio no disponible.' }, 404);
     const explicitTenant = hasExplicitTenant(request);
     const defaultTenant = defaultTenantId(env);
     if (!explicitTenant && normalizeTenantId(tenantId, env) === defaultTenant) {

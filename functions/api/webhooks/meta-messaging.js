@@ -43,6 +43,10 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: 'Firma inválida.' }, 401);
   }
 
+  if (String(env.ENABLE_META_MESSAGING || '').toLowerCase() !== 'true') {
+    return jsonResponse({ ok: true, skipped: true, reason: 'meta_messaging_disabled' });
+  }
+
   let payload = {};
   try { payload = JSON.parse(rawBody); } catch { payload = {}; }
 

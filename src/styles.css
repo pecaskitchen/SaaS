@@ -5030,3 +5030,32 @@ textarea { resize: vertical; min-height: 48px; }
 .history-edit-grid .field.full { grid-column: 1 / -1; }
 .history-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
 @media (max-width: 640px) { .history-edit-grid { grid-template-columns: 1fr; } }
+.load-state {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f8fafc;
+}
+.load-state-card {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .08);
+}
+.load-spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: load-spin .8s linear infinite;
+}
+@keyframes load-spin { to { transform: rotate(360deg); } }
+.wa-diagnostics { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line, #ddd); border-radius: 12px; }
+.wa-diagnostics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .6rem; margin: .75rem 0; }
+.wa-diagnostics-grid span { display: flex; flex-direction: column; padding: .6rem; border-radius: 8px; background: rgba(127,127,127,.08); }

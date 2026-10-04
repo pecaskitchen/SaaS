@@ -1,5 +1,6 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider } from './auth/AuthContext.jsx';
+import RouteErrorBoundary from './components/RouteErrorBoundary.jsx';
 
 // De vuelta a lazy: el import estatico metia todo el landing de Omdexa al
 // chunk principal que descargan los clientes de los tenants (194->208 kB)
@@ -8,12 +9,7 @@ import { AuthProvider } from './auth/AuthContext.jsx';
 // handler de vite:preloadError en main.jsx.
 const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
 const PublicStorefront = lazy(() => import('./PublicStorefront.jsx'));
-const LegacyApp = lazy(() => import('./LegacyApp.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
-const AdminRoute = lazy(() => import('./internal/AdminRoute.jsx'));
-const OrdersPanel = lazy(() => import('./internal/OrdersPanel.jsx'));
-const StockPanel = lazy(() => import('./internal/StockPanel.jsx'));
-const CrmPanel = lazy(() => import('./internal/CrmPanel.jsx'));
 const PrivacyPolicy = lazy(() => import('./PrivacyPolicy.jsx'));
 const TermsOfService = lazy(() => import('./TermsOfService.jsx'));
 const Login = lazy(() => import('./Login.jsx'));
@@ -23,12 +19,11 @@ function currentRoute() {
   try {
     if (window.location.hash) return window.location.hash;
     const path = window.location.pathname.replace(/\/+$/, '');
-    if (path === '/admin') return '#admin';
-    if (path === '/super') return '#super';
-    if (path === '/orders') return '#orders';
-    if (path === '/crm') return '#crm';
-    if (path === '/stock') return '#stock';
-    if (path === '/cashier') return '#cashier';
+    if (path === '/admin' || path === '/super') return '#panel/menu';
+    if (path === '/orders') return '#panel/pedidos';
+    if (path === '/crm') return '#panel/clientes';
+    if (path === '/stock') return '#panel/inventario';
+    if (path === '/cashier') return '#panel/caja';
     if (path === '/platform') return '#platform';
     return '#';
   } catch {
@@ -36,8 +31,19 @@ function currentRoute() {
   }
 }
 
-function isLegacyRoute(route) {
-  return ['#super', '#cashier'].includes(route);
+function LegacyRedirect({ route }) {
+  useEffect(() => {
+    const targets = {
+      '#admin': '#panel/menu',
+      '#super': '#panel/menu',
+      '#orders': '#panel/pedidos',
+      '#crm': '#panel/clientes',
+      '#stock': '#panel/inventario',
+      '#cashier': '#panel/caja',
+    };
+    window.location.hash = targets[route] || '#panel';
+  }, [route]);
+  return <main className="load-state"><div className="load-state-card"><p>Abriendo el panel nuevo...</p></div></main>;
 }
 
 function isOmdexaLandingHost() {
@@ -64,20 +70,18 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <Suspense fallback={<main className="app-loading" aria-label="Cargando" />}>
+      <RouteErrorBoundary>
+      <Suspense fallback={<main className="load-state" aria-label="Cargando"><div className="load-state-card"><span className="load-spinner" /><p>Cargando...</p></div></main>}>
         {route === '#login' ? <Login />
           : route.startsWith('#panel') ? <BackofficeShell />
           : route === '#platform' ? <PlatformAdmin />
-          : route === '#admin' ? <AdminRoute />
-          : route === '#orders' ? <OrdersPanel />
-          : route === '#crm' ? <CrmPanel />
-          : route === '#stock' ? <StockPanel />
           : route === '#privacidad' ? <PrivacyPolicy />
           : route === '#terminos' ? <TermsOfService />
-          : isLegacyRoute(route) ? <LegacyApp />
+          : ['#admin', '#super', '#orders', '#crm', '#stock', '#cashier'].includes(route) ? <LegacyRedirect route={route} />
           : isOmdexaLandingHost() ? <OmdexaLanding />
           : <PublicStorefront />}
       </Suspense>
+      </RouteErrorBoundary>
     </AuthProvider>
   );
 }

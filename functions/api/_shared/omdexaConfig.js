@@ -29,7 +29,7 @@ export const DEFAULT_OMDEXA_CONFIG = {
     eyebrow: 'Software para negocios locales',
     title: 'Tienda, CRM, inventario y pagos para negocios locales.',
     text: 'Omdexa es un sistema modular: negocios que venden en linea usan la operacion completa (tienda, caja, inventario por recetas y pagos), y negocios que solo necesitan seguimiento pueden usar solo el CRM. Tu eliges que activar.',
-    imageUrl: '/omdexa-dashboard.svg',
+    imageUrl: '/omdexa/omdexa-dashboard.svg',
     imageAlt: 'Panel operativo de Omdexa con pedidos, CRM, inventario y pagos',
     primaryActionLabel: 'Entrar a mi negocio',
     secondaryActionLabel: 'Ver todos los modulos',

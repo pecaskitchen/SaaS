@@ -1,0 +1,8 @@
+/products/* /tenants/pecas/products/:splat 301
+/elixir/* /tenants/elixir/:splat 301
+/pecas-icon.png /tenants/pecas/pecas-icon.png 301
+/pecas-logo.svg /tenants/pecas/pecas-logo.svg 301
+/omdexa-dashboard.svg /omdexa/omdexa-dashboard.svg 301
+/omdexa-mark.png /omdexa/omdexa-mark.png 301
+/omdexa-wordmark.png /omdexa/omdexa-wordmark.png 301
+/presentacion.html /omdexa/presentacion.html 301

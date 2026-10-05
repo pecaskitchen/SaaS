@@ -32,7 +32,7 @@ import {
   milkTypes,
   crepeFlavors,
   savoryCrepeFlavors,
-} from './data/menu.js';
+} from '../../../tenants/pecas/catalog/menu.js';
 
 const currency = (amount) => `$${amount}`;
 
@@ -2530,7 +2530,7 @@ export default function App() {
           </div>
 
           <div className="hero-card">
-            <img src="/pecas-logo.svg" alt="Pecas Operacion" />
+            <img src="/tenants/pecas/pecas-logo.svg" alt="Pecas Operacion" />
           </div>
         </div>
       </section>

@@ -4,7 +4,7 @@ import {
   MODULE_LABELS_BY_BUSINESS_TYPE,
   normalizeBusinessType,
   normalizeModuleSettings,
-} from '../../shared/modules.js';
+} from '../../../../shared/modules.js';
 
 export { BUSINESS_TYPES, DEFAULT_MODULES_BY_BUSINESS_TYPE };
 
@@ -19,6 +19,7 @@ export const MODULES = [
   { id: 'caja', label: 'Caja', roles: ['admin', 'manager', 'cashier'] },
   { id: 'cobranza', label: 'Cobranza', roles: ['admin', 'manager', 'orders', 'cashier', 'reports'] },
   { id: 'clientes', label: 'Clientes', roles: ['admin', 'manager', 'orders'] },
+  { id: 'pecas-club', label: 'Pecas Club', roles: ['admin', 'manager', 'platform_admin'], tenantSlug: 'pecas' },
   { id: 'menu', label: 'Menu', roles: ['admin', 'manager'] },
   { id: 'inventario', label: 'Inventario', roles: ['admin', 'manager', 'inventory'] },
   { id: 'recetas', label: 'Recetas', roles: ['admin', 'manager'] },
@@ -53,25 +54,26 @@ export function labelModuleForBusiness(module, businessType) {
   return MODULE_LABELS_BY_BUSINESS_TYPE[businessType]?.[module.id] || module.label;
 }
 
-export function modulesForRole(role, settings = {}, hasTenantContext = false) {
-  if (role === 'platform_admin' && !hasTenantContext) return MODULES.filter((module) => module.roles.includes(role));
+export function modulesForRole(role, settings = {}, hasTenantContext = false, tenantSlug = '') {
+  const availableModules = MODULES.filter((module) => !module.tenantSlug || module.tenantSlug === tenantSlug);
+  if (role === 'platform_admin' && !hasTenantContext) return availableModules.filter((module) => module.roles.includes(role));
   const businessType = businessTypeFromSettings(settings);
   const activeModules = moduleSettingsFromTenant(settings);
   if (role === 'platform_admin') {
-    return MODULES
+    return availableModules
       .filter((module) => module.id === 'plataforma' || activeModules[module.id] !== false)
       .map((module) => ({ ...module, label: labelModuleForBusiness(module, businessType) }));
   }
-  return MODULES
+  return availableModules
     .filter((module) => module.roles.includes(role))
     .filter((module) => activeModules[module.id] !== false)
     .map((module) => ({ ...module, label: labelModuleForBusiness(module, businessType) }));
 }
 
-export function defaultModuleForRole(role, settings = {}, hasTenantContext = false) {
+export function defaultModuleForRole(role, settings = {}, hasTenantContext = false, tenantSlug = '') {
   if (role === 'platform_admin' && hasTenantContext) return 'inicio';
   const preferred = DEFAULT_MODULE_BY_ROLE[role];
-  const visible = modulesForRole(role, settings, hasTenantContext);
+  const visible = modulesForRole(role, settings, hasTenantContext, tenantSlug);
   if (preferred && visible.some((module) => module.id === preferred)) {
     return preferred;
   }

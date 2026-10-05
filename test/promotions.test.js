@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePromoItem, normalizePromotion, promotionItems } from '../src/lib/catalog.js';
+import { normalizePromoItem, normalizePromotion, promotionItems } from '../apps/omdexa/src/lib/catalog.js';
 
 const PRODUCTS = [
   { id: 'chapata-pollo', name: 'Chapata Pollo', price: 80, category: 'chapatas' },

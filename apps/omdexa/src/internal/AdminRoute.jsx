@@ -12,7 +12,7 @@ import {
   normalizeBranchSettings,
   normalizeBusinessHours,
 } from '../lib/business.js';
-import { categories } from '../data/menu.js';
+import { categories } from '../../../../tenants/pecas/catalog/menu.js';
 import { apiFetch, getSessionToken } from '../lib/apiClient.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { normalizePerfumePricingRules } from '../lib/perfumePricing.js';

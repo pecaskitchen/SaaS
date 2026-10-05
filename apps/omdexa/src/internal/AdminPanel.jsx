@@ -11,7 +11,7 @@ import {
   normalizeBusinessHours,
   ORDER_FORM_FIELD_DEFS,
 } from '../lib/business.js';
-import { categories } from '../data/menu.js';
+import { categories } from '../../../../tenants/pecas/catalog/menu.js';
 import { apiFetch, getSessionToken, setSessionToken } from '../lib/apiClient.js';
 import { DEFAULT_PERFUME_PRICING_RULES, normalizePerfumePricingRules } from '../lib/perfumePricing.js';
 
@@ -831,7 +831,7 @@ export default function AdminPanel({
                     <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>
                     <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
-                    <label className="field full"><span>Imagen de la promoción (opcional)</span><input value={promotionDraft.image || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/products/promocion.jpg o https://..." /><small>Puede ser una ruta local publicada o la URL pública de una imagen.</small></label>
+                    <label className="field full"><span>Imagen de la promoción (opcional)</span><input value={promotionDraft.image || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/tenants/pecas/products/promocion.jpg o https://..." /><small>Puede ser una ruta local publicada o la URL pública de una imagen.</small></label>
                     <p className="admin-hint full">Para una promoción solo con imagen usa 1600 × 700 px (JPG o WebP, idealmente menor de 1 MB). Mantén textos o elementos importantes centrados porque los bordes pueden recortarse en celular.</p>
                     <label className="check-row full"><input type="checkbox" checked={!promotionDraft.hideImage} onChange={(e) => setPromotionDraft((current) => ({ ...current, hideImage: !e.target.checked }))} /><span>Mostrar imagen (si no defines una, usa la del primer producto)</span></label>
                     <label className="check-row full"><input type="checkbox" checked={Boolean(promotionDraft.isDefault)} onChange={(e) => {
@@ -941,7 +941,7 @@ export default function AdminPanel({
                 <label className="field"><span>Categoría existente</span><select value={newProductDraft.category || categoryItems[0]?.id || ''} onChange={(e) => setNewProductDraft((current) => ({ ...current, category: e.target.value }))} disabled={!categoryItems.length}>{categoryItems.map((category) => <option key={category.id} value={category.id}>{categoryLabel(category.id)}</option>)}</select></label>
                 <label className="field"><span>Precio</span><input type="number" value={newProductDraft.price} onChange={(e) => setNewProductDraft((current) => ({ ...current, price: e.target.value }))} /></label>
                 <button type="button" className="ghost" onClick={addProduct} disabled={!categoryItems.length}>Agregar producto</button>
-                <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,🌮,taco-sirloin,Taco de sirloin,85,Con tortilla de maíz,Sirloin y salsa,/products/taco.jpg" /></label>
+                <label className="field full"><span>Importar CSV</span><textarea rows="5" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="category_id,category_label,emoji,id,name,price,description,ingredients,image&#10;tacos,Tacos,🌮,taco-sirloin,Taco de sirloin,85,Con tortilla de maíz,Sirloin y salsa,/tenants/pecas/products/taco.jpg" /></label>
                 <button type="button" className="ghost" onClick={importMenuCsv}>Importar productos</button>
                 <button type="button" className="ghost" onClick={makeCurrentCatalogEditable}>Convertir catálogo actual a editable</button>
               </div>
@@ -1041,8 +1041,8 @@ export default function AdminPanel({
                         </label>
                         <label className="field full">
                           <span>Imagen</span>
-                          <input value={product.image || ''} onChange={(e) => updateDraft(product.id, 'image', e.target.value)} placeholder="/products/panini-chipotle.jpg o URL" />
-                          <small>Para imagen local, sube el archivo a public/products y usa /products/nombre.jpg</small>
+                          <input value={product.image || ''} onChange={(e) => updateDraft(product.id, 'image', e.target.value)} placeholder="/tenants/pecas/products/panini-chipotle.jpg o URL" />
+                          <small>Para Pecas, sube el archivo a public/tenants/pecas/products y usa /tenants/pecas/products/nombre.jpg</small>
                         </label>
                       </article>
                     ))}

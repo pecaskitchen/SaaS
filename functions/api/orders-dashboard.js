@@ -3,6 +3,7 @@ import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_share
 import { requireAuth } from './_shared/auth.js';
 import { explodeRecipeForConsumption } from './_shared/recipeEngine.js';
 import { rebuildCustomerFromOrderIdentity } from './_shared/crm.js';
+import { awardOrderPoints } from './_shared/pecasClub.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -1064,7 +1065,16 @@ export async function onRequestPatch(context) {
        VALUES (?, ?, ?, ?, ?, ?)`
     ).bind(tenantId, orderId, status, eventNote, timestamps.utc, timestamps.monterrey).run();
 
-    return jsonResponse({ ok: true, orderId, status, stockResult, updatedAtMonterrey: timestamps.monterrey });
+    let clubAward = null;
+    if (status === 'delivered') {
+      try {
+        clubAward = await awardOrderPoints(env, tenantId, orderId);
+      } catch (error) {
+        console.error(JSON.stringify({ event: 'pecas_club_award_failed', orderId, tenantId, error: error.message }));
+      }
+    }
+
+    return jsonResponse({ ok: true, orderId, status, stockResult, clubAward, updatedAtMonterrey: timestamps.monterrey });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo actualizar el pedido.', detail: error.message }, 500);
   }

@@ -1,5 +1,6 @@
 import { jsonResponse, requireDb } from '../_shared/http.js';
 import { claimWebhookEvent, markWebhookEventProcessed, getValidAccessToken } from '../_shared/payments.js';
+import { awardOrderPoints } from '../_shared/pecasClub.js';
 
 // -----------------------------------------------------------------------
 // Cómo identificamos el tenant (importante, léelo antes de tocar esto)
@@ -142,6 +143,11 @@ export async function onRequestPost({ request, env }) {
             updated_at_utc = CURRENT_TIMESTAMP
         WHERE id = ? AND tenant_id = ? AND payment_status != 'paid'
       `).bind(String(payment.id), String(payment.order?.id || ''), order.id, order.tenant_id).run();
+      try {
+        await awardOrderPoints(env, order.tenant_id, order.id);
+      } catch (error) {
+        console.error(JSON.stringify({ event: 'pecas_club_award_failed', orderId: order.id, tenantId: order.tenant_id, error: error.message }));
+      }
     } else if (['rejected', 'cancelled'].includes(payment.status)) {
       await db.prepare(`
         UPDATE orders SET payment_status = ?, updated_at_utc = CURRENT_TIMESTAMP

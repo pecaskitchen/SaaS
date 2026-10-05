@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen, CreditCard, Receipt,
+  Home, ShoppingBag, Wallet, UtensilsCrossed, Package, Users, BarChart3, Shield, LogOut, Store, Building2, PlugZap, UserCog, BookOpen, CreditCard, Receipt, Star,
 } from 'lucide-react';
 import '../styles.css';
 import './backoffice-shell.css';
@@ -15,6 +15,7 @@ const AdminRoute = lazy(() => import('./AdminRoute.jsx'));
 const StockPanel = lazy(() => import('./StockPanel.jsx'));
 const RecipesPanel = lazy(() => import('./RecipesPanel.jsx'));
 const CrmPanel = lazy(() => import('./CrmPanel.jsx'));
+const PecasClubPanel = lazy(() => import('./PecasClubPanel.jsx'));
 const ExecutiveDashboard = lazy(() => import('./ExecutiveDashboard.jsx'));
 const ReportDownloadsPanel = lazy(() => import('./ReportDownloadsPanel.jsx'));
 const OrdersHistoryPanel = lazy(() => import('./OrdersHistoryPanel.jsx'));
@@ -33,6 +34,7 @@ const MODULE_ICONS = {
   inventario: Package,
   recetas: BookOpen,
   clientes: Users,
+  'pecas-club': Star,
   reportes: BarChart3,
   historial: Receipt,
   'pagina-publica': Store,
@@ -58,6 +60,7 @@ function ModuleContent({ moduleId }) {
   if (moduleId === 'inventario') return <StockPanel mode="stock" />;
   if (moduleId === 'recetas') return <RecipesPanel />;
   if (moduleId === 'clientes') return <CrmPanel />;
+  if (moduleId === 'pecas-club') return <PecasClubPanel />;
   if (moduleId === 'reportes') {
     return (
       <>
@@ -86,9 +89,9 @@ export default function BackofficeShell() {
       return;
     }
     const settings = user.tenant?.settings || {};
-    const allowed = modulesForRole(user.role, settings, Boolean(user.tenant));
+    const allowed = modulesForRole(user.role, settings, Boolean(user.tenant), user.tenant?.slug || '');
     if (!activeModule || !allowed.some((module) => module.id === activeModule)) {
-      const next = defaultModuleForRole(user.role, settings, Boolean(user.tenant));
+      const next = defaultModuleForRole(user.role, settings, Boolean(user.tenant), user.tenant?.slug || '');
       if (next) window.location.hash = `#panel/${next}`;
     }
   }, [loading, user, activeModule]);
@@ -99,7 +102,7 @@ export default function BackofficeShell() {
     return () => window.removeEventListener('hashchange', syncHash);
   }, []);
 
-  const visibleModules = useMemo(() => (user ? modulesForRole(user.role, user.tenant?.settings || {}, Boolean(user.tenant)) : []), [user]);
+  const visibleModules = useMemo(() => (user ? modulesForRole(user.role, user.tenant?.settings || {}, Boolean(user.tenant), user.tenant?.slug || '') : []), [user]);
 
   if (loading) {
     return <main className="app-loading" aria-label="Cargando" />;

@@ -626,7 +626,7 @@ function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        {cleanBrand.logoUrl ? <span className={`brand-logo-frame ${isPecas ? 'pecas-logo-frame' : ''}`}><img src={isPecas ? '/pecas-icon.png' : cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /></span> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
+        {cleanBrand.logoUrl ? <span className={`brand-logo-frame ${isPecas ? 'pecas-logo-frame' : ''}`}><img src={isPecas ? '/tenants/pecas/pecas-icon.png' : cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /></span> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
         <div>
           <div className="brand-name">{cleanBrand.displayName}</div>
           {cleanBrand.tagline ? <div className="brand-tagline">{cleanBrand.tagline}</div> : null}
@@ -2227,7 +2227,10 @@ export default function PublicApp() {
     <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'} ${isPecasStorefront ? 'pecas-storefront' : ''}`} style={publicThemeStyle(publicBrand)}>
       <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => { window.location.hash = '#login'; }} brand={publicBrand} businessStatus={currentBusinessStatus} />
+          <Logo lang={lang} setLang={setLang} onLoginClick={() => {
+            if (isPecasStorefront) window.location.href = `/club/iniciar-sesion${window.location.search || ''}`;
+            else window.location.hash = '#login';
+          }} brand={publicBrand} businessStatus={currentBusinessStatus} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}
           </a>

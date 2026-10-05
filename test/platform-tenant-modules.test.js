@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultModuleForRole, modulesForRole } from '../src/internal/modules.js';
+import { defaultModuleForRole, modulesForRole } from '../apps/omdexa/src/internal/modules.js';
 
 test('platform admin sin tenant conserva la vista de plataforma', () => {
   assert.deepEqual(modulesForRole('platform_admin', {}, false).map((module) => module.id), ['plataforma']);

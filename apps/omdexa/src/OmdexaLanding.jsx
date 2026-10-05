@@ -43,7 +43,7 @@ const DEFAULT_CONFIG = {
     eyebrow: 'Software con implementación personalizada',
     title: 'Todo tu negocio. Una sola plataforma',
     text: 'Omdexa conecta ventas, clientes, pedidos, inventario, caja, reportes y tu página web. No te entregamos un sistema vacío: lo configuramos contigo para que responda a la forma en que realmente opera tu negocio.',
-    imageUrl: '/omdexa-dashboard.svg',
+    imageUrl: '/omdexa/omdexa-dashboard.svg',
     imageAlt: 'Dashboard de Omdexa con ventas, pedidos, clientes e inventario',
     primaryActionLabel: 'Solicitar diagnóstico',
     secondaryActionLabel: 'Ver funcionalidades',
@@ -278,8 +278,8 @@ export default function OmdexaLanding() {
     <main className="odx-page odx-v2">
       <header className="odx-nav">
         <a className="odx-logo" href="/">
-          <img src="/omdexa-mark.png" alt="" className="odx-logo-icon" />
-          <img src="/omdexa-wordmark.png" alt={config.brandName} className="odx-logo-word" />
+          <img src="/omdexa/omdexa-mark.png" alt="" className="odx-logo-icon" />
+          <img src="/omdexa/omdexa-wordmark.png" alt={config.brandName} className="odx-logo-word" />
         </a>
 
         <nav className={`odx-nav-links ${menuOpen ? 'open' : ''}`}>
@@ -609,7 +609,7 @@ export default function OmdexaLanding() {
       <footer className="odx-footer" id="contact">
         <div className="odx-footer-top">
           <div>
-            <img src="/omdexa-wordmark.png" alt={config.brandName} className="odx-footer-logo" />
+            <img src="/omdexa/omdexa-wordmark.png" alt={config.brandName} className="odx-footer-logo" />
             <p>{config.contact.text}</p>
           </div>
           <div className="odx-footer-actions">

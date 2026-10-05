@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogDiagnostics, estimateRecipeCost, itemUnitCost } from '../src/lib/recipeSetup.js';
+import { catalogDiagnostics, estimateRecipeCost, itemUnitCost } from '../apps/omdexa/src/lib/recipeSetup.js';
 
 test('calcula costo por unidad y receta', () => {
   const items = [{ id: 1, name: 'Queso', purchase_price: 180, purchase_unit_quantity: 1000 }];

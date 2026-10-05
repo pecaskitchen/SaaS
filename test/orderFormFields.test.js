@@ -6,7 +6,7 @@ import {
   customFieldsPayload,
   isFieldRequired,
   normalizeBranchSettings,
-} from '../src/lib/business.js';
+} from '../apps/omdexa/src/lib/business.js';
 
 test('normalizeFormFields: defaults de la pagina de clientes = comportamiento actual', () => {
   const cfg = normalizeFormFields({}, 'order');

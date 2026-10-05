@@ -5,7 +5,7 @@ import { normalizeSavedMenu, readEffectiveCatalog } from '../_shared/menuCatalog
 import { ensurePaymentTables, getValidAccessToken } from '../_shared/payments.js';
 import { upsertCustomerFromOrder } from '../_shared/crm.js';
 import { ensureSchema } from '../orders.js';
-import { calculatePerfumePricing } from '../../../src/lib/perfumePricing.js';
+import { calculatePerfumePricing } from '../../../apps/omdexa/src/lib/perfumePricing.js';
 
 // Recalcula el total completo del lado servidor: precio base, extras de
 // familias/opciones, extras de receta legacy y entrega. El navegador solo

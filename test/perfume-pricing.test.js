@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculatePerfumePricing, DEFAULT_PERFUME_PRICING_RULES } from '../src/lib/perfumePricing.js';
+import { calculatePerfumePricing, DEFAULT_PERFUME_PRICING_RULES } from '../apps/omdexa/src/lib/perfumePricing.js';
 
 const item = (variantId, quantity, basePrice, addOnPrice = 0) => ({
   variantId, quantity, basePrice, addOnPrice, unitPrice: basePrice + addOnPrice,

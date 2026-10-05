@@ -1,5 +1,23 @@
 import React from 'react';
 
+function isPecasSite() {
+  try { return /(^|\.)pecas\.mx$/i.test(window.location.hostname) || new URLSearchParams(window.location.search).get('tenant_id') === 'pecas'; } catch { return false; }
+}
+
+function PecasPrivacyPolicy() {
+  return <main className="privacy-page"><div className="privacy-page-inner">
+    <h1>Aviso de Privacidad de Pecas</h1><p className="privacy-updated">Última actualización: 4 de octubre de 2026</p>
+    <section><h2>1. Responsable</h2><p><strong>Pecas</strong> es responsable del tratamiento de los datos personales utilizados para pedidos y Pecas Club. Para asuntos de privacidad y solicitudes relacionadas con tus datos puedes escribir a <a href="mailto:admin@pecas.mx">admin@pecas.mx</a>.</p></section>
+    <section><h2>2. Datos que utilizamos</h2><p>Podemos tratar tu nombre, número celular, correo electrónico opcional, PIN protegido mediante hash, día y mes de cumpleaños opcionales, historial y productos de compra, domicilio cuando solicites entrega, saldo y movimientos de Pecas, canjes, promociones y referidos.</p><p>No solicitamos género, edad completa, CURP, INE ni datos personales sensibles para participar en Pecas Club.</p></section>
+    <section><h2>3. Finalidades necesarias</h2><ul><li>Crear, autenticar y administrar tu cuenta.</li><li>Procesar y dar seguimiento a pedidos.</li><li>Calcular, acreditar, ajustar y canjear Pecas.</li><li>Operar recompensas y referidos, prevenir autorreferidos y revisar actividad sospechosa.</li><li>Atender solicitudes y cumplir obligaciones aplicables.</li></ul></section>
+    <section><h2>4. Promociones</h2><p>Solo enviaremos publicidad cuando marques voluntariamente la opción para recibir promociones. Puedes retirar esa autorización sin perder tu cuenta ni tus Pecas escribiendo a <a href="mailto:admin@pecas.mx">admin@pecas.mx</a>.</p></section>
+    <section><h2>5. Encargados y transferencias</h2><p>Omdexa procesa información por cuenta de Pecas como proveedor de la plataforma. También pueden intervenir proveedores de infraestructura y pagos, como Cloudflare y Mercado Pago, únicamente en la medida necesaria para prestar sus servicios.</p></section>
+    <section><h2>6. Derechos ARCO</h2><p>Puedes solicitar acceso, rectificación, cancelación u oposición respecto de tus datos, así como revocar el consentimiento o limitar su uso, enviando tu nombre, teléfono y una descripción clara de la solicitud a <a href="mailto:admin@pecas.mx">admin@pecas.mx</a>. Podremos pedir información razonable para verificar que eres la persona titular de la cuenta.</p></section>
+    <section><h2>7. Seguridad y conservación</h2><p>Aplicamos medidas administrativas y técnicas para proteger la información. Conservaremos los datos durante el tiempo necesario para operar la cuenta, atender obligaciones y resolver aclaraciones; después se eliminarán o anonimizarán cuando proceda.</p></section>
+    <section><h2>8. Cambios</h2><p>Los cambios a este aviso se publicarán en <strong>pecas.mx/privacidad</strong> indicando la fecha de actualización.</p></section>
+  </div></main>;
+}
+
 // Aviso de Privacidad de la plataforma Omdexa, redactado para cubrir los
 // elementos que exige la LFPDPPP (Ley Federal de Protección de Datos
 // Personales en Posesión de los Particulares) y su Reglamento: identidad
@@ -13,6 +31,7 @@ import React from 'react';
 // campos marcados como [COMPLETAR] con la información real de tu negocio.
 
 export default function PrivacyPolicy() {
+  if (isPecasSite()) return <PecasPrivacyPolicy />;
   return (
     <main className="privacy-page">
       <div className="privacy-page-inner">

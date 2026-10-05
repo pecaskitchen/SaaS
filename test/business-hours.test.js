@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeBusinessHours, businessStatus } from '../src/lib/business.js';
+import { normalizeBusinessHours, businessStatus } from '../apps/omdexa/src/lib/business.js';
 
 test('normalizeBusinessHours: produce 7 dias con open/close', () => {
   const normalized = normalizeBusinessHours({});

@@ -1,5 +1,6 @@
 import { requireAuth } from './_shared/auth.js';
 import { upsertCustomerFromOrder } from './_shared/crm.js';
+import { awardOrderPoints } from './_shared/pecasClub.js';
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings, normalizeCashierOrderSources } from './_shared/branchSettings.js';
@@ -405,7 +406,16 @@ export async function onRequestPost({ request, env }) {
       },
     });
 
-    return jsonResponse({ ok: true, orderId: createdOrder.id, orderNumber, branch });
+    let clubAward = null;
+    if (source === 'cashier' && String(body.paymentStatus || '').toLowerCase() === 'paid') {
+      try {
+        clubAward = await awardOrderPoints(env, tenantId, createdOrder.id);
+      } catch (error) {
+        console.error(JSON.stringify({ event: 'pecas_club_award_failed', orderId: createdOrder.id, tenantId, error: error.message }));
+      }
+    }
+
+    return jsonResponse({ ok: true, orderId: createdOrder.id, orderNumber, branch, clubAward });
   } catch (error) {
     return jsonResponse({ ok: false, error: 'No se pudo guardar el pedido.', detail: error.message }, 500);
   }

@@ -14,6 +14,7 @@ const PrivacyPolicy = lazy(() => import('./PrivacyPolicy.jsx'));
 const TermsOfService = lazy(() => import('./TermsOfService.jsx'));
 const Login = lazy(() => import('./Login.jsx'));
 const BackofficeShell = lazy(() => import('./internal/BackofficeShell.jsx'));
+const PecasClub = lazy(() => import('./club/PecasClub.jsx'));
 
 function currentRoute() {
   try {
@@ -25,6 +26,9 @@ function currentRoute() {
     if (path === '/stock') return '#panel/inventario';
     if (path === '/cashier') return '#panel/caja';
     if (path === '/platform') return '#platform';
+    if (path === '/privacidad') return '#privacidad';
+    if (path === '/terminos') return '#terminos';
+    if (path === '/club' || path.startsWith('/club/')) return `#club${path.slice('/club'.length)}`;
     return '#';
   } catch {
     return '#';
@@ -73,6 +77,7 @@ export default function App() {
       <RouteErrorBoundary>
       <Suspense fallback={<main className="load-state" aria-label="Cargando"><div className="load-state-card"><span className="load-spinner" /><p>Cargando...</p></div></main>}>
         {route === '#login' ? <Login />
+          : route.startsWith('#club') ? <PecasClub />
           : route.startsWith('#panel') ? <BackofficeShell />
           : route === '#platform' ? <PlatformAdmin />
           : route === '#privacidad' ? <PrivacyPolicy />

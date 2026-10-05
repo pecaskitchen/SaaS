@@ -61,7 +61,7 @@ function ClubHeader({ customer, onLogout }) {
   return (
     <header className="club-header">
       <a className="club-brand" href={clubUrl('/')}>
-        <img src="/tenants/pecas/pecas-icon.png" alt="" />
+        <img src="/tenants/pecas/pecas-icon-hd.png" alt="" />
         <span><strong>Pecas Club</strong><small>Recompensas que se disfrutan</small></span>
       </a>
       <nav>

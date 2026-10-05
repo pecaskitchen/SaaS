@@ -626,7 +626,7 @@ function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND
   return (
     <div className="brand-area">
       <div className="brand-lockup">
-        {cleanBrand.logoUrl ? <span className={`brand-logo-frame ${isPecas ? 'pecas-logo-frame' : ''}`}><img src={isPecas ? '/tenants/pecas/pecas-icon.png' : cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /></span> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
+        {cleanBrand.logoUrl ? <span className={`brand-logo-frame ${isPecas ? 'pecas-logo-frame' : ''}`}><img src={isPecas ? '/tenants/pecas/pecas-icon-hd.png' : cleanBrand.logoUrl} alt={cleanBrand.displayName} className="brand-logo" /></span> : <div className="brand-logo brand-logo-placeholder">{cleanBrand.displayName.slice(0, 1).toUpperCase()}</div>}
         <div>
           <div className="brand-name">{cleanBrand.displayName}</div>
           {cleanBrand.tagline ? <div className="brand-tagline">{cleanBrand.tagline}</div> : null}
@@ -1668,7 +1668,9 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   return (
     <article className={`promo-card ${imageOnly ? 'image-only' : ''}`}>
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
-          {image ? <img src={image} alt={promotion.title} /> : <span>⭐</span>}
+          {image ? (promotion.linkUrl
+            ? <a href={promotion.linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}><img src={image} alt={promotion.title || promotion.linkLabel || ''} /></a>
+            : <img src={image} alt={promotion.title} />) : <span>⭐</span>}
         </div>
         {!imageOnly && <div className="promo-content">
           <h2>{promotion.title}</h2>
@@ -2217,6 +2219,7 @@ export default function PublicApp() {
   const selectedBranchHasPromotion = Boolean(selectedBranch?.id && Object.prototype.hasOwnProperty.call(branchPromotions, selectedBranch.id));
   const selectedBranchPromotion = selectedBranchHasPromotion ? branchPromotions[selectedBranch.id] : null;
   const defaultBranchPromotion = branchSettings.defaultBranchId && Object.prototype.hasOwnProperty.call(branchPromotions, branchSettings.defaultBranchId) ? branchPromotions[branchSettings.defaultBranchId] : null;
+  const isPecasStorefront = /pecas/i.test(publicBrand.displayName || '');
   const activePromotionSource = useMemo(() => {
     if (selectedBranchHasPromotion) {
       return selectedBranchPromotion ? { ...(promotion || {}), ...selectedBranchPromotion } : selectedBranchPromotion;
@@ -2228,11 +2231,26 @@ export default function PublicApp() {
     const normalized = (promotions.length ? promotions : (activePromotion ? [activePromotion] : [])).map((item) => normalizePromotion(item, currentProductsForBranch));
     const hasBranchOverride = selectedBranchHasPromotion || Boolean(defaultBranchPromotion);
     if (hasBranchOverride && activePromotion && normalized.length) normalized[0] = activePromotion;
+    if (isPecasStorefront && !normalized.some((item) => item.id === 'pecas-club')) {
+      normalized.unshift(normalizePromotion({
+        id: 'pecas-club',
+        active: true,
+        isDefault: true,
+        title: '',
+        description: '',
+        disclaimer: '',
+        includedDetails: '',
+        items: [],
+        price: 0,
+        image: '/tenants/pecas/promotions/unete-pecas-club.png',
+        linkUrl: `/club/registro${window.location.search || ''}`,
+        linkLabel: 'Regístrate gratis en Pecas Club',
+      }, currentProductsForBranch));
+    }
     return normalized;
-  }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion]);
+  }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion, isPecasStorefront]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const isPecasStorefront = /pecas/i.test(publicBrand.displayName || '');
 
   const addItem = (item) => setCart((current) => [item, ...current]);
   const updateQty = (uid, quantity) => {

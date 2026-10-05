@@ -1705,7 +1705,17 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
             </div>
           )}
 
-          {livePrice > 0 && <strong className="promo-price">{currency(livePrice)}</strong>}
+          {(livePrice > 0 || selectedItems.length > 0) && <div className="promo-purchase-row">
+            {livePrice > 0 && <strong className="promo-price">{currency(livePrice)}</strong>}
+            {selectedItems.length > 0 && <div className="promo-actions">
+              <button type="button" className="ghost" onClick={() => setExpanded(!expanded)}>
+                {expanded ? t(lang, 'hideOptions') : t(lang, 'promoExtras')}
+              </button>
+              <button type="button" className="primary" onClick={handleAddPromo}>
+                <Plus size={15} /> {t(lang, 'addPromo')}
+              </button>
+            </div>}
+          </div>}
           {expanded && selectedItems.length > 0 && (
             <div className="promo-combo-extras">
               {selectedItems.map((item, index) => (
@@ -1721,14 +1731,6 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
               ))}
             </div>
           )}
-          {selectedItems.length > 0 && <div className="promo-actions">
-            <button type="button" className="ghost" onClick={() => setExpanded(!expanded)}>
-              {expanded ? t(lang, 'hideOptions') : t(lang, 'promoExtras')}
-            </button>
-            <button type="button" className="primary" onClick={handleAddPromo}>
-              <Plus size={16} /> {t(lang, 'addPromo')}
-            </button>
-          </div>}
         </div>}
     </article>
   );

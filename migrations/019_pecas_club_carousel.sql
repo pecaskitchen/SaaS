@@ -54,3 +54,12 @@ SET value_json = CASE
     END,
     updated_at = CURRENT_TIMESTAMP
 WHERE key = (SELECT id || ':menu_overrides' FROM saas_tenants WHERE slug = 'pecas');
+
+INSERT OR IGNORE INTO app_settings (key, tenant_id, value_json, updated_at)
+SELECT
+  id || ':menu_overrides:pecas_club_promotion_seeded_v1',
+  id,
+  '{"seeded":true}',
+  CURRENT_TIMESTAMP
+FROM saas_tenants
+WHERE slug = 'pecas';

@@ -28,6 +28,45 @@ async function ensureAppSettings(env) {
   return true;
 }
 
+const PECAS_CLUB_PROMOTION = {
+  id: 'pecas-club',
+  active: true,
+  isDefault: true,
+  title: '',
+  description: '',
+  disclaimer: '',
+  includedDetails: '',
+  items: [],
+  price: 0,
+  image: '/tenants/pecas/promotions/unete-pecas-club.png',
+  linkUrl: '/club/registro',
+  linkLabel: 'Regístrate gratis en Pecas Club',
+};
+
+async function seedPecasClubPromotion(env, tenantId, settingKey, saved) {
+  const tenant = await env.DB.prepare(`SELECT slug FROM saas_tenants WHERE id = ? LIMIT 1`).bind(tenantId).first();
+  if (tenant?.slug !== 'pecas') return saved;
+
+  const markerKey = `${settingKey}:pecas_club_promotion_seeded_v1`;
+  const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
+  if (marker) return saved;
+
+  const promotions = saved.promotions || (saved.promotion ? [saved.promotion] : []);
+  const next = promotions.some((item) => item?.id === PECAS_CLUB_PROMOTION.id)
+    ? saved
+    : { ...saved, promotions: [...promotions, PECAS_CLUB_PROMOTION] };
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`)
+      .bind(settingKey, tenantId, JSON.stringify(next), now),
+    env.DB.prepare(`INSERT OR IGNORE INTO app_settings (key, tenant_id, value_json, updated_at) VALUES (?, ?, ?, ?)`)
+      .bind(markerKey, tenantId, JSON.stringify({ seeded: true }), now),
+  ]);
+  return next;
+}
+
 function menuPayload(saved, warning = '') {
   return {
     ok: true,
@@ -59,7 +98,7 @@ export async function onRequestGet({ request, env }) {
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
 
     const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
-    const saved = normalizeSavedMenu(row?.value_json || '');
+    const saved = await seedPecasClubPromotion(env, tenantId, settingKey, normalizeSavedMenu(row?.value_json || ''));
     const effective = await readEffectiveCatalog(env, tenantId, saved);
     return jsonResponse(menuPayload(effective));
   } catch (error) {

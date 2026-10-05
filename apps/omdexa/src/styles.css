@@ -1998,18 +1998,37 @@ textarea { resize: vertical; min-height: 48px; }
 .promo-price {
   display: inline-flex;
   width: fit-content;
-  padding: 8px 14px;
+  padding: 6px 11px;
   border-radius: 999px;
   background: var(--brown);
   color: var(--cream);
-  font-size: 26px;
+  font-size: 20px;
+  line-height: 1;
 }
 
+.promo-purchase-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
 .promo-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 6px;
+}
+.promo-purchase-row .promo-actions {
+  flex-wrap: nowrap;
+  margin-top: 0;
+  margin-left: auto;
+}
+.promo-purchase-row .promo-actions button {
+  min-height: 38px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  font-size: 13px;
 }
 
 .admin-promo-grid {
@@ -2047,6 +2066,9 @@ textarea { resize: vertical; min-height: 48px; }
     display: grid;
     grid-template-columns: 1fr;
   }
+  .promo-purchase-row .promo-actions { display: flex; }
+  .promo-purchase-row .promo-actions button { padding: 7px 9px; font-size: 12px; }
+  .promo-purchase-row .promo-price { font-size: 18px; padding: 6px 9px; }
 
   .admin-promo-grid {
     grid-template-columns: 1fr;
@@ -5314,6 +5336,12 @@ textarea { resize: vertical; min-height: 48px; }
 .promo-card.image-only .promo-media { width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 7; }
 .promo-card.image-only .promo-media img { width: 100%; height: 100%; object-fit: cover; }
 .promo-card.image-only .promo-media a { display: block; width: 100%; height: 100%; cursor: pointer; }
+@media (min-width: 861px) {
+  .promo-carousel .promo-card.image-only {
+    width: min(100%, 960px);
+    margin-inline: auto;
+  }
+}
 .admin-promo-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(127,127,127,.18); }
 .advanced-settings { margin: 10px 0; padding: 12px 14px; border: 1px dashed rgba(127,127,127,.35); border-radius: 12px; background: rgba(127,127,127,.04); }
 .advanced-settings summary, .advanced-cost-summary > summary { cursor: pointer; font-weight: 800; color: var(--brown, #3b1f0f); }

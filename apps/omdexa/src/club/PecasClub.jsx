@@ -187,6 +187,26 @@ export default function PecasClub() {
   const [loading, setLoading] = useState(Boolean(getToken()));
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const titles = {
+      register: 'Únete a Pecas Club',
+      login: 'Ingresa a Pecas Club',
+      rewards: 'Recompensas | Pecas Club',
+      history: 'Historial | Pecas Club',
+      terms: 'Términos | Pecas Club',
+      home: 'Pecas Club | Recompensas que se disfrutan',
+    };
+    document.title = titles[view] || titles.home;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', 'Acumula una Peca por cada $20, consulta promociones y canjea tus recompensas en Pecas Club.');
+    let favicon = document.querySelector('link[rel="icon"]');
+    if (!favicon) {
+      favicon = document.createElement('link');
+      favicon.setAttribute('rel', 'icon');
+      document.head.appendChild(favicon);
+    }
+    favicon.setAttribute('href', '/tenants/pecas/pecas-icon-hd.png');
+  }, [view]);
+
   async function load() {
     if (!getToken()) { setLoading(false); return; }
     setLoading(true);

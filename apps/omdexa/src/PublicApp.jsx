@@ -1651,6 +1651,8 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   };
 
   const image = promotion.hideImage ? '' : (promotion.image || selectedItems.find(({ product }) => product.image)?.product.image);
+  const rawLinkUrl = String(promotion.linkUrl || '').trim();
+  const linkUrl = rawLinkUrl.startsWith('/') || /^https:\/\//i.test(rawLinkUrl) ? rawLinkUrl : '';
   const includedLines = includedDetailsToLines(promotion.includedDetails);
   const promoDescription = String(promotion.description || '').trim();
 
@@ -1668,8 +1670,8 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   return (
     <article className={`promo-card ${imageOnly ? 'image-only' : ''}`}>
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
-          {image ? (promotion.linkUrl
-            ? <a href={promotion.linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}><img src={image} alt={promotion.title || promotion.linkLabel || ''} /></a>
+          {image ? (linkUrl
+            ? <a href={linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}><img src={image} alt={promotion.title || promotion.linkLabel || ''} /></a>
             : <img src={image} alt={promotion.title} />) : <span>⭐</span>}
         </div>
         {!imageOnly && <div className="promo-content">
@@ -2231,24 +2233,8 @@ export default function PublicApp() {
     const normalized = (promotions.length ? promotions : (activePromotion ? [activePromotion] : [])).map((item) => normalizePromotion(item, currentProductsForBranch));
     const hasBranchOverride = selectedBranchHasPromotion || Boolean(defaultBranchPromotion);
     if (hasBranchOverride && activePromotion && normalized.length) normalized[0] = activePromotion;
-    if (isPecasStorefront && !normalized.some((item) => item.id === 'pecas-club')) {
-      normalized.unshift(normalizePromotion({
-        id: 'pecas-club',
-        active: true,
-        isDefault: true,
-        title: '',
-        description: '',
-        disclaimer: '',
-        includedDetails: '',
-        items: [],
-        price: 0,
-        image: '/tenants/pecas/promotions/unete-pecas-club.png',
-        linkUrl: `/club/registro${window.location.search || ''}`,
-        linkLabel: 'Regístrate gratis en Pecas Club',
-      }, currentProductsForBranch));
-    }
     return normalized;
-  }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion, isPecasStorefront]);
+  }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 

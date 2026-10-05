@@ -818,6 +818,22 @@ export default function AdminPanel({
                       setPromotionDrafts((current) => [...current, { ...normalizePromotion(null, safeProducts), title: `Promoción ${current.length + 1}`, active: false }]);
                       setPromotionIndex(promotionDrafts.length);
                     }}>+ Nueva promoción</button>
+                    <button type="button" className="ghost mini" disabled={promotionIndex === 0} onClick={() => {
+                      setPromotionDrafts((current) => {
+                        const next = [...current];
+                        [next[promotionIndex - 1], next[promotionIndex]] = [next[promotionIndex], next[promotionIndex - 1]];
+                        return next;
+                      });
+                      setPromotionIndex((current) => Math.max(0, current - 1));
+                    }}>← Mover</button>
+                    <button type="button" className="ghost mini" disabled={promotionIndex >= promotionDrafts.length - 1} onClick={() => {
+                      setPromotionDrafts((current) => {
+                        const next = [...current];
+                        [next[promotionIndex], next[promotionIndex + 1]] = [next[promotionIndex + 1], next[promotionIndex]];
+                        return next;
+                      });
+                      setPromotionIndex((current) => Math.min(promotionDrafts.length - 1, current + 1));
+                    }}>Mover →</button>
                     {promotionDrafts.length > 1 ? <button type="button" className="ghost mini danger-text" onClick={() => {
                       setPromotionDrafts((current) => current.filter((_, index) => index !== promotionIndex));
                       setPromotionIndex((current) => Math.max(0, current - 1));
@@ -833,6 +849,7 @@ export default function AdminPanel({
                     <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
                     <label className="field full"><span>Imagen de la promoción (opcional)</span><input value={promotionDraft.image || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/tenants/pecas/products/promocion.jpg o https://..." /><small>Puede ser una ruta local publicada o la URL pública de una imagen.</small></label>
                     <label className="field full"><span>Enlace al hacer clic (opcional)</span><input value={promotionDraft.linkUrl || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, linkUrl: e.target.value }))} placeholder="/club/registro o https://..." /><small>La imagen completa abrirá este enlace. Usa una ruta que empiece con / o una URL https://.</small></label>
+                    <label className="field full"><span>Descripción accesible del enlace</span><input value={promotionDraft.linkLabel || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, linkLabel: e.target.value }))} placeholder="Ej. Regístrate gratis en Pecas Club" /></label>
                     <p className="admin-hint full">Para una promoción solo con imagen usa 1600 × 700 px (JPG o WebP, idealmente menor de 1 MB). Mantén textos o elementos importantes centrados porque los bordes pueden recortarse en celular.</p>
                     <label className="check-row full"><input type="checkbox" checked={!promotionDraft.hideImage} onChange={(e) => setPromotionDraft((current) => ({ ...current, hideImage: !e.target.checked }))} /><span>Mostrar imagen (si no defines una, usa la del primer producto)</span></label>
                     <label className="check-row full"><input type="checkbox" checked={Boolean(promotionDraft.isDefault)} onChange={(e) => {

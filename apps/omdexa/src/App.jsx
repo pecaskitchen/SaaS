@@ -1,6 +1,7 @@
 ﻿import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AuthProvider } from './auth/AuthContext.jsx';
 import RouteErrorBoundary from './components/RouteErrorBoundary.jsx';
+import PublicStorefront from './PublicStorefront.jsx';
 
 // De vuelta a lazy: el import estatico metia todo el landing de Omdexa al
 // chunk principal que descargan los clientes de los tenants (194->208 kB)
@@ -8,7 +9,6 @@ import RouteErrorBoundary from './components/RouteErrorBoundary.jsx';
 // estatico ya se resuelve de raiz con public/_headers (HTML sin cache) y el
 // handler de vite:preloadError en main.jsx.
 const OmdexaLanding = lazy(() => import('./OmdexaLanding.jsx'));
-const PublicStorefront = lazy(() => import('./PublicStorefront.jsx'));
 const PlatformAdmin = lazy(() => import('./platform/PlatformAdmin.jsx'));
 const PrivacyPolicy = lazy(() => import('./PrivacyPolicy.jsx'));
 const TermsOfService = lazy(() => import('./TermsOfService.jsx'));

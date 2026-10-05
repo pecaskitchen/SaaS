@@ -651,6 +651,36 @@ function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND
 }
 
 
+function PecasAccessModal({ open, onClose }) {
+  if (!open) return null;
+  const clubHref = `/club/iniciar-sesion${window.location.search || ''}`;
+  return (
+    <div className="employee-login-overlay" role="dialog" aria-modal="true" aria-labelledby="pecas-access-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="employee-login-modal pecas-access-modal">
+        <div className="employee-login-head">
+          <div>
+            <h2 id="pecas-access-title">¿A dónde quieres ingresar?</h2>
+            <p>Elige el tipo de acceso.</p>
+          </div>
+          <button type="button" className="ghost mini" onClick={onClose}>Cerrar</button>
+        </div>
+        <div className="pecas-access-options">
+          <a className="pecas-access-option club" href={clubHref}>
+            <strong>Pecas Club</strong>
+            <span>Consulta tus Pecas, recompensas, promociones e historial.</span>
+            <b>Ingresar al Club →</b>
+          </a>
+          <a className="pecas-access-option team" href="#login" onClick={onClose}>
+            <strong>Equipo Pecas</strong>
+            <span>Acceso administrativo para personal autorizado.</span>
+            <b>Ingresar al panel →</b>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmployeeLoginModal({ open, onClose, brandName = 'este negocio' }) {
   const [password, setPassword] = useState('');
   const [employeeName, setEmployeeName] = useState(() => {
@@ -2228,7 +2258,7 @@ export default function PublicApp() {
       <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
           <Logo lang={lang} setLang={setLang} onLoginClick={() => {
-            if (isPecasStorefront) window.location.href = `/club/iniciar-sesion${window.location.search || ''}`;
+            if (isPecasStorefront) setEmployeeLoginOpen(true);
             else window.location.hash = '#login';
           }} brand={publicBrand} businessStatus={currentBusinessStatus} />
           <a href="#cart" className="cart-pill">
@@ -2331,6 +2361,7 @@ export default function PublicApp() {
         <strong>{currency(subtotal)}</strong>
         <b>{t(lang, 'viewCart')}</b>
       </a>
+      <PecasAccessModal open={isPecasStorefront && employeeLoginOpen} onClose={() => setEmployeeLoginOpen(false)} />
     </main>
   );
 }

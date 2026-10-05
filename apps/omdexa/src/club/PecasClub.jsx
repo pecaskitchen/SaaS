@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock3, Copy, Gift, LogOut, Sparkles, Star, UserPlus } from 'lucide-react';
+import { ArrowLeft, Clock3, Copy, Gift, LogOut, Sparkles, UserPlus } from 'lucide-react';
 import { withTenantQuery } from '../lib/apiClient.js';
 import './pecas-club.css';
 
@@ -102,7 +102,7 @@ function AuthView({ mode, onAuthenticated }) {
   return (
     <div className="club-auth-wrap">
       <section className="club-auth-intro">
-        <span className="club-kicker"><Sparkles size={16} /> Pecas Club</span>
+        <span className="club-kicker">Pecas Club</span>
         <h1>{register ? 'Cada compra te acerca a algo rico.' : 'Qué gusto verte de nuevo.'}</h1>
         <p>Acumula una Peca por cada $20, descubre beneficios exclusivos y canjea tus favoritas cuando quieras.</p>
         <div className="club-points-rule"><strong>$20</strong><span>=</span><strong>1 Peca ●</strong></div>

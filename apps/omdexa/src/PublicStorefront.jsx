@@ -12,24 +12,61 @@ function publicApiPath(path) {
   }
 }
 
+function storefrontCacheKey() {
+  try {
+    const tenantId = new URLSearchParams(window.location.search).get('tenant_id') || '';
+    return `omdexa_public_storefront:${window.location.hostname}:${tenantId}`;
+  } catch {
+    return 'omdexa_public_storefront';
+  }
+}
+
+function readCachedStorefront() {
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(storefrontCacheKey()) || 'null');
+    return cached?.payload?.ok ? cached.payload : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheStorefront(payload) {
+  try {
+    window.localStorage.setItem(storefrontCacheKey(), JSON.stringify({ payload, savedAt: Date.now() }));
+  } catch {
+    // La tienda sigue funcionando si el navegador bloquea el almacenamiento.
+  }
+}
+
 export default function PublicStorefront() {
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState({ loading: true, payload: null, error: '' });
+  const [state, setState] = useState(() => {
+    const payload = readCachedStorefront();
+    return { loading: !payload, refreshing: Boolean(payload), payload, error: '' };
+  });
 
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15000);
-    setState({ loading: true, payload: null, error: '' });
+    setState((current) => current.payload
+      ? { ...current, loading: false, refreshing: true, error: '' }
+      : { loading: true, refreshing: false, payload: null, error: '' });
     fetch(publicApiPath('/api/menu'), { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok || payload?.ok === false) throw new Error(payload?.error || 'No se pudo cargar el catálogo.');
         return payload;
       })
-      .then((payload) => { if (alive) setState({ loading: false, payload, error: '' }); })
+      .then((payload) => {
+        cacheStorefront(payload);
+        if (alive) setState({ loading: false, refreshing: false, payload, error: '' });
+      })
       .catch((error) => {
-        if (alive) setState({ loading: false, payload: null, error: error?.name === 'AbortError' ? 'La tienda tardó demasiado en responder.' : (error?.message || 'No se pudo cargar la tienda.') });
+        if (!alive) return;
+        setState((current) => current.payload
+          ? { ...current, loading: false, refreshing: false, error: '' }
+          : { loading: false, refreshing: false, payload: null, error: error?.name === 'AbortError' ? 'La tienda tardó demasiado en responder.' : (error?.message || 'No se pudo cargar la tienda.') });
       })
       .finally(() => window.clearTimeout(timeout));
     return () => { alive = false; controller.abort(); window.clearTimeout(timeout); };

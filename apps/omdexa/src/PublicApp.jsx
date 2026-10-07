@@ -1872,6 +1872,9 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
   const openState = businessStatus(businessHours);
   const isPecas = /pecas/i.test(brand.displayName || '');
+  const checkoutFormFields = isPecas
+    ? { ...orderFormFields, fulfillment: { ...(orderFormFields.fulfillment || {}), label: orderFormFields.fulfillment?.label || 'Tipo de entrega', visible: true, required: true } }
+    : orderFormFields;
   const discountedSubtotal = Math.max(0, subtotal - Number(clubRedemption?.discount || 0));
   const deliveryFee = isPecas
     ? pecasDeliveryFee({ fulfillmentType: customer.fulfillmentType, neighborhood: customer.neighborhood, subtotal })
@@ -1947,14 +1950,14 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       // Solo los campos visibles para este tenant, con su etiqueta y (para
       // entrega/pago) su texto legible. Incluye los 2 campos extra.
       ...ORDER_FORM_FIELD_DEFS
-        .filter((def) => orderFormFields?.[def.key]?.visible)
+        .filter((def) => checkoutFormFields?.[def.key]?.visible)
         .map((def) => {
           const raw = customerFieldValue(customer, def.key);
           const value = (def.key === 'fulfillment' || def.key === 'payment')
             ? (raw ? optionLabel(lang, raw) : '')
             : String(raw ?? '');
           if (!String(value).trim()) return '';
-          return `${orderFormFields[def.key].label}: ${value}`;
+          return `${checkoutFormFields[def.key].label}: ${value}`;
         }),
     ];
     return lines.filter(Boolean).join('\n');
@@ -1965,7 +1968,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const sendOrder = async () => {
     if (!canSend) return;
 
-    const missingField = firstMissingRequiredField(customer, orderFormFields);
+    const missingField = firstMissingRequiredField(customer, checkoutFormFields);
     if (missingField) {
       alert(`${t(lang, 'completeFieldAlert')} ${missingField}`);
       return;
@@ -1992,7 +1995,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         fulfillmentType: customer.fulfillmentType,
         paymentMethod: customer.payment,
         notes: customer.orderNote || '',
-        customFields: customFieldsPayload(customer, orderFormFields),
+        customFields: customFieldsPayload(customer, checkoutFormFields),
       },
       items: cart.map((item) => ({
         id: item.productId || item.id,
@@ -2106,7 +2109,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         <h3>{t(lang, 'customerDataTitle')}</h3>
         {hasSavedProfile && <p className="welcome-back">{t(lang, 'welcomeBack', customer.name)}</p>}
         <p className="privacy-note">{t(lang, 'privacyNote')}</p>
-        <OrderFormFields config={orderFormFields} customer={customer} onChange={updateCustomer} />
+        <OrderFormFields config={checkoutFormFields} customer={customer} onChange={updateCustomer} />
         <div className="profile-actions">
           <button type="button" className="ghost" onClick={saveCustomerProfile}>{t(lang, 'saveMyData')}</button>
           <button type="button" className="ghost danger-text" onClick={clearCustomerProfile}>{t(lang, 'clearData')}</button>

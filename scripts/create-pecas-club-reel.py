@@ -147,6 +147,33 @@ def scene_promo(progress):
     return img
 
 
+def scene_referral(progress):
+    img = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    draw = ImageDraw.Draw(img)
+    dots(draw, int(8 * math.sin(progress * math.pi)))
+    center_text(draw, 72, "Invita y gana Pecas", font(49, serif=True, bold=True), BURGUNDY)
+    center_text(draw, 145, "Comparte tu código con un amigo", font(24), MUTED)
+    card_y = 270 + int(24 * (1 - ease(progress)))
+    rounded(draw, (64, card_y, 656, card_y + 700), 38, "#ffffff", "#ead5b9", 2)
+    draw.text((112, card_y + 54), "TU CÓDIGO", font=font(18, bold=True), fill=MUTED)
+    rounded(draw, (110, card_y + 96, 610, card_y + 190), 24, "#fff2cf", "#f0d18b", 2)
+    code = "OTO8K2"
+    box = draw.textbbox((0, 0), code, font=font(46, bold=True))
+    draw.text(((WIDTH - (box[2] - box[0])) / 2, card_y + 113), code, font=font(46, bold=True), fill=BURGUNDY)
+    line_y = card_y + 250
+    rounded(draw, (110, line_y, 610, line_y + 132), 24, "#f8eee3")
+    draw.ellipse((140, line_y + 40, 184, line_y + 84), fill=GOLD)
+    draw.text((210, line_y + 28), "Tu amigo recibe", font=font(20), fill=MUTED)
+    draw.text((210, line_y + 62), "5 Pecas", font=font(31, bold=True), fill=BROWN)
+    line_y += 160
+    rounded(draw, (110, line_y, 610, line_y + 132), 24, "#f8eee3")
+    draw.ellipse((140, line_y + 40, 184, line_y + 84), fill=ORANGE)
+    draw.text((210, line_y + 28), "Tú recibes", font=font(20), fill=MUTED)
+    draw.text((210, line_y + 62), "5 Pecas", font=font(31, bold=True), fill=BROWN)
+    center_text(draw, card_y + 580, "Después de su primera compra", font(19, bold=True), BURGUNDY, 480)
+    return img
+
+
 def scene_cta(progress):
     hero = Image.open(HERO).convert("RGB")
     scale = max(WIDTH/hero.width, HEIGHT/hero.height)
@@ -175,11 +202,13 @@ def main():
     sys.path.insert(0, str(dep_dir))
     import imageio_ffmpeg
 
+    referral_only = "--referral-only" in sys.argv
+    output = OUT_DIR / "pecas-club-referidos.mp4" if referral_only else OUT
     OUT_DIR.mkdir(exist_ok=True)
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    cmd = [ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(OUT)]
+    cmd = [ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(output)]
     process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    scenes = [scene_login, scene_balance, scene_promo, scene_cta]
+    scenes = [scene_referral] if referral_only else [scene_login, scene_balance, scene_promo, scene_cta]
     frames_per_scene = FPS * SECONDS_PER_SCENE
     for scene in scenes:
         for frame_no in range(frames_per_scene):
@@ -193,7 +222,7 @@ def main():
     process.stdin.close()
     if process.wait() != 0:
         raise SystemExit("No se pudo generar el video")
-    print(OUT)
+    print(output)
 
 
 if __name__ == "__main__":

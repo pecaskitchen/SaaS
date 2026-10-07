@@ -74,6 +74,8 @@ async function seedPecasClubPromotion(env, tenantId, settingKey, saved) {
 }
 
 function menuPayload(saved, warning = '') {
+  const promotions = (saved.promotions || (saved.promotion ? [saved.promotion] : []))
+    .map((item, index) => ({ ...item, id: String(item?.id || `promotion-${index + 1}`) }));
   return {
     ok: true,
     overrides: saved.overrides || {},
@@ -82,8 +84,8 @@ function menuPayload(saved, warning = '') {
     categoryOrder: saved.categoryOrder || [],
     productOrder: saved.productOrder || [],
     categoryHidden: saved.categoryHidden || {},
-    promotion: saved.promotions?.[0] || null,
-    promotions: saved.promotions || (saved.promotion ? [saved.promotion] : []),
+    promotion: promotions[0] || null,
+    promotions,
     banners: saved.banners || [],
     pricingRules: saved.pricingRules || null,
     branchPromotions: saved.branchPromotions || {},
@@ -147,7 +149,8 @@ export async function onRequestPost({ request, env }) {
       productOrder: Object.prototype.hasOwnProperty.call(body, 'productOrder') ? (body.productOrder || []) : (current.productOrder || []),
       categoryHidden: Object.prototype.hasOwnProperty.call(body, 'categoryHidden') ? (body.categoryHidden || {}) : (current.categoryHidden || {}),
       promotion: Object.prototype.hasOwnProperty.call(body, 'promotion') ? (body.promotion || null) : (current.promotion || null),
-      promotions: Object.prototype.hasOwnProperty.call(body, 'promotions') ? (Array.isArray(body.promotions) ? body.promotions : []) : (current.promotions || (current.promotion ? [current.promotion] : [])),
+      promotions: (Object.prototype.hasOwnProperty.call(body, 'promotions') ? (Array.isArray(body.promotions) ? body.promotions : []) : (current.promotions || (current.promotion ? [current.promotion] : [])))
+        .map((item, index) => ({ ...item, id: String(item?.id || `promotion-${index + 1}`) })),
       banners: Object.prototype.hasOwnProperty.call(body, 'banners') ? (Array.isArray(body.banners) ? body.banners : []) : (current.banners || []),
       pricingRules: Object.prototype.hasOwnProperty.call(body, 'pricingRules') ? (body.pricingRules || null) : (current.pricingRules || null),
       branchPromotions: Object.prototype.hasOwnProperty.call(body, 'branchPromotions') ? (body.branchPromotions || {}) : (current.branchPromotions || {}),

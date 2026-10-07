@@ -241,7 +241,7 @@ export async function onRequestPost({ request, env }) {
       const linked = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IN (${placeholders}) LIMIT 1`).bind(tenantId, ...submittedPromotionIds).first().catch(() => null);
       const menuRow = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(tenantSettingKey('menu_overrides', tenantId, env)).first().catch(() => null);
       let configuredClubOnly = false;
-      try { configuredClubOnly = (JSON.parse(menuRow?.value_json || '{}').promotions || []).some((item) => item?.clubOnly && submittedPromotionIds.includes(String(item.id || ''))); } catch { configuredClubOnly = false; }
+      try { configuredClubOnly = (JSON.parse(menuRow?.value_json || '{}').promotions || []).some((item, index) => item?.clubOnly && submittedPromotionIds.includes(String(item.id || `promotion-${index + 1}`))); } catch { configuredClubOnly = false; }
       if (linked || configuredClubOnly) {
         const clubAuth = await requireClubAuth(request, env);
         if (!clubAuth.ok) return clubAuth.response;

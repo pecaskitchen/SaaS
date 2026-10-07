@@ -945,7 +945,7 @@ export default function AdminPanel({
                       </button>
                     ))}
                     <button type="button" className="ghost mini" onClick={() => {
-                      setPromotionDrafts((current) => [...current, { ...normalizePromotion(null, safeProducts), title: `Promoción ${current.length + 1}`, active: false }]);
+                      setPromotionDrafts((current) => [...current, { ...normalizePromotion(null, safeProducts), id: `promotion-${Date.now()}`, title: `Promoción ${current.length + 1}`, active: false }]);
                       setPromotionIndex(promotionDrafts.length);
                     }}>+ Nueva promoción</button>
                     <button type="button" className="ghost mini" disabled={promotionIndex === 0} onClick={() => {

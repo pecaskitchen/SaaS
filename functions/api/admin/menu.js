@@ -51,10 +51,10 @@ async function seedPecasClubPromotion(env, tenantId, settingKey, saved) {
   const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
   if (marker) return saved;
 
-  const promotions = saved.promotions || (saved.promotion ? [saved.promotion] : []);
-  const next = promotions.some((item) => item?.id === PECAS_CLUB_PROMOTION.id)
+  const banners = saved.banners || [];
+  const next = banners.some((item) => item?.id === PECAS_CLUB_PROMOTION.id)
     ? saved
-    : { ...saved, promotions: [...promotions, PECAS_CLUB_PROMOTION] };
+    : { ...saved, banners: [...banners, PECAS_CLUB_PROMOTION] };
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
@@ -76,8 +76,9 @@ function menuPayload(saved, warning = '') {
     categoryOrder: saved.categoryOrder || [],
     productOrder: saved.productOrder || [],
     categoryHidden: saved.categoryHidden || {},
-    promotion: saved.promotion || null,
+    promotion: saved.promotions?.[0] || null,
     promotions: saved.promotions || (saved.promotion ? [saved.promotion] : []),
+    banners: saved.banners || [],
     pricingRules: saved.pricingRules || null,
     branchPromotions: saved.branchPromotions || {},
     businessHours: saved.businessHours || null,
@@ -141,6 +142,7 @@ export async function onRequestPost({ request, env }) {
       categoryHidden: Object.prototype.hasOwnProperty.call(body, 'categoryHidden') ? (body.categoryHidden || {}) : (current.categoryHidden || {}),
       promotion: Object.prototype.hasOwnProperty.call(body, 'promotion') ? (body.promotion || null) : (current.promotion || null),
       promotions: Object.prototype.hasOwnProperty.call(body, 'promotions') ? (Array.isArray(body.promotions) ? body.promotions : []) : (current.promotions || (current.promotion ? [current.promotion] : [])),
+      banners: Object.prototype.hasOwnProperty.call(body, 'banners') ? (Array.isArray(body.banners) ? body.banners : []) : (current.banners || []),
       pricingRules: Object.prototype.hasOwnProperty.call(body, 'pricingRules') ? (body.pricingRules || null) : (current.pricingRules || null),
       branchPromotions: Object.prototype.hasOwnProperty.call(body, 'branchPromotions') ? (body.branchPromotions || {}) : (current.branchPromotions || {}),
       businessHours: Object.prototype.hasOwnProperty.call(body, 'businessHours') ? (body.businessHours || null) : (current.businessHours || null),

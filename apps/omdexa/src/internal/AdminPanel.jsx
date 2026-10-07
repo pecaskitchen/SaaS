@@ -22,20 +22,20 @@ const ADMIN_VIEW_CONFIG = {
   menu: {
     title: 'Catálogo',
     description: 'Administra lo que vendes y las promociones que ve el cliente.',
-    sections: ['promo', 'pricingRules', 'sections'],
-    open: { promo: true, pricingRules: false, sections: true },
+    sections: ['pricingRules', 'sections'],
+    open: { pricingRules: false, sections: true },
   },
   business: {
     title: 'Negocio',
     description: 'Configura sucursales, horarios y reglas operativas del pedido.',
-    sections: ['branches', 'orderForm', 'hours'],
-    open: { branches: true, orderForm: false, hours: true },
+    sections: ['banners', 'promo', 'branches', 'orderForm', 'hours'],
+    open: { banners: true, promo: true, branches: true, orderForm: false, hours: true },
   },
   all: {
     title: 'Administrador',
     description: 'Configura sucursales, menu, ingredientes, recetas, familias e importaciones. Para operacion diaria usa Pedidos, Stock o Caja.',
-    sections: ['executive', 'itemsCosts', 'catalog', 'branches', 'orderForm', 'promo', 'hours', 'sections'],
-    open: { executive: true, branches: true, orderForm: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
+    sections: ['executive', 'itemsCosts', 'catalog', 'banners', 'promo', 'branches', 'orderForm', 'hours', 'sections'],
+    open: { executive: true, banners: true, branches: true, orderForm: false, catalog: false, itemsCosts: false, promo: true, hours: true, sections: true },
   },
 };
 
@@ -153,6 +153,7 @@ export default function AdminPanel({
   categoryHidden = {},
   promotion = null,
   promotions = [],
+  banners = [],
   pricingRules = null,
   businessHours = DEFAULT_BUSINESS_HOURS,
   branchSettings = DEFAULT_BRANCH_SETTINGS,
@@ -202,6 +203,16 @@ export default function AdminPanel({
     next[index] = typeof updater === 'function' ? updater(next[index]) : updater;
     return next;
   });
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [bannerDrafts, setBannerDrafts] = useState(() => banners.map((item) => normalizePromotion(item, safeProducts)));
+  const bannerDraft = bannerDrafts[bannerIndex] || normalizePromotion(null, safeProducts);
+  const setBannerDraft = (updater) => setBannerDrafts((current) => {
+    const base = current.length ? current : [{ ...normalizePromotion(null, safeProducts), active: false, items: [] }];
+    const index = Math.min(bannerIndex, base.length - 1);
+    const next = [...base];
+    next[index] = typeof updater === 'function' ? updater(next[index]) : updater;
+    return next;
+  });
   const [pricingRulesDraft, setPricingRulesDraft] = useState(() => normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
   const [categoryHiddenDraft, setCategoryHiddenDraft] = useState(() => ({ ...(categoryHidden || {}) }));
   const [businessHoursDraft, setBusinessHoursDraft] = useState(() => normalizeBusinessHours(businessHours));
@@ -236,6 +247,11 @@ export default function AdminPanel({
     setPromotionDrafts(incoming.map((item) => normalizePromotion(item, safeProducts)));
     setPromotionIndex(0);
   }, [promotion, promotions, safeProducts]);
+
+  useEffect(() => {
+    setBannerDrafts(banners.map((item) => normalizePromotion(item, safeProducts)));
+    setBannerIndex(0);
+  }, [banners, safeProducts]);
 
   useEffect(() => {
     setPricingRulesDraft(normalizePerfumePricingRules(pricingRules || DEFAULT_PERFUME_PRICING_RULES));
@@ -627,6 +643,7 @@ export default function AdminPanel({
           categoryHidden: categoryHiddenDraft,
           promotion: promotionDraft,
           promotions: promotionDrafts,
+          banners: bannerDrafts,
           pricingRules: pricingRulesDraft,
           businessHours: businessHoursDraft,
           branchSettings: branchSettingsDraft,
@@ -803,11 +820,52 @@ export default function AdminPanel({
               )}
             </section>}
 
+            {hasAdminSection('banners') && <section className="admin-collapse">
+              <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('banners')}>Banners de portada <span>{openAdminSections.banners ? '-' : '+'}</span></button>
+              {openAdminSections.banners && (
+                <div className="admin-order-box">
+                  <AdminSectionIntro title="Banners del carrusel" description="Publica imágenes o mensajes informativos. Los banners no agregan productos al carrito." />
+                  <div className="admin-promo-tabs">
+                    {bannerDrafts.map((item, index) => <button type="button" className={index === bannerIndex ? 'primary mini' : 'ghost mini'} key={item.id || index} onClick={() => setBannerIndex(index)}>{item.title || `Banner ${index + 1}`}</button>)}
+                    <button type="button" className="ghost mini" onClick={() => {
+                      setBannerDrafts((current) => [...current, { ...normalizePromotion(null, safeProducts), id: `banner-${Date.now()}`, title: `Banner ${current.length + 1}`, active: false, items: [] }]);
+                      setBannerIndex(bannerDrafts.length);
+                    }}>+ Nuevo banner</button>
+                    <button type="button" className="ghost mini" disabled={bannerIndex === 0} onClick={() => {
+                      setBannerDrafts((current) => { const next = [...current]; [next[bannerIndex - 1], next[bannerIndex]] = [next[bannerIndex], next[bannerIndex - 1]]; return next; });
+                      setBannerIndex((current) => Math.max(0, current - 1));
+                    }}>← Mover</button>
+                    <button type="button" className="ghost mini" disabled={bannerIndex >= bannerDrafts.length - 1} onClick={() => {
+                      setBannerDrafts((current) => { const next = [...current]; [next[bannerIndex], next[bannerIndex + 1]] = [next[bannerIndex + 1], next[bannerIndex]]; return next; });
+                      setBannerIndex((current) => Math.min(bannerDrafts.length - 1, current + 1));
+                    }}>Mover →</button>
+                    {bannerDrafts.length > 0 ? <button type="button" className="ghost mini danger-text" onClick={() => {
+                      setBannerDrafts((current) => current.filter((_, index) => index !== bannerIndex));
+                      setBannerIndex((current) => Math.max(0, current - 1));
+                    }}>Eliminar actual</button> : null}
+                  </div>
+                  <label className="check-row full"><input type="checkbox" checked={Boolean(bannerDraft.active)} onChange={(e) => setBannerDraft((current) => ({ ...current, active: e.target.checked }))} /><span>Banner activo</span></label>
+                  <div className="admin-promo-grid">
+                    <label className="field"><span>Título (opcional)</span><input value={bannerDraft.title || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, title: e.target.value }))} /></label>
+                    <label className="field full"><span>Texto (opcional)</span><textarea rows="2" value={bannerDraft.description || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, description: e.target.value }))} /></label>
+                    <label className="field full"><span>Imagen</span><input value={bannerDraft.image || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/tenants/pecas/promotions/banner.jpg o https://..." /></label>
+                    <label className="field full"><span>Enlace al hacer clic (opcional)</span><input value={bannerDraft.linkUrl || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, linkUrl: e.target.value }))} placeholder="/club/registro o https://..." /></label>
+                    <label className="field full"><span>Descripción accesible del enlace</span><input value={bannerDraft.linkLabel || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, linkLabel: e.target.value }))} /></label>
+                    <label className="check-row full"><input type="checkbox" checked={Boolean(bannerDraft.isDefault)} onChange={(e) => {
+                      const checked = e.target.checked;
+                      setBannerDrafts((current) => current.map((item, index) => ({ ...item, isDefault: checked && index === bannerIndex })));
+                    }} /><span>Mostrar este banner primero</span></label>
+                    <p className="admin-hint full">Tamaño recomendado: 1600 × 700 px, JPG o WebP y menos de 1 MB. Centra el contenido importante para evitar recortes en celular.</p>
+                  </div>
+                </div>
+              )}
+            </section>}
+
             {hasAdminSection('promo') && <section className="admin-collapse">
               <button type="button" className="admin-collapse-summary" onClick={() => toggleAdminSection('promo')}>Promociones de venta <span>{openAdminSections.promo ? '-' : '+'}</span></button>
               {openAdminSections.promo && (
                 <div className="admin-order-box">
-                  <AdminSectionIntro title="Promociones de venta" description="Configura varias promociones. Las activas aparecerán como carrusel en la portada." />
+                  <AdminSectionIntro title="Promociones de venta" description="Crea ofertas comprables con precio, productos y opciones. Se muestran separadas de los banners." />
                   <div className="admin-promo-tabs">
                     {promotionDrafts.map((item, index) => (
                       <button type="button" className={index === promotionIndex ? 'primary mini' : 'ghost mini'} key={index} onClick={() => setPromotionIndex(index)}>

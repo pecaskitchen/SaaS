@@ -5343,6 +5343,9 @@ textarea { resize: vertical; min-height: 48px; }
   }
 }
 .admin-promo-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(127,127,127,.18); }
+.sales-promotions { width: min(1180px, calc(100% - 32px)); margin: 28px auto; }
+.sales-promotions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; }
+.sales-promotions-grid .promo-card { min-height: 280px; }
 .advanced-settings { margin: 10px 0; padding: 12px 14px; border: 1px dashed rgba(127,127,127,.35); border-radius: 12px; background: rgba(127,127,127,.04); }
 .advanced-settings summary, .advanced-cost-summary > summary { cursor: pointer; font-weight: 800; color: var(--brown, #3b1f0f); }
 .advanced-settings[open] summary { margin-bottom: 12px; }

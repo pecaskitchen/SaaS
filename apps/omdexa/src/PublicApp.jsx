@@ -1739,12 +1739,12 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 }
 
-function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden }) {
-  const visible = useMemo(() => promotions
+function BannersCarousel({ banners, products, onAdd, lang, categoryHidden }) {
+  const visible = useMemo(() => banners
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item?.active)
     .sort((a, b) => Number(Boolean(b.item.isDefault)) - Number(Boolean(a.item.isDefault)) || a.index - b.index)
-    .map(({ item }) => item), [promotions]);
+    .map(({ item }) => item), [banners]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
   useEffect(() => {
@@ -1767,23 +1767,36 @@ function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden 
     setAutoPlay(false);
     setCurrentIndex(index);
   };
-  const currentPromotion = visible[currentIndex] || visible[0];
+  const currentBanner = visible[currentIndex] || visible[0];
   return (
-    <section className="promo-section" id="promo" aria-label="Promociones">
+    <section className="promo-section" id="banners" aria-label="Novedades">
       <div className="promo-section-head">
         <div>
-          <div className="promo-carousel-dots promo-carousel-dots-top" aria-label="Elegir promoción">
-            {visible.map((item, index) => <button type="button" className={index === currentIndex ? 'active' : ''} aria-label={`Ver promoción ${index + 1}: ${item.title || ''}`} aria-current={index === currentIndex ? 'true' : undefined} onClick={() => selectManually(index)} key={index} />)}
+          <div className="promo-carousel-dots promo-carousel-dots-top" aria-label="Elegir banner">
+            {visible.map((item, index) => <button type="button" className={index === currentIndex ? 'active' : ''} aria-label={`Ver banner ${index + 1}: ${item.title || ''}`} aria-current={index === currentIndex ? 'true' : undefined} onClick={() => selectManually(index)} key={index} />)}
           </div>
           <h2>Algo especial para ti</h2>
         </div>
         {visible.length > 1 && <div className="promo-carousel-controls">
-          <button type="button" aria-label="Promoción anterior; detiene el cambio automático" onClick={() => moveManually(-1)}><ChevronLeft size={20} /></button>
-          <button type="button" aria-label="Siguiente promoción; detiene el cambio automático" onClick={() => moveManually(1)}><ChevronRight size={20} /></button>
+          <button type="button" aria-label="Banner anterior; detiene el cambio automático" onClick={() => moveManually(-1)}><ChevronLeft size={20} /></button>
+          <button type="button" aria-label="Siguiente banner; detiene el cambio automático" onClick={() => moveManually(1)}><ChevronRight size={20} /></button>
         </div>}
       </div>
       <div className="promo-carousel" aria-live="polite">
-        <PromoCard key={currentPromotion.id || `${currentPromotion.title}-${currentIndex}`} promotion={currentPromotion} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />
+        <PromoCard key={currentBanner.id || `${currentBanner.title}-${currentIndex}`} promotion={currentBanner} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />
+      </div>
+    </section>
+  );
+}
+
+function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden }) {
+  const visible = promotions.filter((item) => item?.active);
+  if (!visible.length) return null;
+  return (
+    <section className="sales-promotions" id="promociones" aria-label="Promociones de venta">
+      <div className="section-heading"><span className="eyebrow">Promociones</span><h2>Aprovecha estas ofertas</h2></div>
+      <div className="sales-promotions-grid">
+        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
       </div>
     </section>
   );
@@ -2069,6 +2082,7 @@ export default function PublicApp() {
   const [categoryHidden, setCategoryHidden] = useState({});
   const [promotion, setPromotion] = useState(null);
   const [promotions, setPromotions] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [branchPromotions, setBranchPromotions] = useState({});
   const [businessHours, setBusinessHours] = useState(() => normalizeBusinessHours(DEFAULT_BUSINESS_HOURS));
   const [branchSettings, setBranchSettings] = useState(() => normalizeBranchSettings(DEFAULT_BRANCH_SETTINGS));
@@ -2164,6 +2178,7 @@ export default function PublicApp() {
         setCategoryHidden(result.categoryHidden || {});
         setPromotion(result.promotion ? normalizePromotion(result.promotion, nextProducts) : null);
         setPromotions((result.promotions?.length ? result.promotions : (result.promotion ? [result.promotion] : [])).map((item) => normalizePromotion(item, nextProducts)));
+        setBanners((result.banners || []).map((item) => normalizePromotion(item, nextProducts)));
         setBranchPromotions(result.branchPromotions || {});
         setBusinessHours(normalizeBusinessHours(result.businessHours));
         setBranchSettings(normalizeBranchSettings(result.branchSettings));
@@ -2181,6 +2196,7 @@ export default function PublicApp() {
       setCategoryHidden({});
       setPromotion(null);
       setPromotions([]);
+      setBanners([]);
       setBaseCatalogEnabled(false);
       if (!window.__saasLastMenuPayload?.tenant) setPublicBrand(normalizePublicBrand(null));
       setPublicSettings(normalizePublicSettings());
@@ -2351,7 +2367,8 @@ export default function PublicApp() {
         </div>
       </section>
 
-      <PromotionsCarousel promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+      <BannersCarousel banners={banners} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+      <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
 
       {mercadoPagoReturn && (
         <section className="payment-return-banner">

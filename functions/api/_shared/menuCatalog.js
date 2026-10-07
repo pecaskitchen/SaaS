@@ -30,7 +30,10 @@ export function normalizeSavedMenu(raw) {
   try {
     if (!raw) return emptySavedMenu();
     const parsed = JSON.parse(raw);
-    if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.promotions || parsed.pricingRules || parsed.businessHours || parsed.branchSettings) {
+    if (parsed.overrides || parsed.extraCategories || parsed.extraProducts || parsed.categoryOrder || parsed.productOrder || parsed.categoryHidden || parsed.promotion || parsed.promotions || parsed.banners || parsed.pricingRules || parsed.businessHours || parsed.branchSettings) {
+      const legacyPromotions = Array.isArray(parsed.promotions) ? parsed.promotions : (parsed.promotion ? [parsed.promotion] : []);
+      const hasExplicitBanners = Array.isArray(parsed.banners);
+      const isBanner = (item) => !Array.isArray(item?.items) || item.items.length === 0;
       return {
         overrides: parsed.overrides || {},
         extraCategories: Array.isArray(parsed.extraCategories) ? parsed.extraCategories : [],
@@ -39,7 +42,8 @@ export function normalizeSavedMenu(raw) {
         productOrder: Array.isArray(parsed.productOrder) ? parsed.productOrder : [],
         categoryHidden: parsed.categoryHidden || {},
         promotion: parsed.promotion || null,
-        promotions: Array.isArray(parsed.promotions) ? parsed.promotions : (parsed.promotion ? [parsed.promotion] : []),
+        promotions: hasExplicitBanners ? legacyPromotions : legacyPromotions.filter((item) => !isBanner(item)),
+        banners: hasExplicitBanners ? parsed.banners : legacyPromotions.filter(isBanner),
         pricingRules: parsed.pricingRules || null,
         branchPromotions: parsed.branchPromotions || {},
         businessHours: parsed.businessHours || null,
@@ -63,6 +67,7 @@ export function emptySavedMenu() {
     categoryHidden: {},
     promotion: null,
     promotions: [],
+    banners: [],
     pricingRules: null,
     branchPromotions: {},
     businessHours: null,

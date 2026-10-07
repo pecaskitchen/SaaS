@@ -239,7 +239,10 @@ export async function onRequestPost({ request, env }) {
     if (submittedPromotionIds.length) {
       const placeholders = submittedPromotionIds.map(() => '?').join(',');
       const linked = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IN (${placeholders}) LIMIT 1`).bind(tenantId, ...submittedPromotionIds).first().catch(() => null);
-      if (linked) {
+      const menuRow = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(tenantSettingKey('menu_overrides', tenantId, env)).first().catch(() => null);
+      let configuredClubOnly = false;
+      try { configuredClubOnly = (JSON.parse(menuRow?.value_json || '{}').promotions || []).some((item) => item?.clubOnly && submittedPromotionIds.includes(String(item.id || ''))); } catch { configuredClubOnly = false; }
+      if (linked || configuredClubOnly) {
         const clubAuth = await requireClubAuth(request, env);
         if (!clubAuth.ok) return clubAuth.response;
         if (String(customer.phone || '').replace(/\D/g, '') !== String(clubAuth.customer.phone || '').replace(/\D/g, '')) return jsonResponse({ ok: false, error: 'El teléfono del pedido debe coincidir con tu cuenta de Pecas Club.' }, 409);

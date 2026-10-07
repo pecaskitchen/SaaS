@@ -973,6 +973,10 @@ export default function AdminPanel({
                     <input type="checkbox" checked={Boolean(promotionDraft.active)} onChange={(e) => setPromotionDraft((current) => ({ ...current, active: e.target.checked }))} />
                     <span>Promocion activa</span>
                   </label>
+                  <label className="check-row full">
+                    <input type="checkbox" checked={Boolean(promotionDraft.clubOnly)} onChange={(e) => setPromotionDraft((current) => ({ ...current, clubOnly: e.target.checked }))} />
+                    <span>Solo miembros de Pecas Club. Todos pueden verla, pero deben iniciar sesión para agregarla al carrito.</span>
+                  </label>
                   <div className="admin-promo-grid">
                     <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>

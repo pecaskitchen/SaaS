@@ -1663,6 +1663,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   if (promoGroups.length && promoGroups.some(groupUnavailable)) return null;
 
   const handleAddPromo = () => {
+    if (promotion.clubOnly && !promotion.clubAccess) { window.location.href = '/club/iniciar-sesion'; return; }
     onAdd(buildPromoCartItem(promotion, selectedItems, extrasByProductId, lang));
     setSelectionByIndex({});
     const next = {};
@@ -1706,6 +1707,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
             : bannerImage(promotion.title || '', Boolean(promotion.isDefault))) : <span>⭐</span>}
         </div>
         {!imageOnly && <div className="promo-content">
+          {promotion.clubOnly && <span className="club-only-badge">Solo Pecas Club</span>}
           <h2>{promotion.title}</h2>
           {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
@@ -1745,7 +1747,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
                 {expanded ? t(lang, 'hideOptions') : t(lang, 'promoExtras')}
               </button>
               <button type="button" className="primary" onClick={handleAddPromo}>
-                <Plus size={15} /> {t(lang, 'addPromo')}
+                <Plus size={15} /> {promotion.clubOnly && !promotion.clubAccess ? 'Inicia sesión para agregar' : t(lang, 'addPromo')}
               </button>
             </div>}
           </div>}
@@ -1860,7 +1862,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     fetch(publicApiPath('/api/club/dashboard'), { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.ok ? response.json() : null).then((result) => {
       const pending = result?.pendingRedemptions || [];
       setClubCodes(pending);
-      if (pending.length) { setClubCode(pending[0].code); setClubNotice(`Tienes ${pending.length} ${pending.length === 1 ? 'canje disponible' : 'canjes disponibles'}. Elige cuál utilizar.`); }
+      if (pending.length) { setClubCode(pending[0].code); setClubNotice(`Tienes ${pending.length} ${pending.length === 1 ? 'canje disponible' : 'canjes disponibles'}. Elige cuál utilizar. Cada código vence seis meses después del canje.`); }
     }).catch(() => {});
   }, [isPecas]);
 

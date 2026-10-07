@@ -1,6 +1,6 @@
 import { requireAuth } from '../_shared/auth.js';
 import { jsonResponse, nowIso, readJson, requireDb } from '../_shared/http.js';
-import { clubBalance, createRedemption, ensureClubSchema, ensurePecasTenant } from '../_shared/pecasClub.js';
+import { clubBalance, createRedemption, ensureClubSchema, ensurePecasTenant, expireCustomerPoints, expireIssuedRedemptions, hashPassword } from '../_shared/pecasClub.js';
 import { normalizeSavedMenu } from '../_shared/menuCatalog.js';
 import { tenantSettingKey } from '../_shared/tenant.js';
 
@@ -27,10 +27,13 @@ export async function onRequestGet({ request, env }) {
     const granted = await access(request, env);
     if (granted.response) return granted.response;
     const db = requireDb(env);
+    await expireIssuedRedemptions(db, granted.tenant.id);
     const url = new URL(request.url);
     const q = String(url.searchParams.get('q') || '').trim();
     const customerId = String(url.searchParams.get('customer_id') || '');
     const like = `%${q.toLowerCase()}%`;
+    const memberIds = await db.prepare(`SELECT id FROM club_customers WHERE tenant_id = ? AND status = 'active'`).bind(granted.tenant.id).all();
+    await Promise.all((memberIds.results || []).map((member) => expireCustomerPoints(db, granted.tenant.id, member.id)));
     const customersResult = await db.prepare(`
       SELECT c.*,
         COALESCE((SELECT SUM(t.points) FROM club_points_transactions t WHERE t.tenant_id = c.tenant_id AND t.customer_id = c.id), 0) AS balance,
@@ -64,7 +67,7 @@ export async function onRequestGet({ request, env }) {
       promotions: (promotionsResult.results || []).map(promotion),
       referralsUnderReview: referralResult.results || [],
       transactions: transactionsResult.results || [],
-      redemptions: (redemptionsResult.results || []).map((row) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, customerPhone: row.customer_phone, rewardId: row.reward_id, rewardName: row.reward_name, pointsSpent: Number(row.points_spent), status: row.status, code: row.redemption_code, redeemedAtUtc: row.redeemed_at_utc, usedAtUtc: row.used_at_utc || '' })),
+      redemptions: (redemptionsResult.results || []).map((row) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, customerPhone: row.customer_phone, rewardId: row.reward_id, rewardName: row.reward_name, pointsSpent: Number(row.points_spent), status: row.status, code: row.redemption_code, redeemedAtUtc: row.redeemed_at_utc, expiresAtUtc: row.expires_at_utc || '', usedAtUtc: row.used_at_utc || '' })),
       products: (productsResult.results || []).map((row) => ({ id: row.product_key, name: row.name, category: row.category_key })),
       storePromotions: storePromotions.filter((item) => item?.id && item?.active !== false).map((item) => ({ id: item.id, title: item.title || item.id })),
     });
@@ -82,9 +85,38 @@ export async function onRequestPost({ request, env }) {
     const db = requireDb(env);
     const action = String(body.action || 'adjust');
     const customerId = String(body.customerId || '');
+    if (action === 'reset-pin') {
+      const newPin = String(body.newPin || '');
+      if (!customerId) return jsonResponse({ ok: false, error: 'Selecciona un miembro.' }, 400);
+      if (!/^\d{6}$/.test(newPin)) return jsonResponse({ ok: false, error: 'El PIN debe tener exactamente seis dígitos.' }, 400);
+      const customer = await db.prepare(`SELECT id FROM club_customers WHERE tenant_id = ? AND id = ?`).bind(granted.tenant.id, customerId).first();
+      if (!customer) return jsonResponse({ ok: false, error: 'Miembro no encontrado.' }, 404);
+      await db.batch([
+        db.prepare(`UPDATE club_customers SET pin_hash = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(await hashPassword(newPin), nowIso(), granted.tenant.id, customerId),
+        db.prepare(`DELETE FROM club_sessions WHERE tenant_id = ? AND customer_id = ?`).bind(granted.tenant.id, customerId),
+      ]);
+      return jsonResponse({ ok: true });
+    }
     if (action === 'redeem') {
       const redemption = await createRedemption(db, { tenantId: granted.tenant.id, customerId, rewardId: String(body.rewardId || ''), userId: granted.session.userId, userName: granted.session.name });
       return jsonResponse({ ok: true, redemption });
+    }
+    if (action === 'cancel-redemptions') {
+      const scopeCustomerId = body.scope === 'customer' ? customerId : '';
+      const result = await db.prepare(`SELECT * FROM club_redemptions WHERE tenant_id = ? AND status = 'issued' AND (? = '' OR customer_id = ?)`).bind(granted.tenant.id, scopeCustomerId, scopeCustomerId).all();
+      const now = nowIso();
+      let cancelled = 0;
+      for (const redemption of result.results || []) {
+        const statements = [
+          db.prepare(`UPDATE club_redemptions SET status = 'cancelled' WHERE tenant_id = ? AND id = ? AND status = 'issued'`).bind(granted.tenant.id, redemption.id),
+          db.prepare(`INSERT OR IGNORE INTO club_points_transactions (id, tenant_id, customer_id, redemption_id, type, points, description, created_by_user_id, created_by_name, created_at_utc) VALUES (?, ?, ?, ?, 'refund', ?, ?, ?, ?, ?)`)
+            .bind(`refund-${redemption.id}`, granted.tenant.id, redemption.customer_id, redemption.id, Number(redemption.points_spent), `Cupón eliminado por administración · ${redemption.reward_name} · ${redemption.redemption_code}`, granted.session.userId, granted.session.name, now),
+        ];
+        const rewardRow = await db.prepare(`SELECT stock FROM club_rewards WHERE tenant_id = ? AND id = ?`).bind(granted.tenant.id, redemption.reward_id).first();
+        if (rewardRow && rewardRow.stock !== null) statements.push(db.prepare(`UPDATE club_rewards SET stock = stock + 1, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(now, granted.tenant.id, redemption.reward_id));
+        await db.batch(statements); cancelled += 1;
+      }
+      return jsonResponse({ ok: true, cancelled });
     }
     if (action === 'redemption-status') {
       const redemptionId = String(body.redemptionId || '');

@@ -202,9 +202,11 @@ export async function onRequestGet({ request, env }) {
     saved = await ensurePecasBanners(env, tenantId, settingKey, saved, tenant);
     const effectivePromise = readEffectiveCatalog(env, tenantId, { ...saved, overrides: cleanPublicOverrides(saved.overrides || {}) }, { overrides: cleanPublicOverrides(saved.overrides || {}) });
     const linkedClubPromotions = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IS NOT NULL AND store_promotion_id != ''`).bind(tenantId).all().then((result) => new Set((result.results || []).map((item) => item.store_promotion_id))).catch(() => new Set());
+    for (const item of saved.promotions || []) if (item?.clubOnly && item?.id) linkedClubPromotions.add(item.id);
+    let clubAuthenticated = false;
     if (linkedClubPromotions.size) {
       const clubAuth = request.headers.get('authorization') ? await requireClubAuth(request, env) : { ok: false };
-      if (!clubAuth.ok) saved = { ...saved, promotions: (saved.promotions || []).filter((item) => !linkedClubPromotions.has(item?.id)) };
+      clubAuthenticated = Boolean(clubAuth.ok);
     }
 
     const cleanedOverrides = cleanPublicOverrides(saved.overrides || {});
@@ -222,7 +224,7 @@ export async function onRequestGet({ request, env }) {
       productOrder: effective.productOrder || [],
       categoryHidden: effective.categoryHidden || {},
       promotion: saved.promotions?.[0] || null,
-      promotions: saved.promotions || (saved.promotion ? [saved.promotion] : []),
+      promotions: (saved.promotions || (saved.promotion ? [saved.promotion] : [])).map((item) => ({ ...item, clubOnly: linkedClubPromotions.has(item?.id), clubAccess: !linkedClubPromotions.has(item?.id) || clubAuthenticated })),
       banners: saved.banners || [],
       pricingRules: saved.pricingRules || null,
       branchPromotions: saved.branchPromotions || {},

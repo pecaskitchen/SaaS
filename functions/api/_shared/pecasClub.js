@@ -9,6 +9,13 @@ export const CLUB_TERMS_VERSION = '2026-10-04';
 export const CLUB_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 export const POINTS_SPEND_UNIT = 20;
 export const REFERRAL_BONUS = 5;
+export const CLUB_VALIDITY_MONTHS = 6;
+
+function addMonthsIso(value, months) {
+  const date = new Date(value);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return date.toISOString();
+}
 
 export function pointsForPurchase(total) {
   return Math.max(0, Math.floor(Number(total || 0) / POINTS_SPEND_UNIT));
@@ -69,6 +76,8 @@ export async function ensureClubSchema(env) {
   const redemptionInfo = await db.prepare(`PRAGMA table_info(club_redemptions)`).all();
   const redemptionColumns = new Set((redemptionInfo.results || []).map((row) => row.name));
   if (!redemptionColumns.has('order_id')) await db.prepare(`ALTER TABLE club_redemptions ADD COLUMN order_id INTEGER`).run();
+  if (!redemptionColumns.has('expires_at_utc')) await db.prepare(`ALTER TABLE club_redemptions ADD COLUMN expires_at_utc TEXT`).run();
+  await db.prepare(`UPDATE club_redemptions SET expires_at_utc = datetime(redeemed_at_utc, '+6 months') WHERE expires_at_utc IS NULL`).run();
   const promotionInfo = await db.prepare(`PRAGMA table_info(club_promotions)`).all();
   const promotionColumns = new Set((promotionInfo.results || []).map((row) => row.name));
   if (!promotionColumns.has('store_promotion_id')) await db.prepare(`ALTER TABLE club_promotions ADD COLUMN store_promotion_id TEXT`).run();
@@ -79,8 +88,8 @@ export async function validateRedemptionForItems(db, { tenantId, customerId, cod
   if (!code) return null;
   const row = await db.prepare(`SELECT r.*, w.reward_type, w.eligible_product_ids_json, w.discount_amount
     FROM club_redemptions r JOIN club_rewards w ON w.tenant_id = r.tenant_id AND w.id = r.reward_id
-    WHERE r.tenant_id = ? AND r.customer_id = ? AND upper(r.redemption_code) = upper(?) AND r.status = 'issued' LIMIT 1`)
-    .bind(tenantId, customerId, String(code).trim()).first();
+    WHERE r.tenant_id = ? AND r.customer_id = ? AND upper(r.redemption_code) = upper(?) AND r.status = 'issued' AND r.expires_at_utc > ? LIMIT 1`)
+    .bind(tenantId, customerId, String(code).trim(), nowIso()).first();
   if (!row) throw Object.assign(new Error('El código no existe, ya fue usado o no pertenece a esta cuenta.'), { status: 409 });
   let eligibleIds = [];
   try { eligibleIds = JSON.parse(row.eligible_product_ids_json || '[]'); } catch { eligibleIds = []; }
@@ -171,8 +180,35 @@ export async function authenticateClubCustomer(env, tenantId, phone, pin) {
 }
 
 export async function clubBalance(db, tenantId, customerId) {
+  await expireCustomerPoints(db, tenantId, customerId);
   const row = await db.prepare(`SELECT COALESCE(SUM(points), 0) AS balance FROM club_points_transactions WHERE tenant_id = ? AND customer_id = ?`).bind(tenantId, customerId).first();
   return Number(row?.balance || 0);
+}
+
+export async function expireCustomerPoints(db, tenantId, customerId) {
+  const result = await db.prepare(`SELECT id, points, created_at_utc FROM club_points_transactions WHERE tenant_id = ? AND customer_id = ? ORDER BY created_at_utc, id`).bind(tenantId, customerId).all();
+  const lots = [];
+  for (const row of result.results || []) {
+    let points = Number(row.points || 0);
+    if (points > 0) lots.push({ id: row.id, remaining: points, createdAtUtc: row.created_at_utc });
+    if (points < 0) {
+      let debit = -points;
+      for (const lot of lots) {
+        const used = Math.min(lot.remaining, debit);
+        lot.remaining -= used; debit -= used;
+        if (!debit) break;
+      }
+    }
+  }
+  const cutoff = addMonthsIso(nowIso(), -CLUB_VALIDITY_MONTHS);
+  const expired = lots.filter((lot) => lot.remaining > 0 && lot.createdAtUtc <= cutoff);
+  if (expired.length) await db.batch(expired.map((lot) => db.prepare(`INSERT OR IGNORE INTO club_points_transactions (id, tenant_id, customer_id, type, points, description, created_at_utc) VALUES (?, ?, ?, 'expire', ?, 'Pecas vencidas después de 6 meses', ?)`)
+    .bind(`expire-${lot.id}`, tenantId, customerId, -lot.remaining, nowIso())));
+}
+
+export async function expireIssuedRedemptions(db, tenantId, customerId = '') {
+  await db.prepare(`UPDATE club_redemptions SET status = 'expired' WHERE tenant_id = ? AND status = 'issued' AND expires_at_utc <= ? AND (? = '' OR customer_id = ?)`)
+    .bind(tenantId, nowIso(), customerId, customerId).run();
 }
 
 export async function createRedemption(db, { tenantId, customerId, rewardId, userId = null, userName = null }) {
@@ -186,15 +222,16 @@ export async function createRedemption(db, { tenantId, customerId, rewardId, use
   const transactionId = crypto.randomUUID();
   const code = `PEC-${codeFromBytes(6)}`;
   const now = nowIso();
+  const expiresAt = addMonthsIso(now, CLUB_VALIDITY_MONTHS);
   const statements = [
-    db.prepare(`INSERT INTO club_redemptions (id, tenant_id, customer_id, reward_id, reward_name, points_spent, status, redemption_code, redeemed_at_utc, created_by_user_id, created_by_name) VALUES (?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?)`)
-      .bind(redemptionId, tenantId, customerId, reward.id, reward.name, cost, code, now, userId, userName),
+    db.prepare(`INSERT INTO club_redemptions (id, tenant_id, customer_id, reward_id, reward_name, points_spent, status, redemption_code, redeemed_at_utc, expires_at_utc, created_by_user_id, created_by_name) VALUES (?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?, ?)`)
+      .bind(redemptionId, tenantId, customerId, reward.id, reward.name, cost, code, now, expiresAt, userId, userName),
     db.prepare(`INSERT INTO club_points_transactions (id, tenant_id, customer_id, redemption_id, type, points, description, created_by_user_id, created_by_name, created_at_utc) VALUES (?, ?, ?, ?, 'redeem', ?, ?, ?, ?, ?)`)
       .bind(transactionId, tenantId, customerId, redemptionId, -cost, `${reward.name} · canje ${code}`, userId, userName, now),
   ];
   if (reward.stock !== null) statements.push(db.prepare(`UPDATE club_rewards SET stock = stock - 1, updated_at_utc = ? WHERE tenant_id = ? AND id = ? AND stock > 0`).bind(now, tenantId, reward.id));
   await db.batch(statements);
-  return { id: redemptionId, code, reward: reward.name, pointsSpent: cost, balance: balance - cost };
+  return { id: redemptionId, code, reward: reward.name, pointsSpent: cost, balance: balance - cost, expiresAtUtc: expiresAt };
 }
 
 export async function awardOrderPoints(env, tenantId, orderId) {

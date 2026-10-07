@@ -12,6 +12,7 @@ import {
   requireClubAuth,
   uniqueReferralCode,
 } from '../_shared/pecasClub.js';
+import { verifyPassword } from '../_shared/crypto.js';
 
 function validEmail(value) {
   return !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -117,4 +118,26 @@ export async function onRequestDelete({ request, env }) {
   await requireDb(env).prepare(`DELETE FROM club_sessions WHERE id = ? AND tenant_id = ? AND customer_id = ?`)
     .bind(auth.payload.sessionId, auth.tenant.id, auth.customer.id).run();
   return jsonResponse({ ok: true });
+}
+
+export async function onRequestPatch({ request, env }) {
+  try {
+    await ensureClubSchema(env);
+    const auth = await requireClubAuth(request, env);
+    if (!auth.ok) return auth.response;
+    const body = await readJson(request);
+    const currentPin = String(body.currentPin || '');
+    const newPin = String(body.newPin || '');
+    if (!/^\d{6}$/.test(currentPin) || !/^\d{6}$/.test(newPin)) return jsonResponse({ ok: false, error: 'Los PIN deben tener exactamente seis dígitos.' }, 400);
+    if (currentPin === newPin) return jsonResponse({ ok: false, error: 'El PIN nuevo debe ser diferente al actual.' }, 400);
+    if (!(await verifyPassword(currentPin, auth.customer.pin_hash))) return jsonResponse({ ok: false, error: 'El PIN actual no es correcto.' }, 401);
+    const db = requireDb(env);
+    await db.batch([
+      db.prepare(`UPDATE club_customers SET pin_hash = ?, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(await hashPassword(newPin), nowIso(), auth.tenant.id, auth.customer.id),
+      db.prepare(`DELETE FROM club_sessions WHERE tenant_id = ? AND customer_id = ? AND id != ?`).bind(auth.tenant.id, auth.customer.id, auth.payload.sessionId),
+    ]);
+    return jsonResponse({ ok: true });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error.message || 'No se pudo cambiar el PIN.' }, error.status || 500);
+  }
 }

@@ -44,6 +44,7 @@ function routeName() {
   if (path.endsWith('/iniciar-sesion')) return 'login';
   if (path.endsWith('/recompensas')) return 'rewards';
   if (path.endsWith('/historial')) return 'history';
+  if (path.endsWith('/seguridad')) return 'security';
   if (path.endsWith('/terminos')) return 'terms';
   return 'home';
 }
@@ -70,6 +71,7 @@ function ClubHeader({ customer, onLogout }) {
           <a href={clubUrl('/club')}>Mi Club</a>
           <a href={clubUrl('/club/recompensas')}>Recompensas</a>
           <a href={clubUrl('/club/historial')}>Historial</a>
+          <a href={clubUrl('/club/seguridad')}>Cambiar PIN</a>
           <button type="button" onClick={onLogout}><LogOut size={17} /> Salir</button>
         </> : <a href={clubUrl('/')}><ArrowLeft size={17} /> Volver a Pecas</a>}
       </nav>
@@ -146,6 +148,7 @@ function RewardCard({ reward, balance, onRedeem, busy }) {
 function Dashboard({ data, view, reload }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pins, setPins] = useState({ currentPin: '', newPin: '', confirmPin: '' });
   const next = data.nextReward;
   const missing = next ? Math.max(0, next.pointsRequired - data.balance) : 0;
 
@@ -159,6 +162,19 @@ function Dashboard({ data, view, reload }) {
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
 
+  async function changePin(event) {
+    event.preventDefault(); setMessage('');
+    if (!/^\d{6}$/.test(pins.currentPin) || !/^\d{6}$/.test(pins.newPin)) return setMessage('Los PIN deben tener exactamente seis dígitos.');
+    if (pins.newPin !== pins.confirmPin) return setMessage('La confirmación del PIN nuevo no coincide.');
+    setBusy(true);
+    try {
+      await clubFetch('/api/club/session', { method: 'PATCH', body: JSON.stringify({ currentPin: pins.currentPin, newPin: pins.newPin }) });
+      setPins({ currentPin: '', newPin: '', confirmPin: '' }); setMessage('Tu PIN fue actualizado correctamente.');
+    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+  }
+
+  if (view === 'security') return <section className="club-page"><div className="club-page-title"><span className="club-kicker">Seguridad</span><h1>Cambiar PIN</h1><p>Usa seis dígitos que puedas recordar y no compartas con otras personas.</p></div>{message && <p className="club-notice">{message}</p>}<form className="club-security-card" onSubmit={changePin}><label>PIN actual<input type="password" inputMode="numeric" maxLength="6" value={pins.currentPin} onChange={(event) => setPins((current) => ({ ...current, currentPin: event.target.value.replace(/\D/g, '').slice(0, 6) }))} /></label><label>PIN nuevo<input type="password" inputMode="numeric" maxLength="6" value={pins.newPin} onChange={(event) => setPins((current) => ({ ...current, newPin: event.target.value.replace(/\D/g, '').slice(0, 6) }))} /></label><label>Confirmar PIN nuevo<input type="password" inputMode="numeric" maxLength="6" value={pins.confirmPin} onChange={(event) => setPins((current) => ({ ...current, confirmPin: event.target.value.replace(/\D/g, '').slice(0, 6) }))} /></label><button className="club-primary" disabled={busy}>{busy ? 'Actualizando…' : 'Cambiar PIN'}</button></form></section>;
+
   if (view === 'rewards') return <section className="club-page"><div className="club-page-title"><span className="club-kicker">Tu catálogo</span><h1>Recompensas</h1><p>Tienes <strong>{data.balance} Pecas ●</strong></p></div>{message && <p className="club-notice">{message}</p>}<div className="club-rewards-grid">{data.rewards.map((item) => <RewardCard key={item.id} reward={item} balance={data.balance} onRedeem={redeem} busy={busy} />)}</div></section>;
 
   if (view === 'history') return <section className="club-page"><div className="club-page-title"><span className="club-kicker">Todo en orden</span><h1>Historial de Pecas</h1><p>Tu saldo se obtiene de estos movimientos.</p></div><div className="club-history">{data.transactions.length ? data.transactions.map((item) => <article key={item.id}><span className={item.points > 0 ? 'positive' : 'negative'}>{item.points > 0 ? '+' : ''}{item.points} Pecas</span><div><strong>{item.description}</strong><small>{formatDate(item.createdAtUtc)}</small></div></article>) : <p className="club-empty">Aún no tienes movimientos.</p>}</div></section>;
@@ -169,7 +185,7 @@ function Dashboard({ data, view, reload }) {
         <span className="club-kicker">Hola, {data.customer.name.split(' ')[0]}</span>
         <h1>Tienes <strong>{data.balance} Pecas ●</strong></h1>
         {next ? <><p>Te faltan <strong>{missing} Pecas</strong> para tu siguiente recompensa.</p><div className="club-progress"><span style={{ width: `${Math.min(100, (data.balance / next.pointsRequired) * 100)}%` }} /></div><div className="club-next"><Gift size={22} /><span>Próxima recompensa<strong>{next.name} — {next.pointsRequired} Pecas</strong></span></div></> : <p>Ya puedes elegir cualquier recompensa disponible.</p>}
-        <div className="club-card-actions"><a className="club-order-cta" href={clubUrl('/')}><ShoppingBag size={18} /> Ordenar ahora</a><a href={clubUrl('/club/recompensas')}>Ver recompensas</a><a href={clubUrl('/club/historial')}>Historial</a></div>
+        <div className="club-card-actions"><a className="club-order-cta" href={clubUrl('/')}><ShoppingBag size={18} /> Ordenar ahora</a><a href={clubUrl('/club/recompensas')}>Ver recompensas</a><a href={clubUrl('/club/historial')}>Historial</a><a href={clubUrl('/club/seguridad')}>Cambiar PIN</a></div>
       </div>
 
       <div className="club-dashboard-grid">
@@ -194,6 +210,7 @@ export default function PecasClub() {
       login: 'Ingresa a Pecas Club',
       rewards: 'Recompensas | Pecas Club',
       history: 'Historial | Pecas Club',
+      security: 'Cambiar PIN | Pecas Club',
       terms: 'Términos | Pecas Club',
       home: 'Pecas Club | Recompensas que se disfrutan',
     };

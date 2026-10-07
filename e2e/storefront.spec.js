@@ -9,6 +9,12 @@ test('la portada carga banners, promociones y menú', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /qué se te antoja hoy/i })).toBeVisible();
 });
 
+test('muestra Mi cuenta cuando el cliente ya inició sesión', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pecas_club_token', 'sesion-de-prueba'));
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Mi cuenta', exact: true })).toBeVisible();
+});
+
 test('el banner principal abre el registro de Pecas Club', async ({ page }) => {
   await page.goto('/');
   await page.locator('#banners a[href="/club/registro"]').click();

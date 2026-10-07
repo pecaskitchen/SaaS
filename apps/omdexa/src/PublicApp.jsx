@@ -20,6 +20,7 @@ import {
   normalizeFormFields,
 } from './lib/business.js';
 import OrderFormFields from './components/OrderFormFields.jsx';
+import { getSessionToken } from './lib/apiClient.js';
 
 const WHATSAPP_NUMBER = '';
 const categories = [];
@@ -619,7 +620,7 @@ function selectedRecipeExtraPrice(product, customization, selectedExtras = []) {
   }, 0);
 }
 
-function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND, businessStatus: storefrontStatus = null }) {
+function Logo({ lang = 'es', setLang, onLoginClick, accountActive = false, brand = DEFAULT_PUBLIC_BRAND, businessStatus: storefrontStatus = null }) {
   const cleanBrand = normalizePublicBrand({ brand });
   const isPecas = /pecas/i.test(cleanBrand.displayName || '');
   const compactStatus = String(storefrontStatus?.label || '').replace('Abierto ahora', 'Abierto');
@@ -641,7 +642,7 @@ function Logo({ lang = 'es', setLang, onLoginClick, brand = DEFAULT_PUBLIC_BRAND
             </div>
           )}
           {onLoginClick && (
-            <button type="button" className="employee-login-button" onClick={onLoginClick}>Ingresa</button>
+            <button type="button" className="employee-login-button" onClick={onLoginClick}>{accountActive ? 'Mi cuenta' : 'Ingresar'}</button>
           )}
           {isPecas && storefrontStatus && <span className={`nav-business-status ${storefrontStatus.open ? 'open' : 'closed'}`}>{compactStatus}</span>}
         </div>
@@ -2140,6 +2141,11 @@ export default function PublicApp() {
     }
   });
   const [employeeLoginOpen, setEmployeeLoginOpen] = useState(false);
+  const [accountSessions, setAccountSessions] = useState(() => {
+    let club = false;
+    try { club = Boolean(window.localStorage.getItem('pecas_club_token')); } catch { /* almacenamiento no disponible */ }
+    return { club, staff: Boolean(getSessionToken()) };
+  });
   const [route, setRoute] = useState(() => {
     try { return window.location.hash || '#'; } catch { return '#'; }
   });
@@ -2150,6 +2156,20 @@ export default function PublicApp() {
     const syncRoute = () => setRoute(window.location.hash || '#');
     window.addEventListener('hashchange', syncRoute);
     return () => window.removeEventListener('hashchange', syncRoute);
+  }, []);
+
+  useEffect(() => {
+    const syncAccountSessions = () => {
+      let club = false;
+      try { club = Boolean(window.localStorage.getItem('pecas_club_token')); } catch { /* almacenamiento no disponible */ }
+      setAccountSessions({ club, staff: Boolean(getSessionToken()) });
+    };
+    window.addEventListener('storage', syncAccountSessions);
+    window.addEventListener('focus', syncAccountSessions);
+    return () => {
+      window.removeEventListener('storage', syncAccountSessions);
+      window.removeEventListener('focus', syncAccountSessions);
+    };
   }, []);
 
   useEffect(() => {
@@ -2361,9 +2381,16 @@ export default function PublicApp() {
     <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'} ${isPecasStorefront ? 'pecas-storefront' : ''}`} style={publicThemeStyle(publicBrand)}>
       <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
-          <Logo lang={lang} setLang={setLang} onLoginClick={() => {
-            if (isPecasStorefront) setEmployeeLoginOpen(true);
-            else window.location.hash = '#login';
+          <Logo lang={lang} setLang={setLang} accountActive={accountSessions.club || accountSessions.staff} onLoginClick={() => {
+            if (isPecasStorefront && accountSessions.club && !accountSessions.staff) {
+              window.location.href = `/club${window.location.search || ''}`;
+            } else if (accountSessions.staff && (!isPecasStorefront || !accountSessions.club)) {
+              window.location.hash = '#panel';
+            } else if (isPecasStorefront) {
+              setEmployeeLoginOpen(true);
+            } else {
+              window.location.hash = '#login';
+            }
           }} brand={publicBrand} businessStatus={currentBusinessStatus} />
           <a href="#cart" className="cart-pill">
             <ShoppingBag size={18} /> {itemCount} · {currency(subtotal)}

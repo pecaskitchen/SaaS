@@ -17,6 +17,18 @@ test('normalizeBusinessHours: acepta null del API y usa valores predeterminados'
   assert.equal(typeof normalized.allowClosedOrders, 'boolean');
 });
 
+test('normalizeBusinessHours: conserva un estado manual valido', () => {
+  assert.equal(normalizeBusinessHours({ statusOverride: 'open' }).statusOverride, 'open');
+  assert.equal(normalizeBusinessHours({ statusOverride: 'closed' }).statusOverride, 'closed');
+  assert.equal(normalizeBusinessHours({ statusOverride: 'otro' }).statusOverride, 'auto');
+});
+
+test('businessStatus: el control manual prevalece sobre dias y horarios', () => {
+  const days = normalizeBusinessHours({}).days.map((day) => ({ ...day, active: false }));
+  assert.equal(businessStatus({ statusOverride: 'open', days }).open, true);
+  assert.equal(businessStatus({ statusOverride: 'closed', days }).open, false);
+});
+
 test('businessStatus: dia inactivo reporta cerrado sin importar la hora', () => {
   const allClosed = normalizeBusinessHours({});
   allClosed.days = allClosed.days.map((day) => ({ ...day, active: false }));

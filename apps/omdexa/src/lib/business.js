@@ -1,6 +1,7 @@
 export const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 export const DEFAULT_BUSINESS_HOURS = {
+  statusOverride: 'auto',
   messageWhenClosed: 'Estamos cerrados. Puedes mandar tu pedido y lo tomamos cuando abramos.',
   allowClosedOrders: true,
   days: [
@@ -262,6 +263,7 @@ export function normalizeBusinessHours(hours = {}) {
   return {
     ...DEFAULT_BUSINESS_HOURS,
     ...source,
+    statusOverride: ['open', 'closed'].includes(source.statusOverride) ? source.statusOverride : 'auto',
     allowClosedOrders: source.allowClosedOrders !== undefined ? Boolean(source.allowClosedOrders) : DEFAULT_BUSINESS_HOURS.allowClosedOrders,
     messageWhenClosed: source.messageWhenClosed || DEFAULT_BUSINESS_HOURS.messageWhenClosed,
     days: DEFAULT_BUSINESS_HOURS.days.map((fallback) => {
@@ -317,6 +319,22 @@ function monterreyNow() {
 
 export function businessStatus(hours = DEFAULT_BUSINESS_HOURS) {
   const normalized = normalizeBusinessHours(hours);
+  if (normalized.statusOverride === 'open') {
+    return {
+      open: true,
+      label: 'Abierto',
+      messageWhenClosed: normalized.messageWhenClosed,
+      allowClosedOrders: normalized.allowClosedOrders,
+    };
+  }
+  if (normalized.statusOverride === 'closed') {
+    return {
+      open: false,
+      label: 'Cerrado temporalmente',
+      messageWhenClosed: normalized.messageWhenClosed,
+      allowClosedOrders: normalized.allowClosedOrders,
+    };
+  }
   const { day: currentDay, minutes: current } = monterreyNow();
   const today = normalized.days.find((day) => day.day === currentDay);
   if (!today?.active) return { open: false, label: 'Cerrado hoy' };

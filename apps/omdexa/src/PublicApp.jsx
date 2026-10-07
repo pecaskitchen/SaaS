@@ -1678,11 +1678,13 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
           <h2>{promotion.title}</h2>
           {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
-          {(selectedItems.length > 0 || includedLines.length > 0) && <ul className="promo-included">
+          {includedLines.length > 0 && <ul className="promo-included">
+            {includedLines.map((line) => <li key={line}>{line}</li>)}
+          </ul>}
+          {!promoDescription && includedLines.length === 0 && selectedItems.length > 0 && <ul className="promo-included">
             {selectedItems.map((item, index) => (
               <li key={index}>{item.quantity} x {productText(item.product, lang).name}{Number(item.extraPrice) > 0 ? ` (+${currency(Number(item.extraPrice))})` : ''}</li>
             ))}
-            {includedLines.map((line) => <li key={line}>{line}</li>)}
           </ul>}
 
           {hasChoices && (
@@ -1751,7 +1753,7 @@ function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden 
     if (!autoPlay || visible.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
     const timer = window.setInterval(() => {
       setCurrentIndex((current) => (current + 1) % visible.length);
-    }, 4000);
+    }, 8000);
     return () => window.clearInterval(timer);
   }, [autoPlay, visible.length]);
   if (!visible.length) return null;

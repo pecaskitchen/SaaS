@@ -905,6 +905,14 @@ export default function AdminPanel({
               {openAdminSections.hours && (
                 <div className="admin-order-box">
                   <AdminSectionIntro title="Horarios y pedidos" description="Controla horarios, pedidos fuera de horario y origenes que aparecen en Caja." />
+                  <label className="field full"><span>Estado de la tienda</span>
+                    <select value={businessHoursDraft.statusOverride || 'auto'} onChange={(e) => setBusinessHoursDraft((current) => ({ ...current, statusOverride: e.target.value }))}>
+                      <option value="auto">Automático según el horario</option>
+                      <option value="open">Abierta ahora</option>
+                      <option value="closed">Cerrada temporalmente</option>
+                    </select>
+                    <small>“Abierta ahora” y “Cerrada temporalmente” ignoran los horarios hasta que vuelvas a Automático.</small>
+                  </label>
                   <label className="check-row full">
                     <input type="checkbox" checked={Boolean(businessHoursDraft.allowClosedOrders)} onChange={(e) => setBusinessHoursDraft((current) => ({ ...current, allowClosedOrders: e.target.checked }))} />
                     <span>Permitir pedidos fuera de horario</span>

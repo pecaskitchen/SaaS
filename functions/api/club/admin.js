@@ -10,7 +10,9 @@ async function access(request, env) {
 }
 
 function reward(row) {
-  return { id: row.id, name: row.name, description: row.description || '', pointsRequired: Number(row.points_required), estimatedCost: Number(row.estimated_cost || 0), active: Boolean(row.active), stock: row.stock === null ? null : Number(row.stock), sortOrder: Number(row.sort_order || 0) };
+  let eligibleProductIds = [];
+  try { eligibleProductIds = JSON.parse(row.eligible_product_ids_json || '[]'); } catch { eligibleProductIds = []; }
+  return { id: row.id, name: row.name, description: row.description || '', pointsRequired: Number(row.points_required), estimatedCost: Number(row.estimated_cost || 0), active: Boolean(row.active), stock: row.stock === null ? null : Number(row.stock), sortOrder: Number(row.sort_order || 0), rewardType: row.reward_type || 'product', eligibleProductIds, discountAmount: Number(row.discount_amount || 0) };
 }
 
 function promotion(row) {
@@ -38,7 +40,7 @@ export async function onRequestGet({ request, env }) {
       WHERE c.tenant_id = ? AND (? = '' OR lower(c.name) LIKE ? OR c.phone LIKE ? OR lower(COALESCE(c.email, '')) LIKE ?)
       ORDER BY c.updated_at_utc DESC LIMIT 100
     `).bind(granted.tenant.id, q, like, `%${q.replace(/\D/g, '')}%`, like).all();
-    const [rewardsResult, promotionsResult, referralResult, transactionsResult, redemptionsResult] = await Promise.all([
+    const [rewardsResult, promotionsResult, referralResult, transactionsResult, redemptionsResult, productsResult] = await Promise.all([
       db.prepare(`SELECT * FROM club_rewards WHERE tenant_id = ? ORDER BY sort_order, points_required`).bind(granted.tenant.id).all(),
       db.prepare(`SELECT * FROM club_promotions WHERE tenant_id = ? ORDER BY sort_order, created_at_utc DESC`).bind(granted.tenant.id).all(),
       db.prepare(`SELECT r.*, a.name AS referrer_name, b.name AS referred_name FROM club_referrals r JOIN club_customers a ON a.id = r.referrer_customer_id JOIN club_customers b ON b.id = r.referred_customer_id WHERE r.tenant_id = ? AND r.status = 'under_review' ORDER BY r.updated_at_utc DESC`).bind(granted.tenant.id).all(),
@@ -49,6 +51,7 @@ export async function onRequestGet({ request, env }) {
         WHERE r.tenant_id = ?
         ORDER BY CASE r.status WHEN 'issued' THEN 0 ELSE 1 END, r.redeemed_at_utc DESC
         LIMIT 100`).bind(granted.tenant.id).all(),
+      db.prepare(`SELECT product_key, name, category_key FROM menu_products WHERE tenant_id = ? AND is_active = 1 AND is_published = 1 ORDER BY category_key, sort_order, name`).bind(granted.tenant.id).all().catch(() => ({ results: [] })),
     ]);
     return jsonResponse({
       ok: true,
@@ -58,6 +61,7 @@ export async function onRequestGet({ request, env }) {
       referralsUnderReview: referralResult.results || [],
       transactions: transactionsResult.results || [],
       redemptions: (redemptionsResult.results || []).map((row) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, customerPhone: row.customer_phone, rewardId: row.reward_id, rewardName: row.reward_name, pointsSpent: Number(row.points_spent), status: row.status, code: row.redemption_code, redeemedAtUtc: row.redeemed_at_utc, usedAtUtc: row.used_at_utc || '' })),
+      products: (productsResult.results || []).map((row) => ({ id: row.product_key, name: row.name, category: row.category_key })),
     });
   } catch (error) {
     return jsonResponse({ ok: false, error: error.message || 'No se pudo cargar la administración de Pecas Club.' }, error.status || 500);
@@ -141,8 +145,8 @@ export async function onRequestPatch({ request, env }) {
     const now = nowIso();
     if (body.entity === 'reward') {
       const id = String(body.id || crypto.randomUUID());
-      await db.prepare(`INSERT INTO club_rewards (id, tenant_id, name, description, points_required, estimated_cost, active, stock, sort_order, created_at_utc, updated_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, points_required = excluded.points_required, estimated_cost = excluded.estimated_cost, active = excluded.active, stock = excluded.stock, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`)
-        .bind(id, granted.tenant.id, String(body.name || '').trim(), String(body.description || '').trim(), Math.max(1, Number(body.pointsRequired || 1)), Number(body.estimatedCost || 0), body.active === false ? 0 : 1, body.stock === '' || body.stock === null ? null : Math.max(0, Number(body.stock)), Number(body.sortOrder || 0), now, now).run();
+      await db.prepare(`INSERT INTO club_rewards (id, tenant_id, name, description, points_required, estimated_cost, active, stock, sort_order, reward_type, eligible_product_ids_json, discount_amount, created_at_utc, updated_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description, points_required = excluded.points_required, estimated_cost = excluded.estimated_cost, active = excluded.active, stock = excluded.stock, sort_order = excluded.sort_order, reward_type = excluded.reward_type, eligible_product_ids_json = excluded.eligible_product_ids_json, discount_amount = excluded.discount_amount, updated_at_utc = excluded.updated_at_utc`)
+        .bind(id, granted.tenant.id, String(body.name || '').trim(), String(body.description || '').trim(), Math.max(1, Number(body.pointsRequired || 1)), Number(body.estimatedCost || 0), body.active === false ? 0 : 1, body.stock === '' || body.stock === null ? null : Math.max(0, Number(body.stock)), Number(body.sortOrder || 0), String(body.rewardType || 'product'), JSON.stringify(Array.isArray(body.eligibleProductIds) ? body.eligibleProductIds : []), Math.max(0, Number(body.discountAmount || 0)), now, now).run();
       return jsonResponse({ ok: true, id });
     }
     if (body.entity === 'promotion') {

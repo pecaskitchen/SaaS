@@ -5438,3 +5438,4 @@ textarea { resize: vertical; min-height: 48px; }
   }
   .public-storefront.pecas-storefront .cart-pill { padding: 7px 8px; font-size: 10px; }
 }
+.club-code-box{display:grid;gap:8px;padding:14px;border:1px solid #ead9bd;border-radius:14px;background:#fffaf0}.club-code-box h3{margin:0;font-size:1rem}.club-code-box>div{display:flex;gap:8px}.club-code-box input{min-width:0;flex:1;border:1px solid #d8c7ad;border-radius:9px;padding:10px;text-transform:uppercase}.club-code-box button{border:0;border-radius:9px;padding:10px 14px;background:#920628;color:#fff;font-weight:800}.club-code-box small{color:#725f4d}.club-order-discount{color:#087443}

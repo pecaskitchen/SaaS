@@ -59,7 +59,43 @@ export async function ensureClubSchema(env) {
     `CREATE TABLE IF NOT EXISTS club_referrals (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, referrer_customer_id TEXT NOT NULL, referred_customer_id TEXT NOT NULL, qualifying_order_id INTEGER, status TEXT NOT NULL DEFAULT 'pending', review_reason TEXT, referrer_points INTEGER NOT NULL DEFAULT 5, referred_points INTEGER NOT NULL DEFAULT 5, completed_at_utc TEXT, created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL, UNIQUE (tenant_id, referred_customer_id))`,
   ];
   await db.batch(statements.map((sql) => db.prepare(sql)));
+  const rewardInfo = await db.prepare(`PRAGMA table_info(club_rewards)`).all();
+  const rewardColumns = new Set((rewardInfo.results || []).map((row) => row.name));
+  const rewardAlters = [];
+  if (!rewardColumns.has('reward_type')) rewardAlters.push(`ALTER TABLE club_rewards ADD COLUMN reward_type TEXT NOT NULL DEFAULT 'product'`);
+  if (!rewardColumns.has('eligible_product_ids_json')) rewardAlters.push(`ALTER TABLE club_rewards ADD COLUMN eligible_product_ids_json TEXT NOT NULL DEFAULT '[]'`);
+  if (!rewardColumns.has('discount_amount')) rewardAlters.push(`ALTER TABLE club_rewards ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`);
+  if (rewardAlters.length) await db.batch(rewardAlters.map((sql) => db.prepare(sql)));
+  const redemptionInfo = await db.prepare(`PRAGMA table_info(club_redemptions)`).all();
+  const redemptionColumns = new Set((redemptionInfo.results || []).map((row) => row.name));
+  if (!redemptionColumns.has('order_id')) await db.prepare(`ALTER TABLE club_redemptions ADD COLUMN order_id INTEGER`).run();
   await seedDefaultRewards(db, await pecasTenantId(db));
+}
+
+export async function validateRedemptionForItems(db, { tenantId, customerId, code, items }) {
+  if (!code) return null;
+  const row = await db.prepare(`SELECT r.*, w.reward_type, w.eligible_product_ids_json, w.discount_amount
+    FROM club_redemptions r JOIN club_rewards w ON w.tenant_id = r.tenant_id AND w.id = r.reward_id
+    WHERE r.tenant_id = ? AND r.customer_id = ? AND upper(r.redemption_code) = upper(?) AND r.status = 'issued' LIMIT 1`)
+    .bind(tenantId, customerId, String(code).trim()).first();
+  if (!row) throw Object.assign(new Error('El código no existe, ya fue usado o no pertenece a esta cuenta.'), { status: 409 });
+  let eligibleIds = [];
+  try { eligibleIds = JSON.parse(row.eligible_product_ids_json || '[]'); } catch { eligibleIds = []; }
+  const nonPromoItems = (items || []).filter((item) => String(item.product_id || item.id || '') !== 'promo' && !item.options?.promo);
+  const candidates = nonPromoItems.filter((item) => row.reward_type === 'fixed_discount' && eligibleIds.length === 0
+    ? true : eligibleIds.includes(String(item.product_id || item.id || '')));
+  if (!candidates.length) throw Object.assign(new Error('Agrega un producto elegible separado de cualquier promoción para utilizar este código.'), { status: 409 });
+  const target = candidates.reduce((lowest, item) => Number(item.unit_price ?? item.price ?? 0) < Number(lowest.unit_price ?? lowest.price ?? 0) ? item : lowest);
+  const basePrice = Math.max(0, Number(target.basePrice ?? target.unit_price ?? target.price ?? 0));
+  const configured = Number(row.discount_amount || 0);
+  const discount = row.reward_type === 'fixed_discount' ? Math.min(configured, (items || []).reduce((sum, item) => sum + Number(item.line_total ?? Number(item.price || 0) * Number(item.quantity || 1)), 0)) : Math.min(basePrice, configured > 0 ? configured : basePrice);
+  return { redemptionId: row.id, code: row.redemption_code, rewardName: row.reward_name, targetProductId: String(target.product_id || target.id), discount: Math.max(0, Math.round(discount)) };
+}
+
+export async function consumeRedemption(db, { tenantId, redemptionId, orderId }) {
+  const result = await db.prepare(`UPDATE club_redemptions SET status = 'used', used_at_utc = ?, order_id = ? WHERE tenant_id = ? AND id = ? AND status = 'issued'`)
+    .bind(nowIso(), orderId, tenantId, redemptionId).run();
+  if (Number(result.meta?.changes || 0) !== 1) throw Object.assign(new Error('El código ya fue utilizado.'), { status: 409 });
 }
 
 async function pecasTenantId(db) {

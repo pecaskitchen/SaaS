@@ -1,6 +1,6 @@
 import { requireAuth } from './_shared/auth.js';
 import { upsertCustomerFromOrder } from './_shared/crm.js';
-import { awardOrderPoints } from './_shared/pecasClub.js';
+import { awardOrderPoints, consumeRedemption, ensureClubSchema, requireClubAuth, validateRedemptionForItems } from './_shared/pecasClub.js';
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings, normalizeCashierOrderSources } from './_shared/branchSettings.js';
@@ -285,9 +285,18 @@ export async function onRequestPost({ request, env }) {
       return jsonResponse({ ok: false, error: 'El admin no ha permitido modificar precios en Caja.' }, 403);
     }
     const priceOverrideRequiresReview = priceOverrideLines.length > 0 && !['admin', 'platform_admin'].includes(sessionRole);
-    const orderSubtotal = source === 'cashier'
+    let orderSubtotal = source === 'cashier'
       ? items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0)
       : Number(body.subtotal || 0);
+    let clubRedemption = null;
+    if (body.clubRedemptionCode) {
+      await ensureClubSchema(env);
+      const clubAuth = await requireClubAuth(request, env);
+      if (!clubAuth.ok) return clubAuth.response;
+      if (String(customer.phone || '').replace(/\D/g, '') !== String(clubAuth.customer.phone || '').replace(/\D/g, '')) return jsonResponse({ ok: false, error: 'El teléfono del pedido debe coincidir con tu cuenta de Pecas Club.' }, 409);
+      clubRedemption = await validateRedemptionForItems(env.DB, { tenantId, customerId: clubAuth.customer.id, code: body.clubRedemptionCode, items });
+      orderSubtotal = Math.max(0, orderSubtotal - clubRedemption.discount);
+    }
     const orderDeliveryFee = source === 'cashier'
       ? Math.max(0, Math.round(Number(body.deliveryFee || 0) || 0))
       : Number(body.deliveryFee || 0);
@@ -384,6 +393,12 @@ export async function onRequestPost({ request, env }) {
       INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey)
       VALUES (?, ?, 'created', ?, ?, ?)
     `).bind(tenantId, createdOrder.id, source === 'cashier' ? `Pedido ${orderSource} capturado por ${cashier.name} para sucursal ${branch.name}` : `Pedido creado para sucursal ${branch.name}`, timestamps.utc, timestamps.monterrey).run();
+
+    if (clubRedemption) {
+      await consumeRedemption(env.DB, { tenantId, redemptionId: clubRedemption.redemptionId, orderId: createdOrder.id });
+      await env.DB.prepare(`INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey) VALUES (?, ?, 'club_redemption', ?, ?, ?)`)
+        .bind(tenantId, createdOrder.id, `Pecas Club: ${clubRedemption.code} · ${clubRedemption.rewardName} · descuento $${clubRedemption.discount}`, timestamps.utc, timestamps.monterrey).run();
+    }
 
     if (priceOverrideRequiresReview) {
       await env.DB.prepare(`

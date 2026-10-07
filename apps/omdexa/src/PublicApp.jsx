@@ -1340,6 +1340,7 @@ function buildCartItem(product, options, lang = 'es', customization = {}) {
     name: productText(product, lang).name,
     category: categoryLabel(product.category, lang),
     price,
+    basePrice: product.price,
     quantity: 1,
     details,
     options: finalOptions,
@@ -1790,11 +1791,38 @@ function PromotionsCarousel({ promotions, products, onAdd, lang, categoryHidden 
 
 function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND, orderFormFields = normalizeFormFields({}, 'order'), whatsappNumber = '' }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const [clubCode, setClubCode] = useState('');
+  const [clubRedemption, setClubRedemption] = useState(null);
+  const [clubNotice, setClubNotice] = useState('');
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
   const openState = businessStatus(businessHours);
   const isPecas = /pecas/i.test(brand.displayName || '');
   const deliveryCostPending = isPecas && customer.fulfillmentType !== 'Recoger';
+
+  useEffect(() => {
+    if (!isPecas) return;
+    let token = '';
+    try { token = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
+    if (!token) return;
+    fetch(publicApiPath('/api/club/dashboard'), { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.ok ? response.json() : null).then((result) => {
+      const pending = result?.pendingRedemptions?.[0];
+      if (pending) { setClubCode(pending.code); setClubNotice(`Tienes disponible: ${pending.rewardName}.`); }
+    }).catch(() => {});
+  }, [isPecas]);
+
+  const applyClubCode = async () => {
+    let token = '';
+    try { token = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
+    if (!token) { setClubNotice('Inicia sesión en Pecas Club para aplicar el código.'); return; }
+    try {
+      const response = await fetch(publicApiPath('/api/club/validate-code'), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ code: clubCode, items: cart.map((item) => ({ id: item.productId || item.id, price: item.price, basePrice: item.basePrice, quantity: item.quantity, options: item.options || {} })) }) });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Código no válido.');
+      setClubRedemption(result.redemption); setClubNotice(`${result.redemption.rewardName}: descuento de ${currency(result.redemption.discount)} aplicado.`);
+    } catch (error) { setClubRedemption(null); setClubNotice(error.message); }
+  };
+  useEffect(() => { if (clubRedemption) { setClubRedemption(null); setClubNotice('El carrito cambió; vuelve a aplicar tu código.'); } }, [cart]);
 
   const updateCustomer = (key, value) => setCustomer((current) => ({ ...current, [key]: value }));
 
@@ -1831,6 +1859,8 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       }),
       '',
       `${isPecas ? 'Subtotal de productos' : 'Total'}: ${currency(subtotal)}`,
+      clubRedemption ? `Canje Pecas Club ${clubRedemption.code} (${clubRedemption.rewardName}): -${currency(clubRedemption.discount)}` : '',
+      clubRedemption ? `Total con canje: ${currency(Math.max(0, subtotal - clubRedemption.discount))}` : '',
       deliveryCostPending ? 'Costo de envío: se confirmará al revisar la dirección junto con tu pedido.' : '',
       '',
       t(lang, 'orderData'),
@@ -1868,7 +1898,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     }
 
     const message = buildMessage();
-    const total = subtotal;
+    const total = Math.max(0, subtotal - Number(clubRedemption?.discount || 0));
     const isMercadoPago = customer.payment === 'Mercado Pago';
     const whatsappWindow = isMercadoPago ? null : window.open('', '_blank');
 
@@ -1890,6 +1920,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         category: item.category || 'Sin categoría',
         quantity: item.quantity || 1,
         price: item.price,
+        basePrice: item.basePrice,
         lineTotal: (item.price || 0) * (item.quantity || 1),
         options: item.options || { details: item.details || [] },
         notes: item.notes || '',
@@ -1899,6 +1930,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       fulfillmentType: customer.fulfillmentType,
       paymentMethod: customer.payment,
       total,
+      clubRedemptionCode: clubRedemption?.code || '',
       whatsappMessage: message,
       branch: branch ? { id: branch.id, name: branch.name } : null,
       branchId: branch?.id || 'dominio',
@@ -1906,9 +1938,11 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     };
 
     try {
+      let clubToken = '';
+      try { clubToken = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
       const response = await fetch(publicApiPath(isMercadoPago ? '/api/checkout/create' : '/api/orders'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(clubRedemption && clubToken ? { Authorization: `Bearer ${clubToken}` } : {}) },
         body: JSON.stringify(payload),
       });
 
@@ -1999,12 +2033,15 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         </div>
       </div>
 
+      {isPecas && cart.length > 0 && <div className="club-code-box"><h3>Código de Pecas Club</h3><div><input value={clubCode} onChange={(event) => { setClubCode(event.target.value.toUpperCase()); setClubRedemption(null); }} placeholder="PEC-XXXXXX" /><button type="button" onClick={applyClubCode}>Aplicar</button></div>{clubNotice && <small>{clubNotice}</small>}</div>}
+
       {!openState.open && (<div className="closed-order-note"><b>Cerrado ahora</b><span>{openState.messageWhenClosed}</span></div>)}
       <div className="checkout-bar">
         <div className="checkout-subtotal-row">
           <span>{isPecas ? 'Subtotal de productos' : t(lang, 'total')}</span>
           <strong>{currency(subtotal)}</strong>
         </div>
+        {clubRedemption && <div className="checkout-subtotal-row club-order-discount"><span>{clubRedemption.rewardName} · {clubRedemption.code}</span><strong>-{currency(clubRedemption.discount)}</strong></div>}
         {deliveryCostPending && (
           <div className="delivery-cost-pending">
             <span>Costo de envío</span>

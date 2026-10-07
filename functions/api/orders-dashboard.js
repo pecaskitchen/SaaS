@@ -59,6 +59,13 @@ function cleanEditAmount(value, fallback = 0) {
   return Math.max(0, number);
 }
 
+function cleanEditDate(value) {
+  const date = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
+  const parsed = new Date(`${date}T12:00:00-06:00`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ? '' : date;
+}
+
 function resolveEditableBranch(settings, branchId) {
   const normalized = normalizeBranchSettings(settings);
   const requested = cleanEditText(branchId);
@@ -868,6 +875,17 @@ export async function onRequestPatch(context) {
       if (Object.prototype.hasOwnProperty.call(patch, 'paymentMethod')) addSet('payment_method', cleanEditText(patch.paymentMethod, order.payment_method));
       if (Object.prototype.hasOwnProperty.call(patch, 'paymentStatus')) addSet('payment_status', cleanEditText(patch.paymentStatus, order.payment_status));
       if (Object.prototype.hasOwnProperty.call(patch, 'orderSource')) addSet('order_source', cleanEditText(patch.orderSource, order.order_source || 'online'));
+      if (Object.prototype.hasOwnProperty.call(patch, 'createdDate')) {
+        const createdDate = cleanEditDate(patch.createdDate);
+        if (!createdDate) return jsonResponse({ ok: false, error: 'La fecha del pedido no es válida.' }, 400);
+        const existingTime = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String(order.created_at_monterrey || ''))
+          ? String(order.created_at_monterrey).slice(11)
+          : '12:00:00';
+        const createdAtMonterrey = `${createdDate} ${existingTime}`;
+        const createdAtUtc = new Date(`${createdDate}T${existingTime}-06:00`).toISOString();
+        addSet('created_at_monterrey', createdAtMonterrey);
+        addSet('created_at_utc', createdAtUtc);
+      }
       if (Object.prototype.hasOwnProperty.call(patch, 'branchId')) {
         const branchSettings = await readBranchSettings(env, tenantId);
         const branch = resolveEditableBranch(branchSettings, patch.branchId);

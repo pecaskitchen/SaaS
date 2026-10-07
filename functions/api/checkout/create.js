@@ -6,6 +6,7 @@ import { ensurePaymentTables, getValidAccessToken } from '../_shared/payments.js
 import { upsertCustomerFromOrder } from '../_shared/crm.js';
 import { ensureSchema } from '../orders.js';
 import { calculatePerfumePricing } from '../../../apps/omdexa/src/lib/perfumePricing.js';
+import { consumeRedemption, ensureClubSchema, requireClubAuth, validateRedemptionForItems } from '../_shared/pecasClub.js';
 
 // Recalcula el total completo del lado servidor: precio base, extras de
 // familias/opciones, extras de receta legacy y entrega. El navegador solo
@@ -247,6 +248,17 @@ export async function onRequestPost({ request, env }) {
       subtotal = lineItems.reduce((sum, item) => sum + item.line_total, 0);
     }
 
+    let clubRedemption = null;
+    if (body.clubRedemptionCode) {
+      await ensureClubSchema(env);
+      const clubAuth = await requireClubAuth(request, env);
+      if (!clubAuth.ok) return clubAuth.response;
+      if (String(customer.phone || '').replace(/\D/g, '') !== String(clubAuth.customer.phone || '').replace(/\D/g, '')) return jsonResponse({ ok: false, error: 'El teléfono del pedido debe coincidir con tu cuenta de Pecas Club.' }, 409);
+      clubRedemption = await validateRedemptionForItems(requireDb(env), { tenantId, customerId: clubAuth.customer.id, code: body.clubRedemptionCode, items: lineItems });
+      const target = lineItems.find((item) => item.product_id === clubRedemption.targetProductId);
+      if (target) { target.line_total = Math.max(0, target.line_total - clubRedemption.discount); target.unit_price = target.line_total / target.quantity; target.options = { ...target.options, clubRedemptionCode: clubRedemption.code, clubDiscount: clubRedemption.discount }; }
+      subtotal = Math.max(0, subtotal - clubRedemption.discount);
+    }
     const deliveryFee = resolveDeliveryFee(body, fulfillmentType);
     const total = subtotal + deliveryFee;
     if (total <= 0) return jsonResponse({ ok: false, error: 'El total del pedido debe ser mayor a cero.' }, 400);
@@ -289,6 +301,12 @@ export async function onRequestPost({ request, env }) {
     ).run();
 
     const orderId = inserted.meta.last_row_id;
+
+    if (clubRedemption) {
+      await consumeRedemption(requireDb(env), { tenantId, redemptionId: clubRedemption.redemptionId, orderId });
+      await env.DB.prepare(`INSERT INTO order_events (tenant_id, order_id, event_type, event_note, created_at_utc, created_at_monterrey) VALUES (?, ?, 'club_redemption', ?, ?, ?)`)
+        .bind(tenantId, orderId, `Pecas Club: ${clubRedemption.code} · ${clubRedemption.rewardName} · descuento $${clubRedemption.discount}`, timestamps.utc, timestamps.monterrey).run();
+    }
 
     await upsertCustomerFromOrder(env, tenantId, {
       customer: {

@@ -70,6 +70,7 @@ export default function OrdersHistoryPanel() {
       customerNotes: order.customer_notes || '',
       paymentMethod: order.payment_method || '',
       paymentStatus: order.payment_status || '',
+      createdDate: String(order.created_at_monterrey || '').slice(0, 10),
     });
   };
   const cancelEdit = () => { setEditingId(null); setEditForm(null); };
@@ -94,6 +95,7 @@ export default function OrdersHistoryPanel() {
             customerNotes: editForm.customerNotes,
             paymentMethod: editForm.paymentMethod,
             paymentStatus: editForm.paymentStatus,
+            createdDate: editForm.createdDate,
           },
         }),
       });
@@ -184,6 +186,7 @@ export default function OrdersHistoryPanel() {
                         <option value="pending">Pendiente</option>
                       </select>
                     </label>
+                    <label className="field"><span>Fecha del pedido</span><input type="date" value={editForm.createdDate} max={todayStr()} onChange={(e) => setF('createdDate', e.target.value)} /></label>
                     <label className="field full"><span>Nota</span><textarea rows="2" value={editForm.customerNotes} onChange={(e) => setF('customerNotes', e.target.value)} /></label>
                   </div>
                   <p className="admin-hint">Los productos y el total se editan desde la pestaña Pedidos (mientras el pedido está en la cola del día).</p>

@@ -1616,7 +1616,7 @@ function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es
   };
 }
 
-function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {} }) {
+function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {}, clubLoggedIn = false }) {
   const promoGroups = useMemo(() => promotionItems(promotion, products), [promotion, products]);
   const [expanded, setExpanded] = useState(false);
   const [extrasByProductId, setExtrasByProductId] = useState({});
@@ -1662,8 +1662,9 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   const groupUnavailable = (group) => group.options.every(({ product }) => product.unavailable || product.soldOut || categoryHidden[product.category]);
   if (promoGroups.length && promoGroups.some(groupUnavailable)) return null;
 
+  const clubLocked = Boolean(promotion.clubOnly && (!clubLoggedIn || promotion.clubAccess !== true));
   const handleAddPromo = () => {
-    if (promotion.clubOnly && !promotion.clubAccess) { window.location.href = '/club/iniciar-sesion'; return; }
+    if (clubLocked) return;
     onAdd(buildPromoCartItem(promotion, selectedItems, extrasByProductId, lang));
     setSelectionByIndex({});
     const next = {};
@@ -1700,7 +1701,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
   );
 
   return (
-    <article className={`promo-card ${imageOnly ? 'image-only' : ''}`}>
+    <article className={`promo-card ${imageOnly ? 'image-only' : ''} ${clubLocked ? 'club-locked' : ''}`}>
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
           {image ? (linkUrl
             ? <a href={linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}>{bannerImage(promotion.title || promotion.linkLabel || '', Boolean(promotion.isDefault))}</a>
@@ -1708,6 +1709,7 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
         </div>
         {!imageOnly && <div className="promo-content">
           {promotion.clubOnly && <span className="club-only-badge">Solo Pecas Club</span>}
+          {clubLocked && <div className="club-promo-lock"><span>Exclusiva para miembros</span><a href="/club/iniciar-sesion">Inicia sesión para desbloquearla</a></div>}
           <h2>{promotion.title}</h2>
           {promoDescription ? <p className="promo-description">{promoDescription}</p> : null}
           {promotion.disclaimer ? <p>{promotion.disclaimer}</p> : null}
@@ -1746,8 +1748,8 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
               <button type="button" className="ghost" onClick={() => setExpanded(!expanded)}>
                 {expanded ? t(lang, 'hideOptions') : t(lang, 'promoExtras')}
               </button>
-              <button type="button" className="primary" onClick={handleAddPromo}>
-                <Plus size={15} /> {promotion.clubOnly && !promotion.clubAccess ? 'Inicia sesión para agregar' : t(lang, 'addPromo')}
+              <button type="button" className="primary" onClick={handleAddPromo} disabled={clubLocked} aria-disabled={clubLocked}>
+                <Plus size={15} /> {clubLocked ? 'Inicia sesión para agregar' : t(lang, 'addPromo')}
               </button>
             </div>}
           </div>}
@@ -1829,7 +1831,7 @@ function BannersCarousel({ banners, products, onAdd, lang, categoryHidden }) {
   );
 }
 
-function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden, showAll = false }) {
+function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden, showAll = false, clubLoggedIn = false }) {
   const visible = promotions.filter((item) => item?.active);
   const [currentIndex, setCurrentIndex] = useState(0);
   useEffect(() => {
@@ -1851,9 +1853,9 @@ function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden, sh
         </div>
       </div>
       {showAll ? <div className="sales-promotions-grid">
-        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
+        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} clubLoggedIn={clubLoggedIn} />)}
       </div> : <div className="promo-carousel" aria-live="polite">
-        <PromoCard key={currentPromotion.id || `${currentPromotion.title}-${currentIndex}`} promotion={currentPromotion} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />
+        <PromoCard key={currentPromotion.id || `${currentPromotion.title}-${currentIndex}`} promotion={currentPromotion} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} clubLoggedIn={clubLoggedIn} />
       </div>}
     </section>
   );
@@ -2467,10 +2469,10 @@ export default function PublicApp() {
           <h1>Promociones</h1>
           <p>Descubre todas las promociones disponibles y agrega tus favoritas al carrito.</p>
         </section>
-        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} showAll />
+        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} showAll clubLoggedIn={accountSessions.club} />
       </> : <>
         <BannersCarousel banners={banners} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
-        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} clubLoggedIn={accountSessions.club} />
       </>}
 
       {mercadoPagoReturn && (

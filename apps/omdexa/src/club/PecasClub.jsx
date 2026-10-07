@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock3, Copy, Gift, LogOut, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowLeft, Clock3, Copy, Gift, LogOut, ShoppingBag, Sparkles, UserPlus } from 'lucide-react';
 import { withTenantQuery } from '../lib/apiClient.js';
 import './pecas-club.css';
 
@@ -66,6 +66,7 @@ function ClubHeader({ customer, onLogout }) {
       </a>
       <nav>
         {customer ? <>
+          <a className="club-order-link" href={clubUrl('/')}><ShoppingBag size={17} /> Ordenar</a>
           <a href={clubUrl('/club')}>Mi Club</a>
           <a href={clubUrl('/club/recompensas')}>Recompensas</a>
           <a href={clubUrl('/club/historial')}>Historial</a>
@@ -168,7 +169,7 @@ function Dashboard({ data, view, reload }) {
         <span className="club-kicker">Hola, {data.customer.name.split(' ')[0]}</span>
         <h1>Tienes <strong>{data.balance} Pecas ●</strong></h1>
         {next ? <><p>Te faltan <strong>{missing} Pecas</strong> para tu siguiente recompensa.</p><div className="club-progress"><span style={{ width: `${Math.min(100, (data.balance / next.pointsRequired) * 100)}%` }} /></div><div className="club-next"><Gift size={22} /><span>Próxima recompensa<strong>{next.name} — {next.pointsRequired} Pecas</strong></span></div></> : <p>Ya puedes elegir cualquier recompensa disponible.</p>}
-        <div className="club-card-actions"><a href={clubUrl('/club/recompensas')}>Ver recompensas</a><a href={clubUrl('/club/historial')}>Historial</a></div>
+        <div className="club-card-actions"><a className="club-order-cta" href={clubUrl('/')}><ShoppingBag size={18} /> Ordenar ahora</a><a href={clubUrl('/club/recompensas')}>Ver recompensas</a><a href={clubUrl('/club/historial')}>Historial</a></div>
       </div>
 
       <div className="club-dashboard-grid">

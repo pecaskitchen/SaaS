@@ -38,11 +38,17 @@ export async function onRequestGet({ request, env }) {
       WHERE c.tenant_id = ? AND (? = '' OR lower(c.name) LIKE ? OR c.phone LIKE ? OR lower(COALESCE(c.email, '')) LIKE ?)
       ORDER BY c.updated_at_utc DESC LIMIT 100
     `).bind(granted.tenant.id, q, like, `%${q.replace(/\D/g, '')}%`, like).all();
-    const [rewardsResult, promotionsResult, referralResult, transactionsResult] = await Promise.all([
+    const [rewardsResult, promotionsResult, referralResult, transactionsResult, redemptionsResult] = await Promise.all([
       db.prepare(`SELECT * FROM club_rewards WHERE tenant_id = ? ORDER BY sort_order, points_required`).bind(granted.tenant.id).all(),
       db.prepare(`SELECT * FROM club_promotions WHERE tenant_id = ? ORDER BY sort_order, created_at_utc DESC`).bind(granted.tenant.id).all(),
       db.prepare(`SELECT r.*, a.name AS referrer_name, b.name AS referred_name FROM club_referrals r JOIN club_customers a ON a.id = r.referrer_customer_id JOIN club_customers b ON b.id = r.referred_customer_id WHERE r.tenant_id = ? AND r.status = 'under_review' ORDER BY r.updated_at_utc DESC`).bind(granted.tenant.id).all(),
       customerId ? db.prepare(`SELECT * FROM club_points_transactions WHERE tenant_id = ? AND customer_id = ? ORDER BY created_at_utc DESC LIMIT 100`).bind(granted.tenant.id, customerId).all() : Promise.resolve({ results: [] }),
+      db.prepare(`SELECT r.*, c.name AS customer_name, c.phone AS customer_phone
+        FROM club_redemptions r
+        JOIN club_customers c ON c.tenant_id = r.tenant_id AND c.id = r.customer_id
+        WHERE r.tenant_id = ?
+        ORDER BY CASE r.status WHEN 'issued' THEN 0 ELSE 1 END, r.redeemed_at_utc DESC
+        LIMIT 100`).bind(granted.tenant.id).all(),
     ]);
     return jsonResponse({
       ok: true,
@@ -51,6 +57,7 @@ export async function onRequestGet({ request, env }) {
       promotions: (promotionsResult.results || []).map(promotion),
       referralsUnderReview: referralResult.results || [],
       transactions: transactionsResult.results || [],
+      redemptions: (redemptionsResult.results || []).map((row) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, customerPhone: row.customer_phone, rewardId: row.reward_id, rewardName: row.reward_name, pointsSpent: Number(row.points_spent), status: row.status, code: row.redemption_code, redeemedAtUtc: row.redeemed_at_utc, usedAtUtc: row.used_at_utc || '' })),
     });
   } catch (error) {
     return jsonResponse({ ok: false, error: error.message || 'No se pudo cargar la administración de Pecas Club.' }, error.status || 500);
@@ -69,6 +76,29 @@ export async function onRequestPost({ request, env }) {
     if (action === 'redeem') {
       const redemption = await createRedemption(db, { tenantId: granted.tenant.id, customerId, rewardId: String(body.rewardId || ''), userId: granted.session.userId, userName: granted.session.name });
       return jsonResponse({ ok: true, redemption });
+    }
+    if (action === 'redemption-status') {
+      const redemptionId = String(body.redemptionId || '');
+      const nextStatus = String(body.status || '');
+      if (!['used', 'cancelled'].includes(nextStatus)) return jsonResponse({ ok: false, error: 'Estado de canje no válido.' }, 400);
+      const redemption = await db.prepare(`SELECT * FROM club_redemptions WHERE tenant_id = ? AND id = ?`).bind(granted.tenant.id, redemptionId).first();
+      if (!redemption) return jsonResponse({ ok: false, error: 'Canje no encontrado.' }, 404);
+      if (redemption.status === nextStatus) return jsonResponse({ ok: true });
+      if (redemption.status !== 'issued') return jsonResponse({ ok: false, error: 'Este canje ya fue procesado.' }, 409);
+      const now = nowIso();
+      if (nextStatus === 'used') {
+        await db.prepare(`UPDATE club_redemptions SET status = 'used', used_at_utc = ? WHERE tenant_id = ? AND id = ? AND status = 'issued'`).bind(now, granted.tenant.id, redemptionId).run();
+      } else {
+        const statements = [
+          db.prepare(`UPDATE club_redemptions SET status = 'cancelled' WHERE tenant_id = ? AND id = ? AND status = 'issued'`).bind(granted.tenant.id, redemptionId),
+          db.prepare(`INSERT INTO club_points_transactions (id, tenant_id, customer_id, redemption_id, type, points, description, created_by_user_id, created_by_name, created_at_utc) VALUES (?, ?, ?, ?, 'refund', ?, ?, ?, ?, ?)`)
+            .bind(`refund-${redemption.id}`, granted.tenant.id, redemption.customer_id, redemption.id, Number(redemption.points_spent), `Canje cancelado · ${redemption.reward_name} · ${redemption.redemption_code}`, granted.session.userId, granted.session.name, now),
+        ];
+        const rewardRow = await db.prepare(`SELECT stock FROM club_rewards WHERE tenant_id = ? AND id = ?`).bind(granted.tenant.id, redemption.reward_id).first();
+        if (rewardRow && rewardRow.stock !== null) statements.push(db.prepare(`UPDATE club_rewards SET stock = stock + 1, updated_at_utc = ? WHERE tenant_id = ? AND id = ?`).bind(now, granted.tenant.id, redemption.reward_id));
+        await db.batch(statements);
+      }
+      return jsonResponse({ ok: true });
     }
     if (action === 'referral-review') {
       const referral = await db.prepare(`SELECT * FROM club_referrals WHERE tenant_id = ? AND id = ? AND status = 'under_review'`).bind(granted.tenant.id, String(body.referralId || '')).first();

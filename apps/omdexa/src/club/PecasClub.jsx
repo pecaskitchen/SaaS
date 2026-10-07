@@ -153,7 +153,7 @@ function Dashboard({ data, view, reload }) {
     setBusy(true); setMessage('');
     try {
       const result = await clubFetch('/api/club/redeem', { method: 'POST', body: JSON.stringify({ rewardId: reward.id }) });
-      setMessage(`Canje listo. Tu código es ${result.redemption.code}.`);
+      setMessage(`Canje listo. Muestra este código en caja: ${result.redemption.code}.`);
       await reload();
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }

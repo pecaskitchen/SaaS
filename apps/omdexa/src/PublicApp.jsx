@@ -1829,15 +1829,32 @@ function BannersCarousel({ banners, products, onAdd, lang, categoryHidden }) {
   );
 }
 
-function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden }) {
+function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden, showAll = false }) {
   const visible = promotions.filter((item) => item?.active);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  useEffect(() => {
+    setCurrentIndex((current) => Math.min(current, Math.max(0, visible.length - 1)));
+  }, [visible.length]);
   if (!visible.length) return null;
+  const move = (direction) => setCurrentIndex((current) => (current + direction + visible.length) % visible.length);
+  const currentPromotion = visible[currentIndex] || visible[0];
   return (
-    <section className="sales-promotions" id="promociones" aria-label="Promociones de venta">
-      <div className="section-heading"><span className="eyebrow">Promociones</span><h2>Aprovecha estas ofertas</h2></div>
-      <div className="sales-promotions-grid">
-        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
+    <section className={`sales-promotions ${showAll ? 'promotions-directory' : ''}`} id="promociones" aria-label="Promociones de venta">
+      <div className="promo-section-head">
+        <div><span className="eyebrow">Promociones</span><h2>Aprovecha estas ofertas</h2></div>
+        <div className="promotions-summary">
+          <strong>{showAll ? visible.length : `${currentIndex + 1} de ${visible.length}`}</strong>
+          {!showAll && visible.length > 1 && <div className="promo-carousel-controls">
+            <button type="button" aria-label="Promoción anterior" onClick={() => move(-1)}><ChevronLeft size={20} /></button>
+            <button type="button" aria-label="Siguiente promoción" onClick={() => move(1)}><ChevronRight size={20} /></button>
+          </div>}
+        </div>
       </div>
+      {showAll ? <div className="sales-promotions-grid">
+        {visible.map((item, index) => <PromoCard key={item.id || `${item.title}-${index}`} promotion={item} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />)}
+      </div> : <div className="promo-carousel" aria-live="polite">
+        <PromoCard key={currentPromotion.id || `${currentPromotion.title}-${currentIndex}`} promotion={currentPromotion} products={products} onAdd={onAdd} lang={lang} categoryHidden={categoryHidden} />
+      </div>}
     </section>
   );
 }
@@ -2153,6 +2170,7 @@ export default function PublicApp() {
   });
   const [mercadoPagoReturn, setMercadoPagoReturn] = useState(() => readMercadoPagoReturn());
   const isStorefront = true;
+  const isPromosPage = window.location.pathname.replace(/\/+$/, '') === '/promos';
 
   useEffect(() => {
     const syncRoute = () => setRoute(window.location.hash || '#');
@@ -2380,7 +2398,7 @@ export default function PublicApp() {
 
 
   return (
-    <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'} ${isPecasStorefront ? 'pecas-storefront' : ''}`} style={publicThemeStyle(publicBrand)}>
+    <main className={`public-storefront ${PUBLIC_THEME_PRESETS[publicBrand.themePreset]?.pageClass || 'theme-neutral'} ${isPecasStorefront ? 'pecas-storefront' : ''} ${isPromosPage ? 'promos-page' : ''}`} style={publicThemeStyle(publicBrand)}>
       <section className={`hero ${publicBrand.heroImageUrl ? 'has-hero-image' : 'text-only'}`}>
         <nav className="nav">
           <Logo lang={lang} setLang={setLang} accountActive={accountSessions.club || accountSessions.staff} onLoginClick={() => {
@@ -2429,6 +2447,10 @@ export default function PublicApp() {
                 <Utensils size={18} /> {publicBrand.primaryActionLabel || t(lang, 'orderNow')}
               </a>
 
+              {isPecasStorefront && <a className="secondary" href="/promos">
+                Ver promociones
+              </a>}
+
               {!isPecasStorefront && <a className="secondary" href="#cart">
                 <MessageCircle size={18} /> {publicBrand.secondaryActionLabel || t(lang, 'viewCart')}
               </a>}
@@ -2439,8 +2461,17 @@ export default function PublicApp() {
         </div>
       </section>
 
-      <BannersCarousel banners={banners} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
-      <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+      {isPromosPage ? <>
+        <section className="promotions-page-intro">
+          <a className="secondary" href="/">← Ver todos los productos</a>
+          <h1>Promociones</h1>
+          <p>Descubre todas las promociones disponibles y agrega tus favoritas al carrito.</p>
+        </section>
+        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} showAll />
+      </> : <>
+        <BannersCarousel banners={banners} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+        <SalesPromotions promotions={activePromotions} products={currentProductsForBranch} onAdd={addItem} lang={lang} categoryHidden={categoryHidden} />
+      </>}
 
       {mercadoPagoReturn && (
         <section className="payment-return-banner">
@@ -2460,8 +2491,8 @@ export default function PublicApp() {
         </section>
       )}
 
-      <section className="menu-layout" id="menu">
-        <div className="menu-main">
+      <section className={`menu-layout ${isPromosPage ? 'promos-cart-layout' : ''}`} id="menu">
+        {!isPromosPage && <div className="menu-main">
           <div className="section-heading">
             <span className="eyebrow">{publicBrand.menuEyebrow || t(lang, 'menu')}</span>
             <h2>{isPecasStorefront ? '¿Qué se te antoja hoy?' : (publicBrand.menuTitle || t(lang, 'chooseCategory'))}</h2>
@@ -2485,7 +2516,7 @@ export default function PublicApp() {
               <ProductCard key={product.id} product={product} onAdd={addItem} lang={lang} customization={productCustomizations[product.id]} />
             ))}
           </div>
-        </div>
+        </div>}
 
         <Cart cart={cart} updateQty={updateQty} removeItem={removeItem} customer={customer} setCustomer={setCustomer} clearCart={() => setCart([])} lang={lang} businessHours={effectiveBusinessHours} branch={selectedBranch} brand={publicBrand} orderFormFields={branchSettings.orderFormFields} whatsappNumber={publicSettings.whatsappNumber} />
       </section>

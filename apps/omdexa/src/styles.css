@@ -5356,6 +5356,16 @@ textarea { resize: vertical; min-height: 48px; }
 .sales-promotions { width: min(1180px, calc(100% - 32px)); margin: 28px auto; }
 .sales-promotions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; }
 .sales-promotions-grid .promo-card { min-height: 280px; }
+.promotions-summary { display: flex; align-items: center; gap: 12px; color: var(--brown); white-space: nowrap; }
+.promotions-summary > strong { min-width: 54px; text-align: center; font-size: 14px; }
+.sales-promotions > .promo-carousel .promo-card { grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); min-height: 300px; }
+.promotions-page-intro { width: min(1180px, calc(100% - 32px)); margin: 30px auto 0; }
+.promotions-page-intro h1 { margin: 24px 0 8px; color: var(--brown); font-size: clamp(36px, 6vw, 64px); }
+.promotions-page-intro p { margin: 0; color: var(--muted); }
+.promotions-directory { margin-top: 22px; }
+.public-storefront.promos-page .hero-grid { display: none; }
+.public-storefront.promos-page .hero { padding-bottom: 12px; }
+.promos-cart-layout { grid-template-columns: minmax(300px, 440px); justify-content: end; }
 .advanced-settings { margin: 10px 0; padding: 12px 14px; border: 1px dashed rgba(127,127,127,.35); border-radius: 12px; background: rgba(127,127,127,.04); }
 .advanced-settings summary, .advanced-cost-summary > summary { cursor: pointer; font-weight: 800; color: var(--brown, #3b1f0f); }
 .advanced-settings[open] summary { margin-bottom: 12px; }
@@ -5376,6 +5386,7 @@ textarea { resize: vertical; min-height: 48px; }
   .public-storefront .open-status-pill { font-size: 12px; padding: 8px 12px; }
   .promo-section { margin-top: 14px; }
   .promo-carousel .promo-card { grid-template-columns: 1fr; }
+  .sales-promotions > .promo-carousel .promo-card { grid-template-columns: 1fr; }
   .promo-carousel .promo-media { min-height: 0; height: 180px; max-height: 180px; overflow: hidden; }
   .promo-carousel .promo-media.has-image img { display: block; width: 100%; height: 180px; object-fit: cover; }
   .promo-carousel .promo-content { position: relative; z-index: 1; background: linear-gradient(135deg, rgba(255, 250, 242, .99), rgba(247, 232, 207, .99)); }

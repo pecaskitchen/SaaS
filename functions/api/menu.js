@@ -45,27 +45,23 @@ const PECAS_DEFAULT_BANNERS = [
 
 async function ensurePecasBanners(env, tenantId, settingKey, saved, tenant) {
   if (tenant?.slug !== 'pecas') return saved;
-  const markerKey = `${settingKey}:pecas_storefront_optimized_v3`;
-  const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
-  if (marker) return saved;
+  const existingIds = new Set((saved.banners || []).map((banner) => banner?.id).filter(Boolean));
+  const missingBanners = PECAS_DEFAULT_BANNERS.filter((banner) => !existingIds.has(banner.id));
+  if (!missingBanners.length) return saved;
   const currentBranchSettings = saved.branchSettings || DEFAULT_BRANCH_SETTINGS;
   const next = {
     ...saved,
-    banners: PECAS_DEFAULT_BANNERS,
+    banners: [...(saved.banners || []), ...missingBanners],
     branchSettings: {
       ...currentBranchSettings,
       branches: (currentBranchSettings.branches || []).map((branch) => ({ ...branch, active: true })),
     },
   };
   const now = new Date().toISOString();
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+  await env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET tenant_id = excluded.tenant_id, value_json = excluded.value_json, updated_at = excluded.updated_at`)
-      .bind(settingKey, tenantId, JSON.stringify(next), now),
-    env.DB.prepare(`INSERT OR IGNORE INTO app_settings (key, tenant_id, value_json, updated_at) VALUES (?, ?, ?, ?)`)
-      .bind(markerKey, tenantId, JSON.stringify({ seeded: true }), now),
-  ]);
+      .bind(settingKey, tenantId, JSON.stringify(next), now).run();
   return next;
 }
 

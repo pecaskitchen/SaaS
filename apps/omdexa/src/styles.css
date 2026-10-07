@@ -550,17 +550,10 @@ textarea { resize: vertical; min-height: 48px; }
 .checkout-bar > div { display: flex; align-items: center; justify-content: space-between; }
 .checkout-bar span { opacity: .8; }
 .checkout-bar strong { font-size: 28px; }
-.checkout-bar .delivery-cost-pending {
-  display: grid;
-  gap: 3px;
-  align-items: start;
-  justify-content: stretch;
-  padding: 10px 12px;
-  border-radius: 13px;
-  background: rgba(255,255,255,.1);
-}
-.checkout-bar .delivery-cost-pending span { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .5px; }
-.checkout-bar .delivery-cost-pending b { font-size: 13px; line-height: 1.35; }
+.checkout-bar .delivery-cost-row { padding-top: 2px; }
+.checkout-bar .delivery-cost-row strong { font-size: 18px; }
+.checkout-bar .checkout-total-row { padding-top: 12px; border-top: 1px solid rgba(255,255,255,.2); }
+.checkout-bar .checkout-total-row strong { font-size: 28px; }
 .checkout { width: 100%; }
 .checkout.disabled { opacity: .45; pointer-events: none; }
 
@@ -1135,6 +1128,13 @@ textarea { resize: vertical; min-height: 48px; }
   font-size: 15px;
   font-weight: 900;
   line-height: 1.2;
+}
+
+.free-delivery-note {
+  margin: -6px 0 4px;
+  color: var(--accent);
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: 900;
 }
 
 .hero-card img {

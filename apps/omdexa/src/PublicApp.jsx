@@ -21,6 +21,7 @@ import {
 } from './lib/business.js';
 import OrderFormFields from './components/OrderFormFields.jsx';
 import { getSessionToken } from './lib/apiClient.js';
+import { pecasDeliveryFee } from './lib/delivery.js';
 
 const WHATSAPP_NUMBER = '';
 const categories = [];
@@ -1871,7 +1872,12 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
   const hasSavedProfile = Boolean(customer.profileLoaded && customer.name);
   const openState = businessStatus(businessHours);
   const isPecas = /pecas/i.test(brand.displayName || '');
-  const deliveryCostPending = isPecas && customer.fulfillmentType !== 'Recoger';
+  const discountedSubtotal = Math.max(0, subtotal - Number(clubRedemption?.discount || 0));
+  const deliveryFee = isPecas
+    ? pecasDeliveryFee({ fulfillmentType: customer.fulfillmentType, neighborhood: customer.neighborhood, subtotal })
+    : 0;
+  const showDeliveryFee = isPecas && customer.fulfillmentType === 'Entrega a domicilio';
+  const orderTotal = discountedSubtotal + deliveryFee;
 
   useEffect(() => {
     if (!isPecas) return;
@@ -1934,8 +1940,8 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       '',
       `${isPecas ? 'Subtotal de productos' : 'Total'}: ${currency(subtotal)}`,
       clubRedemption ? `Canje Pecas Club ${clubRedemption.code} (${clubRedemption.rewardName}): -${currency(clubRedemption.discount)}` : '',
-      clubRedemption ? `Total con canje: ${currency(Math.max(0, subtotal - clubRedemption.discount))}` : '',
-      deliveryCostPending ? 'Costo de envío: se confirmará al revisar la dirección junto con tu pedido.' : '',
+      showDeliveryFee ? `Costo de envío: ${currency(deliveryFee)}` : '',
+      isPecas ? `Total: ${currency(orderTotal)}` : '',
       '',
       t(lang, 'orderData'),
       // Solo los campos visibles para este tenant, con su etiqueta y (para
@@ -1972,7 +1978,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     }
 
     const message = buildMessage();
-    const total = Math.max(0, subtotal - Number(clubRedemption?.discount || 0));
+    const total = orderTotal;
     const isMercadoPago = customer.payment === 'Mercado Pago';
     const whatsappWindow = isMercadoPago ? null : window.open('', '_blank');
 
@@ -2000,7 +2006,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         notes: item.notes || '',
       })),
       subtotal,
-      deliveryFee: 0,
+      deliveryFee,
       fulfillmentType: customer.fulfillmentType,
       paymentMethod: customer.payment,
       total,
@@ -2116,12 +2122,13 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
           <strong>{currency(subtotal)}</strong>
         </div>
         {clubRedemption && <div className="checkout-subtotal-row club-order-discount"><span>{clubRedemption.rewardName} · {clubRedemption.code}</span><strong>-{currency(clubRedemption.discount)}</strong></div>}
-        {deliveryCostPending && (
-          <div className="delivery-cost-pending">
+        {showDeliveryFee && (
+          <div className="delivery-cost-row">
             <span>Costo de envío</span>
-            <b>Se confirmará al revisar tu dirección junto con el pedido.</b>
+            <strong>{currency(deliveryFee)}</strong>
           </div>
         )}
+        {isPecas && cart.length > 0 && <div className="checkout-total-row"><span>Total</span><strong>{currency(orderTotal)}</strong></div>}
         <button type="button" className={`primary checkout ${canSend ? '' : 'disabled'}`} onClick={sendOrder} disabled={!canSend}>
           {t(lang, 'sendWhatsApp')}
         </button>
@@ -2439,6 +2446,8 @@ export default function PublicApp() {
             )}
 
             <h1>{publicBrand.heroTitle || t(lang, 'heroTitle')}</h1>
+
+            {isPecasStorefront && <p className="free-delivery-note">Envíos gratis a partir de $250.</p>}
 
             <p>
               {publicBrand.heroText || t(lang, 'heroText')}

@@ -4,6 +4,7 @@ import { awardOrderPoints, consumeRedemption, ensureClubSchema, requireClubAuth,
 import { ensureTenantColumns, resolveTenantId, tenantSettingKey } from './_shared/tenant.js';
 import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
 import { DEFAULT_BRANCH_SETTINGS, normalizeBranchId, normalizeBranchSettings, normalizeCashierOrderSources } from './_shared/branchSettings.js';
+import { pecasDeliveryFee } from '../../apps/omdexa/src/lib/delivery.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -223,6 +224,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const source = body.source === 'cashier' ? 'cashier' : 'online';
     const customer = body.customer || {};
+    const fulfillmentType = String(body.fulfillmentType || customer.fulfillmentType || '').trim();
     // Antes se exigia name Y address para todo pedido online. Con el
     // formulario configurable (y pedidos para recoger) la direccion puede no
     // aplicar; se exige solo el nombre (siempre visible), y la direccion la
@@ -301,6 +303,7 @@ export async function onRequestPost({ request, env }) {
     let orderSubtotal = source === 'cashier'
       ? items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0)
       : Number(body.subtotal || 0);
+    const deliveryThresholdSubtotal = orderSubtotal;
     let clubRedemption = null;
     if (body.clubRedemptionCode) {
       await ensureClubSchema(env);
@@ -312,10 +315,10 @@ export async function onRequestPost({ request, env }) {
     }
     const orderDeliveryFee = source === 'cashier'
       ? Math.max(0, Math.round(Number(body.deliveryFee || 0) || 0))
-      : Number(body.deliveryFee || 0);
-    const orderTotal = source === 'cashier'
-      ? orderSubtotal + orderDeliveryFee
-      : Number(body.total || 0);
+      : tenantId === 'pecas'
+        ? pecasDeliveryFee({ fulfillmentType, neighborhood: customer.neighborhood, subtotal: deliveryThresholdSubtotal })
+        : Math.max(0, Math.round(Number(body.deliveryFee || 0) || 0));
+    const orderTotal = orderSubtotal + orderDeliveryFee;
     let timestamps = getTimestamps();
     // Backdatear: admin/gerente pueden capturar un pedido de caja con fecha
     // anterior (para registrar ventas que no se capturaron ese dia). Se

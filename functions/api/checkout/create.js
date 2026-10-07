@@ -7,6 +7,7 @@ import { upsertCustomerFromOrder } from '../_shared/crm.js';
 import { ensureSchema } from '../orders.js';
 import { calculatePerfumePricing } from '../../../apps/omdexa/src/lib/perfumePricing.js';
 import { consumeRedemption, ensureClubSchema, requireClubAuth, validateRedemptionForItems } from '../_shared/pecasClub.js';
+import { pecasDeliveryFee } from '../../../apps/omdexa/src/lib/delivery.js';
 
 // Recalcula el total completo del lado servidor: precio base, extras de
 // familias/opciones, extras de receta legacy y entrega. El navegador solo
@@ -179,9 +180,9 @@ async function recalculateLineItem(env, tenantId, requested, catalogEntry) {
   };
 }
 
-function resolveDeliveryFee(body, fulfillmentType) {
-  if (fulfillmentType !== 'Entrega a domicilio') return 0;
-  return Math.max(0, Math.round(Number(body.serverDeliveryFee || 0)));
+function resolveDeliveryFee(tenantId, customer, fulfillmentType, subtotal) {
+  if (tenantId !== 'pecas') return 0;
+  return pecasDeliveryFee({ fulfillmentType, neighborhood: customer.neighborhood, subtotal });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -248,6 +249,7 @@ export async function onRequestPost({ request, env }) {
       subtotal = lineItems.reduce((sum, item) => sum + item.line_total, 0);
     }
 
+    const deliveryThresholdSubtotal = subtotal;
     let clubRedemption = null;
     if (body.clubRedemptionCode) {
       await ensureClubSchema(env);
@@ -259,7 +261,7 @@ export async function onRequestPost({ request, env }) {
       if (target) { target.line_total = Math.max(0, target.line_total - clubRedemption.discount); target.unit_price = target.line_total / target.quantity; target.options = { ...target.options, clubRedemptionCode: clubRedemption.code, clubDiscount: clubRedemption.discount }; }
       subtotal = Math.max(0, subtotal - clubRedemption.discount);
     }
-    const deliveryFee = resolveDeliveryFee(body, fulfillmentType);
+    const deliveryFee = resolveDeliveryFee(tenantId, customer, fulfillmentType, deliveryThresholdSubtotal);
     const total = subtotal + deliveryFee;
     if (total <= 0) return jsonResponse({ ok: false, error: 'El total del pedido debe ser mayor a cero.' }, 400);
 

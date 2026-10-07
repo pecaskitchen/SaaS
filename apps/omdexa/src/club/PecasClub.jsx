@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock3, Copy, Gift, LogOut, ShoppingBag, Sparkles, UserPlus } from 'lucide-react';
+import { ArrowLeft, Clock3, Copy, Gift, LogOut, ShoppingBag, UserPlus } from 'lucide-react';
 import { withTenantQuery } from '../lib/apiClient.js';
 import './pecas-club.css';
 
@@ -154,7 +154,7 @@ function Dashboard({ data, view, reload }) {
     setBusy(true); setMessage('');
     try {
       const result = await clubFetch('/api/club/redeem', { method: 'POST', body: JSON.stringify({ rewardId: reward.id }) });
-      setMessage(`Canje listo. Muestra este código en caja: ${result.redemption.code}.`);
+      setMessage(`Canje listo: ${result.redemption.code}. Podrás aplicarlo en tu siguiente compra. Cuando agregues productos, el código aparecerá debajo de los artículos de tu carrito para que puedas seleccionarlo.`);
       await reload();
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   }
@@ -173,7 +173,7 @@ function Dashboard({ data, view, reload }) {
       </div>
 
       <div className="club-dashboard-grid">
-        <section className="club-section"><div className="club-section-heading"><span><Sparkles size={19} /> Solo para el Club</span><h2>Promociones exclusivas</h2></div>{data.promotions.length ? <div className="club-promos">{data.promotions.map((promo) => <article key={promo.id}>{promo.imageUrl && <img src={promo.imageUrl} alt="" />}<div><h3>{promo.title}</h3><p>{promo.description}</p>{promo.terms && <small>{promo.terms}</small>}{promo.storePromotionId && <a className="club-primary" href={clubUrl(`/?club_promo=${encodeURIComponent(promo.storePromotionId)}#promociones`)}>Agregar al carrito</a>}</div></article>)}</div> : <div className="club-empty">Muy pronto encontrarás beneficios exclusivos aquí.</div>}</section>
+        <section className="club-section"><div className="club-section-heading"><span>Solo para el Club</span><h2>Promociones exclusivas</h2></div>{data.promotions.length ? <div className="club-promos">{data.promotions.map((promo) => <article key={promo.id}>{promo.imageUrl && <img src={promo.imageUrl} alt="" />}<div><h3>{promo.title}</h3><p>{promo.description}</p>{promo.terms && <small>{promo.terms}</small>}{promo.storePromotionId ? <a className="club-primary" href={clubUrl(`/?club_promo=${encodeURIComponent(promo.storePromotionId)}#promociones`)}><ShoppingBag size={17} /> Agregar al carrito</a> : <a className="club-primary" href={clubUrl('/#promociones')}><ShoppingBag size={17} /> Ver promociones</a>}</div></article>)}</div> : <div className="club-empty">Muy pronto encontrarás beneficios exclusivos aquí.</div>}</section>
         <section className="club-referral"><UserPlus size={25} /><span className="club-kicker">Invita a un amigo</span><h2>Ambos reciben 5 Pecas</h2><p>Tu amigo recibe 5 Pecas en su primera compra y tú también.</p><button type="button" onClick={() => { navigator.clipboard?.writeText(data.customer.referralCode); setMessage('Código copiado.'); }}><span>Tu código: <strong>{data.customer.referralCode}</strong></span><Copy size={18} /></button><small>{data.referrals.rewarded} referidos recompensados</small></section>
       </div>
       {message && <p className="club-notice">{message}</p>}

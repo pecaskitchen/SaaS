@@ -208,12 +208,12 @@ export default function PecasClub() {
     favicon.setAttribute('href', '/tenants/pecas/pecas-icon-hd.png');
   }, [view]);
 
-  async function load() {
+  async function load({ silent = false } = {}) {
     if (!getToken()) { setLoading(false); return; }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try { setData(await clubFetch('/api/club/dashboard')); setError(''); }
     catch (err) { if (err.status === 401) setToken(''); setError(err.message); setData(null); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -230,7 +230,7 @@ export default function PecasClub() {
       {termsView ? <section className="club-page club-terms"><span className="club-kicker">Reglas claras</span><h1>Términos de Pecas Club</h1><p>Obtienes una Peca por cada $20 de compra elegible. Las Pecas se acreditan cuando el pedido queda pagado o completado y no tienen valor en efectivo.</p><p>Los canjes descuentan las Pecas indicadas y generan un código de confirmación. Una recompensa puede estar sujeta a disponibilidad y no combinarse con otras promociones cuando así se indique.</p><p>Los bonos de referido se entregan una sola vez después de la primera compra elegible del nuevo miembro. Las coincidencias de teléfono, correo, domicilio de entrega u otras señales pueden enviarse a revisión para prevenir autorreferidos.</p><p>Las devoluciones o cancelaciones pueden generar la reversión de las Pecas correspondientes. Pecas podrá corregir movimientos duplicados o erróneos dejando registro en el historial.</p><p>Para aclaraciones escribe a <a href="mailto:admin@pecas.mx">admin@pecas.mx</a>.</p></section>
         : loading ? <div className="club-loading"><span /><p>Cargando tus Pecas…</p></div>
         : authView && !data ? <AuthView mode={view} onAuthenticated={() => {}} />
-          : data ? <Dashboard data={data} view={view} reload={load} />
+          : data ? <Dashboard data={data} view={view} reload={() => load({ silent: true })} />
             : <AuthView mode="login" onAuthenticated={() => {}} />}
       {error && !authView && <p className="club-error club-global-error">{error}</p>}
       <footer className="club-footer"><span>Pecas Club ●</span><a href="mailto:admin@pecas.mx">admin@pecas.mx</a><a href="/privacidad">Aviso de Privacidad</a><a href={clubUrl('/club/terminos')}>Términos</a></footer>

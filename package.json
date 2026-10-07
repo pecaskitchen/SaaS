@@ -7,8 +7,10 @@
         "dev": "vite --host 0.0.0.0",
         "build": "vite build",
         "preview": "vite preview --host 0.0.0.0",
+        "optimize:images": "node scripts/optimize-store-images.mjs",
         "check:functions": "node scripts/check-functions.mjs",
         "test": "node --test",
+        "test:e2e": "playwright test",
         "validate": "npm run check:functions && npm test && npm run build"
     },
     "dependencies": {
@@ -19,11 +21,18 @@
         "vite": "latest"
     },
     "devDependencies": {
+        "@playwright/test": "^1.63.0",
+        "sharp": "0.35.5",
+        "source-map-js": "1.2.2",
         "wrangler": "^4.147.0"
+    },
+    "overrides": {
+        "sharp": "0.35.5",
+        "source-map-js": "1.2.2"
     },
     "allowScripts": {
         "esbuild@0.28.1": true,
-        "sharp@0.35.4": true,
+        "sharp@0.35.5": true,
         "workerd@1.20261001.1": true
     }
 }

@@ -45,10 +45,18 @@ const PECAS_DEFAULT_BANNERS = [
 
 async function ensurePecasBanners(env, tenantId, settingKey, saved, tenant) {
   if (tenant?.slug !== 'pecas') return saved;
-  const markerKey = `${settingKey}:pecas_banners_seeded_v2`;
+  const markerKey = `${settingKey}:pecas_storefront_optimized_v3`;
   const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
   if (marker) return saved;
-  const next = { ...saved, banners: PECAS_DEFAULT_BANNERS };
+  const currentBranchSettings = saved.branchSettings || DEFAULT_BRANCH_SETTINGS;
+  const next = {
+    ...saved,
+    banners: PECAS_DEFAULT_BANNERS,
+    branchSettings: {
+      ...currentBranchSettings,
+      branches: (currentBranchSettings.branches || []).map((branch) => ({ ...branch, active: true })),
+    },
+  };
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
@@ -59,6 +67,17 @@ async function ensurePecasBanners(env, tenantId, settingKey, saved, tenant) {
       .bind(markerKey, tenantId, JSON.stringify({ seeded: true }), now),
   ]);
   return next;
+}
+
+function publicMenuResponse(request, payload, status = 200) {
+  const response = jsonResponse(payload, status);
+  if (request.headers.get('authorization')) {
+    response.headers.set('Cache-Control', 'private, no-store');
+  } else if (status === 200) {
+    response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=120');
+  }
+  response.headers.append('Vary', 'Authorization');
+  return response;
 }
 
 function publicTenantConfig(row) {
@@ -144,6 +163,22 @@ function promoFallbackProducts(saved, cleanedOverrides, products, categories) {
   return { legacyPromoProducts, legacyPromoCategories };
 }
 
+function publicProduct(product = {}) {
+  return {
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    type: product.type || 'custom',
+    price: Number(product.price || 0),
+    badge: product.badge || '',
+    description: product.description || '',
+    ingredients: product.ingredients || '',
+    image: product.image || '',
+    unavailable: Boolean(product.unavailable),
+    customProduct: true,
+  };
+}
+
 export async function onRequestGet({ request, env }) {
   try {
     if (!env.DB) return jsonResponse(blankPublicMenu());
@@ -158,15 +193,14 @@ export async function onRequestGet({ request, env }) {
     }
 
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
-    const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
+    const [row, tenantRow] = await Promise.all([
+      env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first(),
+      env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ? OR slug = ?`).bind(tenantId, tenantId).first().catch(() => null),
+    ]);
     let saved = normalizeSavedMenu(row?.value_json || '');
-
-    const tenantRow = await env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ? OR slug = ?`)
-      .bind(tenantId, tenantId)
-      .first()
-      .catch(() => null);
     const tenant = tenantRow ? publicTenantConfig(tenantRow) : publicTenantConfig({ id: tenantId, slug: tenantId, name: tenantId, brand_json: '{}', settings_json: '{}' });
     saved = await ensurePecasBanners(env, tenantId, settingKey, saved, tenant);
+    const effectivePromise = readEffectiveCatalog(env, tenantId, { ...saved, overrides: cleanPublicOverrides(saved.overrides || {}) }, { overrides: cleanPublicOverrides(saved.overrides || {}) });
     const linkedClubPromotions = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IS NOT NULL AND store_promotion_id != ''`).bind(tenantId).all().then((result) => new Set((result.results || []).map((item) => item.store_promotion_id))).catch(() => new Set());
     if (linkedClubPromotions.size) {
       const clubAuth = request.headers.get('authorization') ? await requireClubAuth(request, env) : { ok: false };
@@ -174,16 +208,16 @@ export async function onRequestGet({ request, env }) {
     }
 
     const cleanedOverrides = cleanPublicOverrides(saved.overrides || {});
-    const effective = await readEffectiveCatalog(env, tenantId, { ...saved, overrides: cleanedOverrides }, { overrides: cleanedOverrides });
+    const effective = await effectivePromise;
     const baseExtraProducts = Array.isArray(effective.extraProducts) ? effective.extraProducts : [];
     const baseExtraCategories = Array.isArray(effective.extraCategories) ? effective.extraCategories : [];
     const { legacyPromoProducts, legacyPromoCategories } = promoFallbackProducts(saved, cleanedOverrides, baseExtraProducts, baseExtraCategories);
 
-    return jsonResponse({
+    return publicMenuResponse(request, {
       ok: true,
       overrides: cleanedOverrides,
       extraCategories: [...baseExtraCategories, ...legacyPromoCategories],
-      extraProducts: [...baseExtraProducts, ...legacyPromoProducts],
+      extraProducts: [...baseExtraProducts, ...legacyPromoProducts].map(publicProduct),
       categoryOrder: effective.categoryOrder || [],
       productOrder: effective.productOrder || [],
       categoryHidden: effective.categoryHidden || {},
@@ -199,6 +233,6 @@ export async function onRequestGet({ request, env }) {
       tenant,
     });
   } catch (error) {
-    return jsonResponse(blankPublicMenu(publicTenantConfig(null), error.message));
+    return publicMenuResponse(request, blankPublicMenu(publicTenantConfig(null), error.message), 500);
   }
 }

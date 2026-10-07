@@ -52,11 +52,19 @@ async function seedPecasClubPromotion(env, tenantId, settingKey, saved) {
   const tenant = await env.DB.prepare(`SELECT slug FROM saas_tenants WHERE id = ? LIMIT 1`).bind(tenantId).first();
   if (tenant?.slug !== 'pecas') return saved;
 
-  const markerKey = `${settingKey}:pecas_banners_seeded_v2`;
+  const markerKey = `${settingKey}:pecas_storefront_optimized_v3`;
   const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
   if (marker) return saved;
 
-  const next = { ...saved, banners: [PECAS_CLUB_PROMOTION, PECAS_HALLOWEEN_BANNER] };
+  const currentBranchSettings = saved.branchSettings || DEFAULT_BRANCH_SETTINGS;
+  const next = {
+    ...saved,
+    banners: [PECAS_CLUB_PROMOTION, PECAS_HALLOWEEN_BANNER],
+    branchSettings: {
+      ...currentBranchSettings,
+      branches: (currentBranchSettings.branches || []).map((branch) => ({ ...branch, active: true })),
+    },
+  };
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)

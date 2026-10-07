@@ -1348,12 +1348,32 @@ function buildCartItem(product, options, lang = 'es', customization = {}) {
   };
 }
 
+function optimizedPecasImage(source) {
+  const value = String(source || '').trim();
+  if (!value || /^https?:\/\//i.test(value)) return '';
+  let normalized = value.startsWith('products/') ? `/${value}` : value;
+  if (normalized.startsWith('/products/')) normalized = `/tenants/pecas${normalized}`;
+  if (!normalized.startsWith('/tenants/pecas/products/')) return '';
+  return normalized.replace(/(?:\.png)?\.(?:png|jpe?g)$/i, '.webp');
+}
+
+function responsiveMediaSrcSet(source) {
+  const value = String(source || '');
+  if (!/-1600\.webp(?:\?.*)?$/i.test(value)) return '';
+  return [480, 960, 1600].map((width) => `${value.replace(/-1600\.webp/i, `-${width}.webp`)} ${width}w`).join(', ');
+}
+
 function ProductMedia({ product }) {
   const meta = categoryMeta(product.category);
   if (product.image) {
+    const optimized = optimizedPecasImage(product.image);
+    const srcSet = responsiveMediaSrcSet(product.image);
     return (
       <div className="product-media has-image">
-        <img src={product.image} alt={productText(product, 'es').name} className="product-image" loading="lazy" decoding="async" />
+        <picture>
+          {(srcSet || optimized) ? <source srcSet={srcSet || optimized} sizes="(max-width: 600px) 46vw, 280px" type="image/webp" /> : null}
+          <img src={product.image} alt={productText(product, 'es').name} className="product-image" loading="lazy" decoding="async" />
+        </picture>
       </div>
     );
   }
@@ -1364,7 +1384,7 @@ function ProductMedia({ product }) {
   );
 }
 
-function ProductCard({ product, onAdd, lang = 'es', customization }) {
+const ProductCard = React.memo(function ProductCard({ product, onAdd, lang = 'es', customization }) {
   const displayProduct = productText(product, lang);
   const [expanded, setExpanded] = useState(false);
   const [options, setOptions] = useState(() => initialOptions(product, customization));
@@ -1437,7 +1457,7 @@ function ProductCard({ product, onAdd, lang = 'es', customization }) {
       </div>
     </article>
   );
-}
+});
 
 
 function PromoExtrasOptions({ product, state, setState, lang = 'es' }) {
@@ -1668,13 +1688,21 @@ function PromoCard({ promotion, products, onAdd, lang = 'es', categoryHidden = {
 
   const hasChoices = promoGroups.some((group) => group.hasChoices);
   const imageOnly = Boolean(image && !String(promotion.title || '').trim() && !promoDescription && !promotion.disclaimer && !includedLines.length && !selectedItems.length && livePrice <= 0);
+  const optimizedImage = optimizedPecasImage(image);
+  const responsiveSrcSet = responsiveMediaSrcSet(image);
+  const bannerImage = (alt = '', priority = false) => (
+    <picture>
+      {(responsiveSrcSet || optimizedImage) ? <source srcSet={responsiveSrcSet || optimizedImage} sizes="(max-width: 860px) calc(100vw - 32px), 960px" type="image/webp" /> : null}
+      <img src={image} alt={alt} width="1896" height="830" decoding="async" fetchPriority={priority ? 'high' : 'auto'} />
+    </picture>
+  );
 
   return (
     <article className={`promo-card ${imageOnly ? 'image-only' : ''}`}>
         <div className={`promo-media ${image ? 'has-image' : ''}`}>
           {image ? (linkUrl
-            ? <a href={linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}><img src={image} alt={promotion.title || promotion.linkLabel || ''} /></a>
-            : <img src={image} alt={promotion.title} />) : <span>⭐</span>}
+            ? <a href={linkUrl} aria-label={promotion.linkLabel || promotion.title || 'Abrir promoción'}>{bannerImage(promotion.title || promotion.linkLabel || '', Boolean(promotion.isDefault))}</a>
+            : bannerImage(promotion.title || '', Boolean(promotion.isDefault))) : <span>⭐</span>}
         </div>
         {!imageOnly && <div className="promo-content">
           <h2>{promotion.title}</h2>
@@ -1758,6 +1786,14 @@ function BannersCarousel({ banners, products, onAdd, lang, categoryHidden }) {
     }, 8000);
     return () => window.clearInterval(timer);
   }, [autoPlay, visible.length]);
+  useEffect(() => {
+    if (visible.length < 2) return;
+    const next = visible[(currentIndex + 1) % visible.length];
+    const source = responsiveMediaSrcSet(next?.image)
+      ? String(next.image).replace(/-1600\.webp/i, '-960.webp')
+      : (optimizedPecasImage(next?.image) || next?.image);
+    if (source) { const preload = new Image(); preload.decoding = 'async'; preload.src = source; }
+  }, [currentIndex, visible]);
   if (!visible.length) return null;
   const move = (direction) => setCurrentIndex((current) => (current + direction + visible.length) % visible.length);
   const moveManually = (direction) => {
@@ -1806,6 +1842,7 @@ function SalesPromotions({ promotions, products, onAdd, lang, categoryHidden }) 
 function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, lang = 'es', businessHours = DEFAULT_BUSINESS_HOURS, branch = DEFAULT_BRANCH_SETTINGS.branches[0], brand = DEFAULT_PUBLIC_BRAND, orderFormFields = normalizeFormFields({}, 'order'), whatsappNumber = '' }) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const [clubCode, setClubCode] = useState('');
+  const [clubCodes, setClubCodes] = useState([]);
   const [clubRedemption, setClubRedemption] = useState(null);
   const [clubNotice, setClubNotice] = useState('');
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -1820,8 +1857,9 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
     try { token = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
     if (!token) return;
     fetch(publicApiPath('/api/club/dashboard'), { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.ok ? response.json() : null).then((result) => {
-      const pending = result?.pendingRedemptions?.[0];
-      if (pending) { setClubCode(pending.code); setClubNotice(`Tienes disponible: ${pending.rewardName}.`); }
+      const pending = result?.pendingRedemptions || [];
+      setClubCodes(pending);
+      if (pending.length) { setClubCode(pending[0].code); setClubNotice(`Tienes ${pending.length} ${pending.length === 1 ? 'canje disponible' : 'canjes disponibles'}. Elige cuál utilizar.`); }
     }).catch(() => {});
   }, [isPecas]);
 
@@ -2047,7 +2085,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
         </div>
       </div>
 
-      {isPecas && cart.length > 0 && <div className="club-code-box"><h3>Código de Pecas Club</h3><div><input value={clubCode} onChange={(event) => { setClubCode(event.target.value.toUpperCase()); setClubRedemption(null); }} placeholder="PEC-XXXXXX" /><button type="button" onClick={applyClubCode}>Aplicar</button></div>{clubNotice && <small>{clubNotice}</small>}</div>}
+      {isPecas && cart.length > 0 && <div className="club-code-box"><h3>Código de Pecas Club</h3><div>{clubCodes.length ? <select value={clubCode} onChange={(event) => { setClubCode(event.target.value); setClubRedemption(null); setClubNotice('Selecciona Aplicar para validar este canje.'); }}>{clubCodes.map((item) => <option value={item.code} key={item.code}>{item.rewardName} · {item.code}</option>)}</select> : <input value={clubCode} onChange={(event) => { setClubCode(event.target.value.toUpperCase()); setClubRedemption(null); }} placeholder="PEC-XXXXXX" />}<button type="button" onClick={applyClubCode}>Aplicar</button></div>{clubNotice && <small>{clubNotice}</small>}</div>}
 
       {!openState.open && (<div className="closed-order-note"><b>Cerrado ahora</b><span>{openState.messageWhenClosed}</span></div>)}
       <div className="checkout-bar">
@@ -2149,11 +2187,11 @@ export default function PublicApp() {
   };
 
   const loadMenuOverrides = async () => {
-    const menuUrl = publicApiPath('/api/menu', { t: Date.now() });
+    const menuUrl = publicApiPath('/api/menu');
     try {
       let clubToken = '';
       try { clubToken = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
-      const response = await fetch(menuUrl, { cache: 'no-store', headers: clubToken ? { Authorization: `Bearer ${clubToken}` } : {} });
+      const response = await fetch(menuUrl, { headers: clubToken ? { Authorization: `Bearer ${clubToken}` } : {} });
       const result = await response.json();
       try {
         window.__saasLastMenuUrl = menuUrl;
@@ -2300,15 +2338,15 @@ export default function PublicApp() {
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const itemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
-  const addItem = (item) => setCart((current) => [item, ...current]);
-  const updateQty = (uid, quantity) => {
+  const addItem = React.useCallback((item) => setCart((current) => [item, ...current]), []);
+  const updateQty = React.useCallback((uid, quantity) => {
     if (quantity <= 0) {
       setCart((current) => current.filter((item) => item.uid !== uid));
       return;
     }
     setCart((current) => current.map((item) => item.uid === uid ? { ...item, quantity } : item));
-  };
-  const removeItem = (uid) => setCart((current) => current.filter((item) => item.uid !== uid));
+  }, []);
+  const removeItem = React.useCallback((uid) => setCart((current) => current.filter((item) => item.uid !== uid)), []);
 
   const sendMercadoPagoWhatsApp = () => {
     if (!mercadoPagoReturn?.message || !mercadoPagoReturn?.whatsappNumber) return;

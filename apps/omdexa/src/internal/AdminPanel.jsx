@@ -95,6 +95,78 @@ function AdminSectionIntro({ title, description, children }) {
   );
 }
 
+async function webpVariant(file, width, aspect, focus) {
+  const bitmap = await createImageBitmap(file);
+  const sourceRatio = bitmap.width / bitmap.height;
+  let sx = 0;
+  let sy = 0;
+  let sw = bitmap.width;
+  let sh = bitmap.height;
+  if (sourceRatio > aspect) {
+    sw = bitmap.height * aspect;
+    sx = (bitmap.width - sw) / 2;
+  } else {
+    sh = bitmap.width / aspect;
+    sy = focus === 'top' ? 0 : focus === 'bottom' ? bitmap.height - sh : (bitmap.height - sh) / 2;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = Math.round(width / aspect);
+  canvas.getContext('2d', { alpha: false }).drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen.')), 'image/webp', 0.82));
+}
+
+function ImageUploadField({ value, onUploaded, kind = 'image', aspect = 4 / 3, label = 'Imagen' }) {
+  const [preview, setPreview] = useState('');
+  const [focus, setFocus] = useState('center');
+  const [status, setStatus] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => () => { if (preview.startsWith('blob:')) URL.revokeObjectURL(preview); }, [preview]);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return setStatus('Selecciona una imagen válida.');
+    if (file.size > 12 * 1024 * 1024) return setStatus('La imagen original no puede superar 12 MB.');
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+    setStatus('Optimizando y subiendo 3 tamaños...');
+    try {
+      const form = new FormData();
+      form.set('kind', kind);
+      for (const width of [480, 960, 1600]) {
+        const blob = await webpVariant(file, width, aspect, focus);
+        form.set(`image${width}`, blob, `${kind}-${width}.webp`);
+      }
+      const result = await apiFetch('/api/admin/media', { method: 'POST', body: form });
+      onUploaded(result.url, result.variants);
+      setStatus('Imagen optimizada y lista. Guarda los cambios para publicarla en esta sección.');
+    } catch (error) {
+      setStatus(error.message || 'No se pudo subir la imagen.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="field full image-upload-field">
+      <span>{label}</span>
+      <div className="image-upload-controls">
+        <label className={`ghost image-upload-button ${uploading ? 'disabled' : ''}`}>
+          {uploading ? 'Subiendo...' : 'Elegir imagen'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => upload(event.target.files?.[0])} />
+        </label>
+        <label><span>Encuadre</span><select value={focus} disabled={uploading} onChange={(event) => setFocus(event.target.value)}><option value="center">Centro</option><option value="top">Arriba</option><option value="bottom">Abajo</option></select></label>
+      </div>
+      {(preview || value) ? <div className="image-upload-preview" style={{ aspectRatio: String(aspect) }}><img src={preview || value} alt="Vista previa" style={{ objectPosition: `center ${focus === 'top' ? 'top' : focus === 'bottom' ? 'bottom' : 'center'}` }} /></div> : null}
+      {status ? <small role="status" aria-live="polite" className={status.startsWith('No ') ? 'danger-text' : ''}>{status}</small> : <small>Se generan automáticamente versiones WebP de 480, 960 y 1600 px.</small>}
+      <details><summary>Usar una URL manual</summary><input value={value || ''} onChange={(event) => onUploaded(event.target.value, null)} placeholder="https://... o /ruta/imagen.webp" /></details>
+    </div>
+  );
+}
+
 function Logo() {
   return (
     <div className="brand-area">
@@ -848,7 +920,7 @@ export default function AdminPanel({
                   <div className="admin-promo-grid">
                     <label className="field"><span>Título (opcional)</span><input value={bannerDraft.title || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field full"><span>Texto (opcional)</span><textarea rows="2" value={bannerDraft.description || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, description: e.target.value }))} /></label>
-                    <label className="field full"><span>Imagen</span><input value={bannerDraft.image || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/tenants/pecas/promotions/banner.jpg o https://..." /></label>
+                    <ImageUploadField value={bannerDraft.image || ''} kind="banner" aspect={16 / 7} label="Imagen del banner" onUploaded={(url) => setBannerDraft((current) => ({ ...current, image: url }))} />
                     <label className="field full"><span>Enlace al hacer clic (opcional)</span><input value={bannerDraft.linkUrl || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, linkUrl: e.target.value }))} placeholder="/club/registro o https://..." /></label>
                     <label className="field full"><span>Descripción accesible del enlace</span><input value={bannerDraft.linkLabel || ''} onChange={(e) => setBannerDraft((current) => ({ ...current, linkLabel: e.target.value }))} /></label>
                     <label className="check-row full"><input type="checkbox" checked={Boolean(bannerDraft.isDefault)} onChange={(e) => {
@@ -905,7 +977,7 @@ export default function AdminPanel({
                     <label className="field"><span>Titulo</span><input value={promotionDraft.title || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, title: e.target.value }))} /></label>
                     <label className="field"><span>Precio promo</span><input type="number" value={promotionDraft.price || 0} onChange={(e) => setPromotionDraft((current) => ({ ...current, price: Number(e.target.value || 0) }))} /></label>
                     <label className="field full"><span>Descripcion</span><textarea rows="2" value={promotionDraft.description || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, description: e.target.value }))} /></label>
-                    <label className="field full"><span>Imagen de la promoción (opcional)</span><input value={promotionDraft.image || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, image: e.target.value }))} placeholder="/tenants/pecas/products/promocion.jpg o https://..." /><small>Puede ser una ruta local publicada o la URL pública de una imagen.</small></label>
+                    <ImageUploadField value={promotionDraft.image || ''} kind="promotion" aspect={16 / 9} label="Imagen de la promoción (opcional)" onUploaded={(url) => setPromotionDraft((current) => ({ ...current, image: url }))} />
                     <label className="field full"><span>Enlace al hacer clic (opcional)</span><input value={promotionDraft.linkUrl || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, linkUrl: e.target.value }))} placeholder="/club/registro o https://..." /><small>La imagen completa abrirá este enlace. Usa una ruta que empiece con / o una URL https://.</small></label>
                     <label className="field full"><span>Descripción accesible del enlace</span><input value={promotionDraft.linkLabel || ''} onChange={(e) => setPromotionDraft((current) => ({ ...current, linkLabel: e.target.value }))} placeholder="Ej. Regístrate gratis en Pecas Club" /></label>
                     <p className="admin-hint full">Para una promoción solo con imagen usa 1600 × 700 px (JPG o WebP, idealmente menor de 1 MB). Mantén textos o elementos importantes centrados porque los bordes pueden recortarse en celular.</p>
@@ -1123,11 +1195,7 @@ export default function AdminPanel({
                           <span>Ingredientes</span>
                           <textarea rows="2" value={product.ingredients || ''} onChange={(e) => updateDraft(product.id, 'ingredients', e.target.value)} />
                         </label>
-                        <label className="field full">
-                          <span>Imagen</span>
-                          <input value={product.image || ''} onChange={(e) => updateDraft(product.id, 'image', e.target.value)} placeholder="/tenants/pecas/products/panini-chipotle.jpg o URL" />
-                          <small>Para Pecas, sube el archivo a public/tenants/pecas/products y usa /tenants/pecas/products/nombre.jpg</small>
-                        </label>
+                        <ImageUploadField value={product.image || ''} kind="product" aspect={4 / 3} label="Imagen del producto" onUploaded={(url) => updateDraft(product.id, 'image', url)} />
                       </article>
                     ))}
                   </div>

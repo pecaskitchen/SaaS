@@ -38,23 +38,25 @@ const PECAS_CLUB_PROMOTION = {
   includedDetails: '',
   items: [],
   price: 0,
-  image: '/tenants/pecas/promotions/unete-pecas-club.png',
+  image: '/tenants/pecas/products/pecasclub.png',
   linkUrl: '/club/registro',
   linkLabel: 'Regístrate gratis en Pecas Club',
+};
+
+const PECAS_HALLOWEEN_BANNER = {
+  id: 'pecas-halloween', active: true, isDefault: false, title: '', description: '', disclaimer: '',
+  includedDetails: '', items: [], price: 0, image: '/tenants/pecas/products/pecas_hallo1.png', linkUrl: '', linkLabel: '',
 };
 
 async function seedPecasClubPromotion(env, tenantId, settingKey, saved) {
   const tenant = await env.DB.prepare(`SELECT slug FROM saas_tenants WHERE id = ? LIMIT 1`).bind(tenantId).first();
   if (tenant?.slug !== 'pecas') return saved;
 
-  const markerKey = `${settingKey}:pecas_club_promotion_seeded_v1`;
+  const markerKey = `${settingKey}:pecas_banners_seeded_v2`;
   const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
   if (marker) return saved;
 
-  const banners = saved.banners || [];
-  const next = banners.some((item) => item?.id === PECAS_CLUB_PROMOTION.id)
-    ? saved
-    : { ...saved, banners: [...banners, PECAS_CLUB_PROMOTION] };
+  const next = { ...saved, banners: [PECAS_CLUB_PROMOTION, PECAS_HALLOWEEN_BANNER] };
   const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)

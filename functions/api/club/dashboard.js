@@ -34,7 +34,7 @@ export async function onRequestGet({ request, env }) {
       rewards,
       pendingRedemptions: (redemptionsResult.results || []).map((row) => ({ code: row.redemption_code, rewardName: row.reward_name, rewardType: row.reward_type, eligibleProductIds: JSON.parse(row.eligible_product_ids_json || '[]'), discountAmount: Number(row.discount_amount || 0), redeemedAtUtc: row.redeemed_at_utc })),
       transactions: (transactionsResult.results || []).map(mapTransaction),
-      promotions: (promotionsResult.results || []).map((row) => ({ id: row.id, title: row.title, description: row.description || '', imageUrl: row.image_url || '', terms: row.terms || '', endsAtUtc: row.ends_at_utc || '' })),
+      promotions: (promotionsResult.results || []).map((row) => ({ id: row.id, title: row.title, description: row.description || '', imageUrl: row.image_url || '', terms: row.terms || '', endsAtUtc: row.ends_at_utc || '', storePromotionId: row.store_promotion_id || '' })),
       referrals: { invited: Number(referralStats?.total || 0), rewarded: Number(referralStats?.rewarded || 0), bonus: 5 },
       stats: { orderCount: Number(crm?.order_count || 0), totalSpent: Number(crm?.total_spent || 0), lastOrderAtUtc: crm?.last_order_at_utc || '' },
     });

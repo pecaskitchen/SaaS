@@ -1,6 +1,8 @@
 import { requireAuth } from '../_shared/auth.js';
 import { jsonResponse, nowIso, readJson, requireDb } from '../_shared/http.js';
 import { clubBalance, createRedemption, ensureClubSchema, ensurePecasTenant } from '../_shared/pecasClub.js';
+import { normalizeSavedMenu } from '../_shared/menuCatalog.js';
+import { tenantSettingKey } from '../_shared/tenant.js';
 
 async function access(request, env) {
   const tenant = await ensurePecasTenant(request, env);
@@ -16,7 +18,7 @@ function reward(row) {
 }
 
 function promotion(row) {
-  return { id: row.id, title: row.title, description: row.description || '', imageUrl: row.image_url || '', startsAtUtc: row.starts_at_utc || '', endsAtUtc: row.ends_at_utc || '', active: Boolean(row.active), terms: row.terms || '', sortOrder: Number(row.sort_order || 0) };
+  return { id: row.id, title: row.title, description: row.description || '', imageUrl: row.image_url || '', startsAtUtc: row.starts_at_utc || '', endsAtUtc: row.ends_at_utc || '', active: Boolean(row.active), terms: row.terms || '', sortOrder: Number(row.sort_order || 0), storePromotionId: row.store_promotion_id || '' };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -40,6 +42,8 @@ export async function onRequestGet({ request, env }) {
       WHERE c.tenant_id = ? AND (? = '' OR lower(c.name) LIKE ? OR c.phone LIKE ? OR lower(COALESCE(c.email, '')) LIKE ?)
       ORDER BY c.updated_at_utc DESC LIMIT 100
     `).bind(granted.tenant.id, q, like, `%${q.replace(/\D/g, '')}%`, like).all();
+    const menuRow = await db.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(tenantSettingKey('menu_overrides', granted.tenant.id, env)).first().catch(() => null);
+    const storePromotions = normalizeSavedMenu(menuRow?.value_json || '').promotions || [];
     const [rewardsResult, promotionsResult, referralResult, transactionsResult, redemptionsResult, productsResult] = await Promise.all([
       db.prepare(`SELECT * FROM club_rewards WHERE tenant_id = ? ORDER BY sort_order, points_required`).bind(granted.tenant.id).all(),
       db.prepare(`SELECT * FROM club_promotions WHERE tenant_id = ? ORDER BY sort_order, created_at_utc DESC`).bind(granted.tenant.id).all(),
@@ -62,6 +66,7 @@ export async function onRequestGet({ request, env }) {
       transactions: transactionsResult.results || [],
       redemptions: (redemptionsResult.results || []).map((row) => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, customerPhone: row.customer_phone, rewardId: row.reward_id, rewardName: row.reward_name, pointsSpent: Number(row.points_spent), status: row.status, code: row.redemption_code, redeemedAtUtc: row.redeemed_at_utc, usedAtUtc: row.used_at_utc || '' })),
       products: (productsResult.results || []).map((row) => ({ id: row.product_key, name: row.name, category: row.category_key })),
+      storePromotions: storePromotions.filter((item) => item?.id && item?.active !== false).map((item) => ({ id: item.id, title: item.title || item.id })),
     });
   } catch (error) {
     return jsonResponse({ ok: false, error: error.message || 'No se pudo cargar la administración de Pecas Club.' }, error.status || 500);
@@ -151,8 +156,8 @@ export async function onRequestPatch({ request, env }) {
     }
     if (body.entity === 'promotion') {
       const id = String(body.id || crypto.randomUUID());
-      await db.prepare(`INSERT INTO club_promotions (id, tenant_id, title, description, image_url, starts_at_utc, ends_at_utc, active, club_only, terms, sort_order, created_at_utc, updated_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description, image_url = excluded.image_url, starts_at_utc = excluded.starts_at_utc, ends_at_utc = excluded.ends_at_utc, active = excluded.active, terms = excluded.terms, sort_order = excluded.sort_order, updated_at_utc = excluded.updated_at_utc`)
-        .bind(id, granted.tenant.id, String(body.title || '').trim(), String(body.description || '').trim(), String(body.imageUrl || '').trim(), body.startsAtUtc || null, body.endsAtUtc || null, body.active === false ? 0 : 1, String(body.terms || '').trim(), Number(body.sortOrder || 0), now, now).run();
+      await db.prepare(`INSERT INTO club_promotions (id, tenant_id, title, description, image_url, starts_at_utc, ends_at_utc, active, club_only, terms, sort_order, store_promotion_id, created_at_utc, updated_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description, image_url = excluded.image_url, starts_at_utc = excluded.starts_at_utc, ends_at_utc = excluded.ends_at_utc, active = excluded.active, terms = excluded.terms, sort_order = excluded.sort_order, store_promotion_id = excluded.store_promotion_id, updated_at_utc = excluded.updated_at_utc`)
+        .bind(id, granted.tenant.id, String(body.title || '').trim(), String(body.description || '').trim(), String(body.imageUrl || '').trim(), body.startsAtUtc || null, body.endsAtUtc || null, body.active === false ? 0 : 1, String(body.terms || '').trim(), Number(body.sortOrder || 0), String(body.storePromotionId || ''), now, now).run();
       return jsonResponse({ ok: true, id });
     }
     return jsonResponse({ ok: false, error: 'Entidad no reconocida.' }, 400);

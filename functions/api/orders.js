@@ -235,6 +235,16 @@ export async function onRequestPost({ request, env }) {
     const customFieldsJson = customFieldsList.length ? JSON.stringify(customFieldsList) : null;
     let items = Array.isArray(body.items) ? body.items : [];
     if (!items.length) return jsonResponse({ ok: false, error: 'El pedido esta vacio.' }, 400);
+    const submittedPromotionIds = items.map((item) => String(item.options?.promotionId || '')).filter(Boolean);
+    if (submittedPromotionIds.length) {
+      const placeholders = submittedPromotionIds.map(() => '?').join(',');
+      const linked = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IN (${placeholders}) LIMIT 1`).bind(tenantId, ...submittedPromotionIds).first().catch(() => null);
+      if (linked) {
+        const clubAuth = await requireClubAuth(request, env);
+        if (!clubAuth.ok) return clubAuth.response;
+        if (String(customer.phone || '').replace(/\D/g, '') !== String(clubAuth.customer.phone || '').replace(/\D/g, '')) return jsonResponse({ ok: false, error: 'El teléfono del pedido debe coincidir con tu cuenta de Pecas Club.' }, 409);
+      }
+    }
 
     const settings = await readBranchSettings(env, tenantId);
     let branch = resolveBranch(settings, body.branch || { id: body.branchId, name: body.branchName });

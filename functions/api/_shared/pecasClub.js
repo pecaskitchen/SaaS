@@ -69,6 +69,9 @@ export async function ensureClubSchema(env) {
   const redemptionInfo = await db.prepare(`PRAGMA table_info(club_redemptions)`).all();
   const redemptionColumns = new Set((redemptionInfo.results || []).map((row) => row.name));
   if (!redemptionColumns.has('order_id')) await db.prepare(`ALTER TABLE club_redemptions ADD COLUMN order_id INTEGER`).run();
+  const promotionInfo = await db.prepare(`PRAGMA table_info(club_promotions)`).all();
+  const promotionColumns = new Set((promotionInfo.results || []).map((row) => row.name));
+  if (!promotionColumns.has('store_promotion_id')) await db.prepare(`ALTER TABLE club_promotions ADD COLUMN store_promotion_id TEXT`).run();
   await seedDefaultRewards(db, await pecasTenantId(db));
 }
 

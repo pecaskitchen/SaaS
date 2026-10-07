@@ -10,6 +10,7 @@ import {
   safeJson,
 } from './_shared/menuCatalog.js';
 import { UNRESOLVED_TENANT_ID } from './_shared/tenant.js';
+import { requireClubAuth } from './_shared/pecasClub.js';
 
 const DEFAULT_PUBLIC_BRAND = {
   displayName: 'Tu negocio',
@@ -28,6 +29,37 @@ const DEFAULT_PUBLIC_BRAND = {
   primaryColor: '#111827',
   accentColor: '#ef4444',
 };
+
+const PECAS_DEFAULT_BANNERS = [
+  {
+    id: 'pecas-club', active: true, isDefault: true, title: '', description: '', disclaimer: '',
+    includedDetails: '', items: [], price: 0, image: '/tenants/pecas/products/pecasclub.png',
+    linkUrl: '/club/registro', linkLabel: 'Regístrate gratis en Pecas Club',
+  },
+  {
+    id: 'pecas-halloween', active: true, isDefault: false, title: '', description: '', disclaimer: '',
+    includedDetails: '', items: [], price: 0, image: '/tenants/pecas/products/pecas_hallo1.png',
+    linkUrl: '', linkLabel: '',
+  },
+];
+
+async function ensurePecasBanners(env, tenantId, settingKey, saved, tenant) {
+  if (tenant?.slug !== 'pecas') return saved;
+  const markerKey = `${settingKey}:pecas_banners_seeded_v2`;
+  const marker = await env.DB.prepare(`SELECT key FROM app_settings WHERE key = ? LIMIT 1`).bind(markerKey).first();
+  if (marker) return saved;
+  const next = { ...saved, banners: PECAS_DEFAULT_BANNERS };
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO app_settings (key, tenant_id, value_json, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET tenant_id = excluded.tenant_id, value_json = excluded.value_json, updated_at = excluded.updated_at`)
+      .bind(settingKey, tenantId, JSON.stringify(next), now),
+    env.DB.prepare(`INSERT OR IGNORE INTO app_settings (key, tenant_id, value_json, updated_at) VALUES (?, ?, ?, ?)`)
+      .bind(markerKey, tenantId, JSON.stringify({ seeded: true }), now),
+  ]);
+  return next;
+}
 
 function publicTenantConfig(row) {
   const brand = { ...DEFAULT_PUBLIC_BRAND, ...(row ? safeJson(row.brand_json, {}) : {}) };
@@ -127,13 +159,19 @@ export async function onRequestGet({ request, env }) {
 
     const settingKey = tenantSettingKey('menu_overrides', tenantId, env);
     const row = await env.DB.prepare(`SELECT value_json FROM app_settings WHERE key = ?`).bind(settingKey).first();
-    const saved = normalizeSavedMenu(row?.value_json || '');
+    let saved = normalizeSavedMenu(row?.value_json || '');
 
     const tenantRow = await env.DB.prepare(`SELECT id, slug, name, brand_json, settings_json FROM saas_tenants WHERE id = ? OR slug = ?`)
       .bind(tenantId, tenantId)
       .first()
       .catch(() => null);
     const tenant = tenantRow ? publicTenantConfig(tenantRow) : publicTenantConfig({ id: tenantId, slug: tenantId, name: tenantId, brand_json: '{}', settings_json: '{}' });
+    saved = await ensurePecasBanners(env, tenantId, settingKey, saved, tenant);
+    const linkedClubPromotions = await env.DB.prepare(`SELECT store_promotion_id FROM club_promotions WHERE tenant_id = ? AND active = 1 AND store_promotion_id IS NOT NULL AND store_promotion_id != ''`).bind(tenantId).all().then((result) => new Set((result.results || []).map((item) => item.store_promotion_id))).catch(() => new Set());
+    if (linkedClubPromotions.size) {
+      const clubAuth = request.headers.get('authorization') ? await requireClubAuth(request, env) : { ok: false };
+      if (!clubAuth.ok) saved = { ...saved, promotions: (saved.promotions || []).filter((item) => !linkedClubPromotions.has(item?.id)) };
+    }
 
     const cleanedOverrides = cleanPublicOverrides(saved.overrides || {});
     const effective = await readEffectiveCatalog(env, tenantId, { ...saved, overrides: cleanedOverrides }, { overrides: cleanedOverrides });

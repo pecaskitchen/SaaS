@@ -1586,6 +1586,7 @@ function buildPromoCartItem(promotion, promoItems, extrasByProductId, lang = 'es
     details,
     options: {
       promo: true,
+      promotionId: promotion.id || '',
       promoItems: promoItems.map(({ product, quantity, extraPrice }) => ({ productId: product.id, productName: product.name, quantity, extraPrice: Math.max(0, Number(extraPrice || 0)) })),
       fixedDetails: includedLines,
       extrasByProductId,
@@ -1955,7 +1956,7 @@ function Cart({ cart, updateQty, removeItem, customer, setCustomer, clearCart, l
       try { clubToken = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
       const response = await fetch(publicApiPath(isMercadoPago ? '/api/checkout/create' : '/api/orders'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(clubRedemption && clubToken ? { Authorization: `Bearer ${clubToken}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(clubToken ? { Authorization: `Bearer ${clubToken}` } : {}) },
         body: JSON.stringify(payload),
       });
 
@@ -2150,7 +2151,9 @@ export default function PublicApp() {
   const loadMenuOverrides = async () => {
     const menuUrl = publicApiPath('/api/menu', { t: Date.now() });
     try {
-      const response = await fetch(menuUrl, { cache: 'no-store' });
+      let clubToken = '';
+      try { clubToken = window.localStorage.getItem('pecas_club_token') || ''; } catch { /* sesión opcional */ }
+      const response = await fetch(menuUrl, { cache: 'no-store', headers: clubToken ? { Authorization: `Bearer ${clubToken}` } : {} });
       const result = await response.json();
       try {
         window.__saasLastMenuUrl = menuUrl;
@@ -2290,6 +2293,8 @@ export default function PublicApp() {
     const normalized = (promotions.length ? promotions : (activePromotion ? [activePromotion] : [])).map((item) => normalizePromotion(item, currentProductsForBranch));
     const hasBranchOverride = selectedBranchHasPromotion || Boolean(defaultBranchPromotion);
     if (hasBranchOverride && activePromotion && normalized.length) normalized[0] = activePromotion;
+    const requestedClubPromotion = new URLSearchParams(window.location.search).get('club_promo');
+    if (requestedClubPromotion) normalized.sort((a, b) => Number(b.id === requestedClubPromotion) - Number(a.id === requestedClubPromotion));
     return normalized;
   }, [promotions, activePromotion, currentProductsForBranch, selectedBranchHasPromotion, defaultBranchPromotion]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
